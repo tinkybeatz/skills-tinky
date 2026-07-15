@@ -16,7 +16,7 @@ description: >
 Transcribes and analyzes YouTube videos to produce structured reports that are
 exported to Notion — similar to Atlas.org, but integrated into your own workflow.
 
-Read `reference/setup.md` on first use (one-time installation).
+Read `references/setup.md` on first use (one-time installation).
 
 ---
 
@@ -329,5 +329,5 @@ Then suggest:
 
 | File | When to read it |
 |---|---|
-| `reference/setup.md` | First use — installation and configuration |
-| `reference/notion-schema.md` | If the Notion database needs to be created or modified |
+| `references/setup.md` | First use — installation and configuration |
+| `references/notion-schema.md` | If the Notion database needs to be created or modified |

@@ -16,7 +16,7 @@ description: >
 Turn a DOCUMENTOR synthesis into a client deliverable, adapted to the
 tone, format, and standards of your team.
 
-Read `reference/voice.md` for tone and house conventions.
+Read `references/voice.md` for tone and house conventions.
 
 ---
 
@@ -197,7 +197,7 @@ Appendix: Sources reviewed
 
 ## Step 3 — Apply the house tone
 
-Load `reference/voice.md` for the tone conventions.
+Load `references/voice.md` for the tone conventions.
 If the file doesn't exist yet, apply the defaults:
 
 - **Direct, not corporate.** No "it should be noted that" or "it is worth pointing out"
@@ -210,7 +210,7 @@ If the file doesn't exist yet, apply the defaults:
 
 ## Step 4 — Validate, deliver, and offer the export
 
-Before delivery, run the checklist in `reference/checklist.md`.
+Before delivery, run the checklist in `references/checklist.md`.
 Items marked ★ are blocking — do not deliver if any of them fails.
 
 Deliver the brief in the conversation, then offer:
@@ -248,6 +248,6 @@ If yes → create the page via the Notion MCP with:
 
 | File                     | When to read it                                        |
 | ------------------------ | ------------------------------------------------------ |
-| `reference/voice.md`     | **Always** — tone and house conventions                |
-| `reference/checklist.md` | **Step 4** — validation before delivery                |
-| `reference/examples.md`  | If unsure of the expected format for an audience type  |
+| `references/voice.md`     | **Always** — tone and house conventions                |
+| `references/checklist.md` | **Step 4** — validation before delivery                |
+| `references/examples.md`  | If unsure of the expected format for an audience type  |

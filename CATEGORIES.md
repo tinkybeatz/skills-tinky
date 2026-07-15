@@ -2,7 +2,9 @@
 
 The taxonomy for `skills-tinky`. Folders are a **filing system for humans** — they do not scope where a skill is active. Every skill, once symlinked into `~/.claude/skills/`, is available globally in every project. Project-specific behavior comes from each project's `CLAUDE.md`, not from the folder.
 
-The source of truth for each category's conventions is its `_category.md` file. `skill-creator` and the `steward` skill read these. The category of a skill is its **folder path** (there is no category field in frontmatter).
+The source of truth for each category's conventions is its `_category.md` file. `skill-creator`, `concierge`, and `god` read these. The category of a skill is its **folder path** (there is no category field in frontmatter).
+
+Entry points: **`god`** turns a goal into a plan across these skills ("/god i want to …"); **`concierge`** keeps the repo healthy; **`skill-creator`** authors new skills.
 
 **Rule:** a folder is a *skill* if it directly contains a `SKILL.md`; otherwise it's an organizational folder. Skill folder names must be **globally unique** (they flatten into one directory when symlinked).
 

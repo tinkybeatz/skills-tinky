@@ -10,7 +10,7 @@ description: >
   scientific, and business topics. Do not use for pure content generation
   without factual grounding.
 autoload:
-  - reference/few_shot.md
+  - references/few_shot.md
 ---
 
 # DOCUMENTOR
@@ -18,7 +18,7 @@ autoload:
 A structured research profile that produces reliable, traceable, and actionable
 syntheses from web and academic sources.
 
-Read `reference/context.md` at the start of each session to tailor the research
+Read `references/context.md` at the start of each session to tailor the research
 to the user's business context.
 
 ---
@@ -107,7 +107,7 @@ Prepare the queries by applying the **multilingual strategy**:
 | Local market, local competitive monitoring   | 🌍 Local language first                        |
 
 Prepare base queries + boolean variants (`AND`, `OR`, `NOT`).
-See `reference/source.md` to target reliable sources by domain.
+See `references/source.md` to target reliable sources by domain.
 
 **Intermediate deliverable:** a list of queries by language and target source types
 
@@ -163,8 +163,8 @@ If after 2 research cycles no source reaches the 60/100 threshold:
 
 Evaluation happens in 3 successive passes: filtering, scoring, corroboration.
 
-- **Weights, thresholds, and grids** → defined in `reference/scoring.md` (configurable profiles)
-- **Detailed tiers per criterion** → `reference/rubric.md`
+- **Weights, thresholds, and grids** → defined in `references/scoring.md` (configurable profiles)
+- **Detailed tiers per criterion** → `references/rubric.md`
 - This section describes the **mechanisms** only.
 
 ### 4a — Pass 1: SIFT filter (pass/fail)
@@ -182,7 +182,7 @@ to an origin · circular sourcing detected (see 4d)
 
 ### 4b — Pass 2: Score out of 100
 
-Load the scoring profile from `reference/scoring.md`.
+Load the scoring profile from `references/scoring.md`.
 The active profile defines the **dimensions**, their **weights**, and the
 freshness and credibility **grids**. If no profile is specified by the user,
 use `default`.
@@ -236,7 +236,7 @@ the others and contains primary evidence.
 
 ### 4e — Thresholds and actions
 
-Thresholds are defined in the active profile (`reference/scoring.md`).
+Thresholds are defined in the active profile (`references/scoring.md`).
 Flag any contested, unconfirmed, or single-source information.
 
 ---
@@ -290,8 +290,8 @@ title, date, executive summary, and ranked sources.
 ### 7b — Automatic source-base update
 
 After every delivery, identify all sources that scored ≥ 75/100 and are absent
-from `reference/source.md`. Silently append them to
-`reference/sources.inbox.md` following the rules below.
+from `references/source.md`. Silently append them to
+`references/sources.inbox.md` following the rules below.
 
 #### Rule 1 — Adding to an existing category
 
@@ -372,7 +372,7 @@ If 0 new sources: display nothing.
 - Consistency: the claims hold up under lateral reading (SIFT)
 
 **Penalties and GRADE factors** → defined in the active scoring profile
-(`reference/scoring.md`). Do not hardcode values here.
+(`references/scoring.md`). Do not hardcode values here.
 
 ---
 
@@ -438,12 +438,12 @@ Read the relevant file only if the context requires it:
 
 | File                   | When to read it                                            |
 | ---------------------- | ----------------------------------------------------------- |
-| `reference/context.md` | **Always** — the user's business context                    |
-| `reference/source.md`  | Step 2 — to target the right sources by domain              |
-| `reference/scoring.md` | Step 4 — scoring profiles (weights, thresholds, grids)      |
-| `reference/rubric.md`  | Step 4 — detailed tiers per criterion, advanced mechanisms  |
-| `reference/example.md` | If the expected behavior is unclear for a request type      |
-| `reference/evals.md`   | After modifying the skill — to validate the behavior        |
+| `references/context.md` | **Always** — the user's business context                    |
+| `references/source.md`  | Step 2 — to target the right sources by domain              |
+| `references/scoring.md` | Step 4 — scoring profiles (weights, thresholds, grids)      |
+| `references/rubric.md`  | Step 4 — detailed tiers per criterion, advanced mechanisms  |
+| `references/example.md` | If the expected behavior is unclear for a request type      |
+| `references/evals.md`   | After modifying the skill — to validate the behavior        |
 
 ---
 

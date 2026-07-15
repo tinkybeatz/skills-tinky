@@ -11,8 +11,8 @@ Pull relevant Notion pages, synthesize findings, and publish clear briefs or rep
 
 ## Quick start
 1) Find sources with `Notion:notion-search` using targeted queries; confirm scope with the user.
-2) Fetch pages via `Notion:notion-fetch`; note key sections and capture citations (`reference/citations.md`).
-3) Choose output format (brief, summary, comparison, comprehensive report) using `reference/format-selection-guide.md`.
+2) Fetch pages via `Notion:notion-fetch`; note key sections and capture citations (`references/citations.md`).
+3) Choose output format (brief, summary, comparison, comprehensive report) using `references/format-selection-guide.md`.
 4) Draft in Notion with `Notion:notion-create-pages` using the matching template (quick, summary, comparison, comprehensive).
 5) Link sources and add a references/citations section; update as new info arrives with `Notion:notion-update-page`.
 
@@ -37,7 +37,7 @@ After successful login, the user will have to restart codex. You should finish y
 - Single-topic dive → research summary.
 - Option tradeoffs → comparison.
 - Deep dive / exec-ready → comprehensive report.
-- See `reference/format-selection-guide.md` for when to pick each.
+- See `references/format-selection-guide.md` for when to pick each.
 
 ### 3) Synthesize
 - Outline before writing; group findings by themes/questions.
@@ -45,7 +45,7 @@ After successful login, the user will have to restart codex. You should finish y
 - Keep user goal in view (decision, summary, plan, recommendation).
 
 ### 4) Create the doc
-- Pick the matching template in `reference/` (brief, summary, comparison, comprehensive) and adapt it.
+- Pick the matching template in `references/` (brief, summary, comparison, comprehensive) and adapt it.
 - Create the page with `Notion:notion-create-pages`; include title, summary, key findings, supporting evidence, and recommendations/next steps when relevant.
 - Add citations inline and a references section; link back to source pages.
 
@@ -55,5 +55,5 @@ After successful login, the user will have to restart codex. You should finish y
 - Share a short changelog or status using `Notion:notion-update-page` when updating.
 
 ## References and examples
-- `reference/` — search tactics, format selection, templates, and citation rules (e.g., `advanced-search.md`, `format-selection-guide.md`, `research-summary-template.md`, `comparison-template.md`, `citations.md`).
+- `references/` — search tactics, format selection, templates, and citation rules (e.g., `advanced-search.md`, `format-selection-guide.md`, `research-summary-template.md`, `comparison-template.md`, `citations.md`).
 - `examples/` — end-to-end walkthroughs (e.g., `competitor-analysis.md`, `technical-investigation.md`, `market-research.md`, `trip-planning.md`).
