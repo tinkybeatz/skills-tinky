@@ -1,0 +1,30 @@
+{
+  "skill_name": "sonar-expert",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Scan this TypeScript/React monorepo + Node API and create the most relevant SonarQube configuration possible.",
+      "expected_output": "The skill should run or leverage the deterministic scanner, load the typescript.md and monorepo.md templates, map the monorepo, create or modify sonar-project.properties, recommend a Clean as You Code quality gate, configure TypeScript lcov, justify the exclusions and propose the CI integration."
+    },
+    {
+      "id": 2,
+      "prompt": "Configure SonarQube for this legacy Python repo with no usable test coverage.",
+      "expected_output": "The skill should run or leverage the deterministic scanner, load python.md, avoid inventing coverage, configure the Python scope, recommend a strict gate on new code, flag the legacy debt and give the next actions to produce coverage.xml."
+    },
+    {
+      "id": 3,
+      "prompt": "Prepare a SonarQube configuration for this critical C++ project that must follow MISRA/CERT.",
+      "expected_output": "The skill should run or leverage the deterministic scanner, load cpp.md, detect the CFamily need, recommend build-wrapper or compile_commands.json, flag the Mission critical/MISRA/CERT profiles, avoid a partial analysis and document the edition/version limits."
+    },
+    {
+      "id": 4,
+      "prompt": "Configure SonarQube for this repo, but I don't know whether the instance is Community, Developer or Enterprise.",
+      "expected_output": "The skill should load edition-matrix.md, deliver a baseline-compatible configuration, flag the features to verify per edition, and not promise PR decoration, branch analysis, prioritized rules or AI CodeFix without verification."
+    },
+    {
+      "id": 5,
+      "prompt": "Give me the API calls to create the SonarQube project, associate a quality gate, assign the profiles and set new code to main.",
+      "expected_output": "The skill should load api-playbook.md, provide curl commands with SONAR_HOST_URL and SONAR_TOKEN without exposing a secret, start with read-only checks, then propose create project, qualitygates/select, qualityprofiles/add_project and new_code_periods/set with a warning to verify /web_api."
+    }
+  ]
+}

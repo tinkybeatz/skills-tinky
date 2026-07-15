@@ -1,0 +1,4 @@
+interface:
+  display_name: "Business Model Generator"
+  short_description: "Generate research-backed business models"
+  default_prompt: "Use $generate-business-model to analyze my web or mobile project and produce a justified business model report as a PDF."

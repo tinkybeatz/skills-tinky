@@ -1,0 +1,26 @@
+{
+  "skill_name": "perf-analyzer",
+  "evals": [
+    {
+      "id": 1,
+      "name": "eval-frontend-bo",
+      "prompt": "Analyse la performance du back-office React (services/back-office), je trouve que ça rame quand on navigue entre les pages",
+      "expected_output": "Rapport structuré avec findings frontend (bundle, React patterns, assets) scorés et priorisés, avec recommandations spécifiques au code du back-office",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "eval-backend-bff",
+      "prompt": "Fais un audit de performance du service BFF (services/bff), les réponses API sont un peu lentes",
+      "expected_output": "Rapport structuré avec findings backend (DB queries, API patterns, memory, event loop) + analyse bas niveau des hot paths, scorés et priorisés",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "eval-full-audit",
+      "prompt": "Je voudrais un audit de performance complet du projet avant la mise en prod",
+      "expected_output": "Rapport complet couvrant frontend + backend + bas niveau, avec matrice de priorisation, quick wins identifiés, et plan de validation avec outils recommandés",
+      "files": []
+    }
+  ]
+}

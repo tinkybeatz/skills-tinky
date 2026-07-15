@@ -1,0 +1,22 @@
+{
+  "skill_name": "cdc-builder",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I need to prepare a cahier des charges for the redesign of a client's e-commerce site (SME, organic cosmetics, 10k visits/day, full redesign planned for Q3 2026, budget ~€80k). Generate a complete CdC that's ready to be signed between us and the provider we'll select. Also produce the branded PDF.",
+      "expected_output": "A CdC structured in 12 sections in French, requirements with ID/MoSCoW/acceptance criteria, mention of NF EN 16271, GDPR, WCAG accessibility, acceptance procedures, signatures. PDF generation via pdf-generator with user confirmation.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Here is a cahier des charges a client sent me. Audit it and tell me whether it holds up before I commit. [Document to provide: a CdC deliberately containing weak words and vague requirements]",
+      "expected_output": "Audit mode triggered. Score out of 100 by dimension (completeness, ambiguity, verifiability, etc.), top prioritized defects, anti-patterns located (weak words, passive voice), missing sections vs. the expected template. Remediation plan. Offer of a PDF export.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "We're going agile on a client project but the client wants a signed cahier des charges. How do I do this so it's legally enforceable while keeping agile flexibility?",
+      "expected_output": "Legal mode triggered. Citation of case law TC Paris 2020 + CA Paris 2023. Enforceability checklist. Mandatory content of an agile CdC: vision, initial backlog, methodological framework, governance, evolution rules, exit criteria. Offer of complementary contractual clauses."
+    }
+  ]
+}

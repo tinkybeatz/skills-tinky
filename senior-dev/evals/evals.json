@@ -1,0 +1,54 @@
+{
+  "skill_name": "senior-dev",
+  "evals": [
+    {
+      "id": 1,
+      "name": "API Design Under Constraints",
+      "prompt": "We need to expose a public search API for our invoice database within 4 weeks. We have tight p95 latency targets (< 200ms) and a strict monthly infrastructure budget of $5k. Partners will integrate with this API but they can tolerate eventual consistency up to 1 minute. How should we approach this? What are the key trade-offs?",
+      "expected_output": "Framework with at least 2 options (e.g., add caching layer, read-replica database, denormalization), trade-off comparison table, selected recommendation with justification, implementation steps, validation criteria, rollback plan, and identified risks with ownership.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "Production Incident Remediation",
+      "prompt": "Our checkout service has timed out 3 times in the last two weeks during peak traffic (around 7 PM). Each incident lasted 10-15 minutes. We traced it to database connection pool exhaustion under load, but we haven't identified the root cause yet. The team is considering either rolling back the latest changes or applying a quick fix to the connection pool size. We need zero tolerance for checkout failures. What should we do and how should we validate the fix?",
+      "expected_output": "Root cause investigation plan or hypothesis ranking, containment decision (fix-forward or rollback) with impact analysis, durable fix plan, regression protection strategy (tests + monitoring), validation evidence, and residual risks with mitigation.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "Feature Release Readiness",
+      "prompt": "A developer has submitted a feature branch for a major payment refactoring. The changes include new retry logic, a refactored error handler, and updated logging. The branch has 15 modified files across the payment processing pipeline. Unit test coverage is 85%. I need your assessment: is this ready to release to production today? What should the team check before merge? What risks do you see?",
+      "expected_output": "Clear go/no-go verdict, findings prioritized by severity, evidence from checks (tests, code review points), identified gaps in coverage or validation, required fixes before release, confidence level with rationale.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "Architecture Trade-off: Scaling Strategy",
+      "prompt": "We're hitting growth constraints on our current architecture. Forecast shows 3x traffic in 6 months. We're debating between: (A) vertical scaling (bigger database server), (B) read replicas with caching, and (C) service decomposition (split user service from transaction service). We have a team of 5 engineers. Budget is unconstrained but operational complexity is a concern. How do we choose? What's the recommended path and why?",
+      "expected_output": "Problem frame with constraints and trade-offs, 3-option evaluation with criteria (complexity, cost, time-to-market, team capacity, operational risk), selected recommendation with multi-dimensional justification, implementation roadmap, validation strategy, and risks specific to Ops complexity.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "Technical Debt Prioritization",
+      "prompt": "Our backlog has 12 technical debt items: 3 are database migrations, 2 are async refactors, 4 are test improvements, and 3 are logging/observability upgrades. We have 2 weeks of capacity this sprint. Current production incident rate is 1-2 per week, mostly related to observability gaps. Which 3 items should we prioritize and in what order? What's the business case for your prioritization?",
+      "expected_output": "Prioritization model defined explicitly (impact, effort, risk, business value), scores for each item, top-3 recommendations with rationale, trade-offs of deferring non-selected items, measurable acceptance criteria for selected items, confidence in prioritization.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "Mentoring Under Time Pressure",
+      "prompt": "You have 3 engineers at different levels: Alex (mid-level, 3 years exp, good technical depth but weak on big-picture thinking), Jordan (junior, 1 year exp, eager but slow on system design), and Sam (senior peer, nearly L5 ready, strong executor but doesn't think about how to influence others). You have limited time for the next 12 months. If the goal is to get one person to the next level, who do you focus on? How do you structure the mentoring? What specific skills or projects would you assign? How would you validate progress?",
+      "expected_output": "Mentee selection with rationale (readiness, potential, timeline to next level), 3-5 concrete mentoring goals tied to career progression (e.g., 'Ship a system design doc', 'Lead a chaotic incident response', 'Mentor a junior'), bi-weekly 1:1 agenda structure, project assignments aligned to goals, validation milestones (quarterly), advocacy plan for promotion candidacy, and how you'd know if mentoring is failing.",
+      "files": []
+    },
+    {
+      "id": 7,
+      "name": "Building Consensus on Unpopular Decision",
+      "prompt": "You've proposed migrating payment processing from the monolith to a dedicated microservice. The architecture is sound, you have metrics showing it'll improve reliability and latency. But Jane (another senior engineer) strongly disagrees\u2014she thinks it's premature and too risky. Your EM is undecided. A few other engineers are in the middle. You need alignment on this by the end of the week. How do you approach this decision? What's your strategy for getting consensus without overriding Jane or waiting indefinitely?",
+      "expected_output": "Strategy for understanding Jane's core concerns (not just surface objection), identification of middle-ground compromise (if possible) that addresses both viewpoints, async communication approach (RFC/doc) or sync strategy, stakeholder pre-alignment plan (who to talk to before the meeting), frame for your EM (what decision is needed), handling of 'disagree and commit', and plan for if consensus fails.",
+      "files": []
+    }
+  ]
+}

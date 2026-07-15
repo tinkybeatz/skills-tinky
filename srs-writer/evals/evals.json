@@ -1,0 +1,26 @@
+{
+  "skill_name": "srs-writer",
+  "evals": [
+    {
+      "id": 1,
+      "name": "MVP SRS, non-technical client",
+      "prompt": "I have a client who wants an application to manage electric vehicle charging stations. It's an MVP, and the client is not technical at all. They want users to be able to find a station, reserve it, and pay for it. On the admin side, it needs to be possible to manage the stations and view stats. Write me the SRS.",
+      "expected_output": "Quick-tier SRS adapted to a non-technical audience, with user stories, an executive summary, an extensive glossary, no technical jargon, and mockups/diagrams where relevant",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "Technical SRS, internal team",
+      "prompt": "We need to specify the authentication module for charging-station. Stack: React + Node.js + PostgreSQL. We want OAuth2 with Google/Apple, magic link by email, and role management (admin, operator, user). This is an internal document for the dev team. EARS + Gherkin for the acceptance criteria.",
+      "expected_output": "Standard-tier SRS oriented toward the dev team, EARS for the requirements, Gherkin for the acceptance criteria, references to existing code, detailed security NFRs with metrics",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "Regulated tender SRS",
+      "prompt": "Write an SRS for a monitoring system for medical IoT devices (Class IIa). The system collects sensor data, analyzes it in real time, and alerts the care staff. This is for a tender; the document must be exhaustive and standards-compliant. The client is a hospital.",
+      "expected_output": "Deep-tier SRS with all IEEE 29148 sections, formal shall statements, FMEA, traceability matrix, regulatory compliance (MDR, IEC 62304), exhaustive NFRs with SLA",
+      "files": []
+    }
+  ]
+}
