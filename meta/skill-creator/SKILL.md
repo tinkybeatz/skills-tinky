@@ -1,6 +1,6 @@
 ---
 name: "skill-creator"
-description: "Create new skills, create agents, modify and improve existing skills or agents, and measure their performance. Use when users want to create a skill or agent from scratch, edit or optimize an existing skill or agent, run evals to test a skill, benchmark skill performance with variance analysis, optimize a skill's description for better triggering accuracy, or when the user mentions \"create a skill\", \"create an agent\", \"make a skill\", \"write a skill\", \"improve this skill\", \"agent creation\", \"subagent\", even if they don't explicitly use those exact terms."
+description: "Create new skills, create agents, modify and improve existing skills or agents, and measure their performance. Use when users want to create a skill or agent from scratch, edit or optimize an existing skill or agent, run evals to test a skill, benchmark skill performance with variance analysis, optimize a skill's description for better triggering accuracy, or when the user mentions \"create a skill\", \"create an agent\", \"make a skill\", \"write a skill\", \"improve this skill\", \"agent creation\", \"subagent\", even if they don't explicitly use those exact terms. When creating a skill for the skills-tinky repo, it also places the skill in the correct category folder, enforces naming/uniqueness, and wires it into ~/.claude/skills."
 ---
 
 # Skill & Agent Creator
@@ -75,6 +75,10 @@ Pay attention to context cues — adjust jargon to the user's level. "evaluation
 ---
 
 ## Creating a skill
+
+### Step 0 — Category & placement (skills-tinky)
+
+Before writing, decide **where** the skill lives. This repo (skills-tinky) is organized into categories, and a new skill must land in the right one, follow that category's conventions, and get symlinked in. **Read `references/taxonomy-and-placement.md` and follow it** — it covers: confirming the target context (default skills-tinky, but always ask), locating the repo root, inferring + confirming the category (and nested `personal/` domains), name-uniqueness, scaffolding at `<repo>/<category>/<name>/`, and the final link + concierge-audit step. Do this first so intent-capture and drafting target the correct location.
 
 ### Capture Intent
 
@@ -263,6 +267,7 @@ For **Claude.ai** or **Cowork** environments, read `references/platform-guides.m
 | `references/context-management.md` | Progressive disclosure, anti-drift, bridge pattern |
 | `references/description-optimization.md` | Full description optimization workflow |
 | `references/platform-guides.md` | Claude.ai and Cowork adaptations |
+| `references/taxonomy-and-placement.md` | **Creating a skill for skills-tinky** — category, placement, naming, link + audit |
 
 ---
 
