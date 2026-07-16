@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#
+# skills-tinky pre-commit hook — mechanical concierge gate.
+#
+# Blocks any commit (CLI or tool-driven) when the concierge audit reports a
+# [WARN]. This enforces the *mechanical* half of concierge for every commit
+# path. The *judgment* half (trigger coverage, category fit, overlap) is a
+# separate Claude Code PreToolUse hook — see .claude/settings.json.
+#
+# Enabled via:  git config core.hooksPath .githooks   (see setup note in README)
+# Bypass:       git commit --no-verify
+set -uo pipefail
+
+REPO="$(git rev-parse --show-toplevel)"
+GATE="$REPO/meta/concierge/scripts/precommit-gate.sh"
+
+if [ ! -f "$GATE" ]; then
+  echo "pre-commit: concierge gate missing ($GATE) — skipping check." >&2
+  exit 0
+fi
+
+exec bash "$GATE"
