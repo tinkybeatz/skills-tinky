@@ -21,6 +21,7 @@ Each item below is either checked mechanically by `scripts/audit.sh` (marked ⚙
 
 ## Health & hygiene
 - ⚙️ **WARN — symlink health.** Each skill has exactly one correct symlink in `~/.claude/skills/` pointing at its real folder; no broken or stale links pointing into the repo. Fix: run `link-skills.sh`.
+- ⚙️ **WARN — README catalog freshness.** The cheat-sheet embedded in `README.md` (between the `CATALOG` markers) must match the current set of skills. The audit compares it against `generate-catalog.sh --print`. Fix: run `./generate-catalog.sh`. (This is why the catalog can be a convenience/fast-index without going silently stale — the concierge watches it.)
 - 🧠 **INFO — overlap/duplication.** Two skills doing nearly the same job dilute routing accuracy. Recommend merging or sharpening the boundary (and tightening both descriptions).
 - 🧠 **INFO — secrets.** No tokens/keys/passwords committed in any skill file. Flag for redaction if found.
 

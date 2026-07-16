@@ -33,7 +33,7 @@ Run the audit script (read-only; it changes nothing):
 bash "<this skill dir>/scripts/audit.sh"
 ```
 
-It reports `[WARN]` (should fix) and `[INFO]` (heads-up) across: SKILL.md casing, frontmatter (`name:` present and equal to the folder, `description:` present), kebab-case folder names, duplicate skill names, skills outside the taxonomy, subfolder-naming consistency (`references/` vs `reference/`, `evals/` vs `evaluations/`), and symlink health in `~/.claude/skills/`.
+It reports `[WARN]` (should fix) and `[INFO]` (heads-up) across: SKILL.md casing, frontmatter (`name:` present and equal to the folder, `description:` present), kebab-case folder names, duplicate skill names, skills outside the taxonomy, subfolder-naming consistency (`references/` vs `reference/`, `evals/` vs `evaluations/`), symlink health in `~/.claude/skills/`, and README catalog freshness (whether the cheat-sheet matches the current skills — fix by running `./generate-catalog.sh`).
 
 ## Step 2 — Add the judgment the script can't
 The script is mechanical. You additionally review, for a sampled or user-named set of skills:

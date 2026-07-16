@@ -128,6 +128,18 @@ if [ -d "$DEST" ]; then
 fi
 [ "$symok" -eq 1 ] && echo "  ok"
 
+echo; echo "--- 8. README catalog freshness ---"
+GEN="$REPO/generate-catalog.sh"; RM="$REPO/README.md"
+if [ ! -f "$GEN" ] || [ ! -f "$RM" ]; then
+  I "skipping catalog check (missing generate-catalog.sh or README.md)"
+elif ! grep -q '<!-- CATALOG:START -->' "$RM" || ! grep -q '<!-- CATALOG:END -->' "$RM"; then
+  W "README.md has no CATALOG markers (run ./generate-catalog.sh)"
+else
+  cur="$(awk '/<!-- CATALOG:START -->/{f=1;next} /<!-- CATALOG:END -->/{f=0} f' "$RM")"
+  fresh="$(bash "$GEN" --print 2>/dev/null)"
+  if [ "$cur" = "$fresh" ]; then echo "  ok"; else W "README catalog is out of sync with the skills — run ./generate-catalog.sh"; fi
+fi
+
 echo; echo "======================================================"
 nw="$(wc -l < "$WC" 2>/dev/null | tr -d ' ')"; [ -n "$nw" ] || nw=0
 ni="$(wc -l < "$IC" 2>/dev/null | tr -d ' ')"; [ -n "$ni" ] || ni=0
