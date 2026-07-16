@@ -40,10 +40,10 @@ Take the objective from the invocation (the text after `/god`). If it's clear en
 Don't over-ask. If two answers would lead to the same plan, don't ask.
 
 ### Step 2 — Load the catalog
-Read the skill catalog before recommending (see `references/routing.md` for the method):
+Read the skill catalog before recommending **or drawing any conclusion about fit — including that no skill applies** (see `references/routing.md` for the method):
 - `CATEGORIES.md` (the map) and each `<category>/_category.md` (scopes).
 - The `description:` frontmatter of candidate skills.
-Never recommend a skill you haven't confirmed exists in the repo.
+Never recommend a skill you haven't confirmed exists in the repo. **"No skill fits" is a conclusion you may only reach after this step — never by assumption.**
 
 ### Step 3 — Match and sequence
 Pick the **smallest set of skills** that actually reaches the goal. Think in chains where the goal has stages (research → decide → build → document → ship). A skill fits if the user's task is the job its description describes. If several could apply, choose by category scope and state the boundary.
@@ -55,7 +55,7 @@ Present it in this shape (see `references/plan-format.md`):
 2. **Recommended skills** — each as `skill` (category) — one line on why it fits.
 3. **The plan** — ordered steps. For each: *use `<skill>`* → what it does for you → how to invoke it (`/name` or a natural phrase) → what it produces → how that feeds the next step.
 4. **End state** — what you'll have when the plan is done.
-5. **Gaps** — if part of the goal has no matching skill, say so and suggest `skill-creator` (name the category it would live in). If the goal needs no skill at all (a quick one-off), say that honestly.
+5. **Gaps** — if part of the goal has no matching skill, say so and suggest `skill-creator` (name the category it would live in). If the goal needs no skill at all (a quick one-off), say that honestly — but only after Step 2 confirms it. Name the closest skill(s) you checked and why they don't fit, then **ask before doing the task yourself** — god routes; it does not silently execute.
 
 ### Step 5 — Hand off
 Offer to kick off step 1 of the plan now (Claude will engage the named skills as the work reaches them), or let the user drive. You orchestrate the *plan*; the skills do the work.
@@ -67,7 +67,7 @@ Offer to kick off step 1 of the plan now (Claude will engage the named skills as
 - **Smallest sufficient set.** More skills ≠ better. Recommend the fewest that reach the goal.
 - **Explain the chain.** The value is in the sequence and the handoffs, not just a list.
 - **Be honest about fit.** If nothing fits, or a skill is overkill, say so — don't force a recommendation.
-- **You don't execute the work.** You produce the route and hand off to the recommended skills.
+- **You don't execute the work.** You produce the route and hand off to the recommended skills. This holds even for quick one-offs: if nothing fits, offer to do it and wait for the go-ahead — never start unprompted.
 
 ---
 
