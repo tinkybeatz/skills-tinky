@@ -140,6 +140,64 @@ else
   if [ "$cur" = "$fresh" ]; then echo "  ok"; else W "README catalog is out of sync with the skills — run ./generate-catalog.sh"; fi
 fi
 
+# Project-context skills (docs/stds/PROJECT_CONTEXT_SKILL.md) are identified by their
+# `<repo> -> <skill>` mapping in hooks/awareness-ignore.txt — that's the authoritative
+# signal for "this skill carries a project's context and the router points at it".
+IGN="$REPO/hooks/awareness-ignore.txt"
+trim_tok(){ echo "$1" | awk '{$1=$1;print}'; }   # trim ends + collapse ws (safe for single tokens)
+
+echo; echo "--- 9. Project-context skills: mappings resolve + conform (PCS-2, PCS-3) ---"
+pcs=0
+if [ -f "$IGN" ]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+    core="${line%%#*}"
+    case "$core" in *"->"*) : ;; *) continue ;; esac   # only mapped lines
+    repo_key="$(trim_tok "${core%%->*}")"; skill="$(trim_tok "${core#*->}")"
+    [ -n "$skill" ] || { W "awareness map '$repo_key -> ': missing skill name (PCS-8)"; pcs=1; continue; }
+    sdir=""
+    while IFS= read -r d; do
+      [ -n "$d" ] || continue
+      [ "$(basename "$d")" = "$skill" ] && { sdir="$d"; break; }
+    done <<EOF
+$skilldirs
+EOF
+    if [ -z "$sdir" ]; then
+      W "awareness map '$repo_key -> $skill': skill '$skill' not found in repo (PCS-2)"; pcs=1; continue
+    fi
+    for f in SKILL.md references/project-facts.md references/knowledge.md; do
+      [ -f "$sdir/$f" ] || { W "project-context skill '$skill' missing $f (PCS-3): $(rel "$sdir")"; pcs=1; }
+    done
+  done < "$IGN"
+fi
+[ "$pcs" -eq 0 ] && echo "  ok"
+
+echo; echo "--- 10. Exclusivity: an opted-out repo must not also carry a committed CLAUDE.md (PCS-9) ---"
+# Only path-form entries are checkable from here (a bare repo name can't be located
+# on this machine). Name-form entries are reported as not-checkable, not as passing.
+excl=0; path_checked=0; name_only=0
+if [ -f "$IGN" ]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+    core="${line%%#*}"
+    case "$core" in *"->"*) repo_key="${core%%->*}" ;; *) repo_key="$core" ;; esac
+    repo_key="$(trim_tok "$repo_key")"
+    [ -n "$repo_key" ] || continue
+    case "$repo_key" in
+      /*) if [ -d "$repo_key" ]; then
+            path_checked=1
+            if [ -f "$repo_key/CLAUDE.md" ] || [ -f "$repo_key/.claude/CLAUDE.md" ]; then
+              W "opted-out repo '$repo_key' also has a committed CLAUDE.md — use one system, not both (PCS-9)"; excl=1
+            fi
+          fi ;;
+      *) name_only=1 ;;
+    esac
+  done < "$IGN"
+fi
+if [ "$excl" -eq 0 ]; then
+  if [ "$name_only" -eq 1 ] && [ "$path_checked" -eq 0 ]; then
+    echo "  ok (name-form entries can't be path-checked from here; verify PCS-9 manually)"
+  else echo "  ok"; fi
+fi
+
 echo; echo "======================================================"
 nw="$(wc -l < "$WC" 2>/dev/null | tr -d ' ')"; [ -n "$nw" ] || nw=0
 ni="$(wc -l < "$IC" 2>/dev/null | tr -d ' ')"; [ -n "$ni" ] || ni=0
