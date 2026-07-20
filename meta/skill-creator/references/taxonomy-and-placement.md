@@ -39,5 +39,14 @@ After the skill (and its references) are written:
 2. **Run the concierge audit** to confirm the repo is still clean: `bash "<repo>/meta/concierge/scripts/audit.sh"`. Report the result. Fix anything it flags for the new skill before finishing.
 3. Remind the user to **restart Claude Code / start a new session** for the new skill to become active.
 
+## Project-context skills (special architecture)
+If the skill's purpose is to carry **one specific project's context** (stack, layout,
+conventions, gotchas) for the project-awareness router — e.g. `foleon-ripley` — it is NOT a
+free-form skill. It **MUST** follow the standard at `docs/stds/PROJECT_CONTEXT_SKILL.md`:
+place it under a work/client silo category (`foleon/`), name it `<silo>-<repo>`, scaffold
+exactly `SKILL.md` + `references/project-facts.md` + `references/knowledge.md`, and register the
+served repo in `hooks/awareness-ignore.txt` as `<repo> -> <skill>` (via
+`hooks/awareness-ignore-add.sh . <skill>`). Use `foleon/foleon-ripley` as the template.
+
 ## Forward hook
 Once a generated catalog/cheat-sheet exists at the repo root (README step 4), regenerate it after adding a skill so `god` and `concierge` stay fast and current. (No such file yet — skip until it exists.)

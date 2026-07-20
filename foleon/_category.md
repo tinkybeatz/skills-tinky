@@ -8,6 +8,8 @@
 
 **Required scaffolding.** `references/` for project knowledge that grows over time (e.g. `references/knowledge.md` as a self-enriching discoveries log). Minimal otherwise.
 
+**Architecture standard (required).** Every project-context skill here (one that carries a specific repo's context for the awareness router) **MUST** follow [`docs/stds/PROJECT_CONTEXT_SKILL.md`](../docs/stds/PROJECT_CONTEXT_SKILL.md): `SKILL.md` + `references/project-facts.md` + `references/knowledge.md`, registered in `hooks/awareness-ignore.txt` as `<repo> -> <skill>`. `foleon-ripley` is the reference implementation.
+
 **Default frontmatter.**
 ```yaml
 name: <folder-name>
@@ -15,4 +17,4 @@ description: <what it does + trigger phrases, incl. "ripley", "foleon", app name
 user-invokable: true
 ```
 
-**Skills here.** *(none yet — `foleon-ripley` incoming)*
+**Skills here.** foleon-ripley (project-context skill for the `ripley` monorepo)

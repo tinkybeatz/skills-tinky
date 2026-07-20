@@ -77,7 +77,22 @@ open any repo ─▶ SessionStart hook checks for CLAUDE.md
 
 **Seed a new project:** open it and let the SessionStart nudge prompt you, or just run `/claude-md-architect`. **Keep it healthy:** when `knowledge.md` gets heavy, `/claude-md-architect` (refactor mode) promotes stable facts into the root and prunes the log.
 
-**Opt a repo out.** For shared / work repos where AI config must stay *out* of the checkout (teammates shouldn't inherit your personal tooling), opt the repo out of the nudge. Easiest: when the nudge fires, tell Claude "ignore this repo" — it runs [`hooks/awareness-ignore-add.sh`](hooks/awareness-ignore-add.sh), which appends the repo and **auto-commits**. Or add it yourself to [`hooks/awareness-ignore.txt`](hooks/awareness-ignore.txt) — one entry per line, a **bare repo name** (portable across machines) or an **absolute path** (this machine only). Capture that project's knowledge in a **skill you own** instead of a committed `CLAUDE.md`. Everything resolves relative to the script, so it works wherever skills-tinky is cloned.
+**Shared / work repos — keep AI config OUT of the checkout.** For repos where teammates shouldn't inherit your tooling, opt the repo out of the nudge and (optionally) bind it to a **context skill you own** instead of a committed `CLAUDE.md`. The router then does the opposite of silence: every session it tells Claude to load that skill for context.
+
+- **Opt out + map, easiest:** when the nudge fires, tell Claude "ignore this repo" (optionally "…and use the `<skill>` skill"). It runs [`hooks/awareness-ignore-add.sh`](hooks/awareness-ignore-add.sh) (`. <skill>` to bind a skill), which updates the list and **auto-commits only that file** — never your staged work.
+- **By hand:** add a line to [`hooks/awareness-ignore.txt`](hooks/awareness-ignore.txt) — `<repo>` (plain opt-out) or `<repo> -> <skill>` (mapped). The `<repo>` key is a **bare name** (portable across machines) or an **absolute path** (this machine only). Prefer names.
+
+Context skills must follow the **[Project-Context Skill standard](docs/stds/PROJECT_CONTEXT_SKILL.md)** (`SKILL.md` + `references/project-facts.md` + `references/knowledge.md`); `foleon/foleon-ripley` is the reference. Everything resolves relative to the script, so it works wherever skills-tinky is cloned.
+
+**The router's full decision tree** (one hook drives both systems):
+
+| On session start, the repo is… | Router does |
+|---|---|
+| not a git repo | nothing |
+| opted out **+ mapped** to a skill | tells Claude to load that skill for context |
+| opted out, no mapping | nothing (pure opt-out) |
+| not opted out, **no** `CLAUDE.md` | nudges to create one |
+| not opted out, **has** `CLAUDE.md` | nothing (auto-loads natively) |
 
 ---
 
