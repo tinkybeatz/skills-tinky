@@ -77,7 +77,7 @@ open any repo ─▶ SessionStart hook checks for CLAUDE.md
 
 **Seed a new project:** open it and let the SessionStart nudge prompt you, or just run `/claude-md-architect`. **Keep it healthy:** when `knowledge.md` gets heavy, `/claude-md-architect` (refactor mode) promotes stable facts into the root and prunes the log.
 
-**Opt a repo out.** For shared / work repos where AI config must stay *out* of the checkout (teammates shouldn't inherit your personal tooling), add the repo to [`hooks/awareness-ignore.txt`](hooks/awareness-ignore.txt) — one absolute path or bare repo name per line. The nudge then stays silent there. Capture that project's knowledge in a **skill you own** instead of a committed `CLAUDE.md`.
+**Opt a repo out.** For shared / work repos where AI config must stay *out* of the checkout (teammates shouldn't inherit your personal tooling), opt the repo out of the nudge. Easiest: when the nudge fires, tell Claude "ignore this repo" — it runs [`hooks/awareness-ignore-add.sh`](hooks/awareness-ignore-add.sh), which appends the repo and **auto-commits**. Or add it yourself to [`hooks/awareness-ignore.txt`](hooks/awareness-ignore.txt) — one entry per line, a **bare repo name** (portable across machines) or an **absolute path** (this machine only). Capture that project's knowledge in a **skill you own** instead of a committed `CLAUDE.md`. Everything resolves relative to the script, so it works wherever skills-tinky is cloned.
 
 ---
 

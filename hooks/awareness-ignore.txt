@@ -1,8 +1,10 @@
 # Repos where the project-awareness nudge should NOT fire.
-# One entry per line: an absolute path OR a bare repo folder name. '#' = comment.
+# One entry per line. '#' starts a comment. Two forms:
+#   - bare repo folder name  (e.g. `ripley`)  → PORTABLE: matches on any machine
+#   - absolute path          (e.g. /Users/me/work/ripley) → this machine only
+# Prefer names; this file is committed and synced across your laptops.
 #
-# Use this for shared / work repos where AI config must stay OUT of the checkout
-# (other devs shouldn't inherit your personal tooling). Capture that project's
-# knowledge in a skill you own instead — see the Foleon skills.
+# Add the current repo the easy way: `hooks/awareness-ignore-add.sh`
+# (appends by name + auto-commits). Or edit this file by hand.
 
 ripley
