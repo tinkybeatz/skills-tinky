@@ -1,0 +1,8 @@
+# Repos where the project-awareness nudge should NOT fire.
+# One entry per line: an absolute path OR a bare repo folder name. '#' = comment.
+#
+# Use this for shared / work repos where AI config must stay OUT of the checkout
+# (other devs shouldn't inherit your personal tooling). Capture that project's
+# knowledge in a skill you own instead — see the Foleon skills.
+
+ripley

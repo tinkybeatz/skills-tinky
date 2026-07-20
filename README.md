@@ -42,6 +42,45 @@ Then **restart Claude Code** (or start a new session) so it picks up the skills.
 
 ---
 
+## Project awareness
+
+Every repo you work in should carry its own `CLAUDE.md` so the dev skills (`senior-dev`, `perf-analyzer`, …) act with project context instead of blind. A small standing system makes that automatic — you never have to remember it:
+
+```
+open any repo ─▶ SessionStart hook checks for CLAUDE.md
+                     │
+        ┌────────────┴────────────┐
+     exists                    missing
+        │                          │
+   dev skills read it     hook flags it → offer /claude-md-architect
+   before acting                     │
+        │                            ▼
+        │                    seed CLAUDE.md (WHAT/WHY/HOW)
+        └────────────▶ work ◀────────┘
+                     │
+     Claude learns something non-obvious about the project
+                     │
+             appends it to .claude/rules/knowledge.md
+                     │
+    (periodically) /claude-md-architect refactors → slim root + pruned log
+```
+
+**The pieces:**
+
+| Piece | Where | Role |
+|---|---|---|
+| Standing rule | `~/.claude/CLAUDE.md` | Tells Claude to read the repo's `CLAUDE.md`, offer to create one if missing, and append discoveries. |
+| Enforcement | `hooks/session-claude-md-check.sh` → wired in `~/.claude/settings.json` (`SessionStart`) | Flags any git repo that has no `CLAUDE.md`. Nudge, not block; silent when one exists. |
+| Creation & upkeep | `/claude-md-architect` | Seeds a `CLAUDE.md` (WHAT/WHY/HOW), and later refactors it when the knowledge log grows. |
+| Per-project knowledge | `<repo>/CLAUDE.md` (slim, committed) | Auto-loaded in-repo; read natively by every skill before acting. |
+| Discoveries log | `<repo>/.claude/rules/knowledge.md` (imported via `@`) | Grows over time so the root `CLAUDE.md` stays under ~60 lines. |
+
+**Seed a new project:** open it and let the SessionStart nudge prompt you, or just run `/claude-md-architect`. **Keep it healthy:** when `knowledge.md` gets heavy, `/claude-md-architect` (refactor mode) promotes stable facts into the root and prunes the log.
+
+**Opt a repo out.** For shared / work repos where AI config must stay *out* of the checkout (teammates shouldn't inherit your personal tooling), add the repo to [`hooks/awareness-ignore.txt`](hooks/awareness-ignore.txt) — one absolute path or bare repo name per line. The nudge then stays silent there. Capture that project's knowledge in a **skill you own** instead of a committed `CLAUDE.md`.
+
+---
+
 ## Categories
 
 The taxonomy is function-first (see [`CATEGORIES.md`](CATEGORIES.md) for the full definitions and each category's `_category.md` conventions).
