@@ -20,6 +20,7 @@ Entry points: **`god`** turns a goal into a plan across these skills ("/god i wa
 | `notes/` | Notion workspace workflows (requires Notion MCP) |
 | `research/` | Research, explanation, and media/content ingestion |
 | `personal/` | Personal-life & side-project domains, organized into subfolders |
+| `foleon/` | Foleon-only work: `ripley` project context and Foleon-specific capabilities, kept out of the shared codebase |
 
 ## Installing / updating
 
