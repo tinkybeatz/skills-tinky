@@ -1,10 +1,12 @@
-# Repos where the project-awareness nudge should NOT fire.
+# Repos opted out of the project-awareness nudge — optionally bound to a context skill.
 # One entry per line. '#' starts a comment. Two forms:
-#   - bare repo folder name  (e.g. `ripley`)  → PORTABLE: matches on any machine
-#   - absolute path          (e.g. /Users/me/work/ripley) → this machine only
+#   <repo>                 opt out of the "create a CLAUDE.md" nudge
+#   <repo> -> <skill>      opt out AND point at the skill that holds this project's context
+# <repo> is a bare folder name (PORTABLE across machines) or an absolute path (this machine only).
 # Prefer names; this file is committed and synced across your laptops.
 #
-# Add the current repo the easy way: `hooks/awareness-ignore-add.sh`
-# (appends by name + auto-commits). Or edit this file by hand.
+# Easiest way to add the current repo (both append + auto-commit ONLY this file):
+#   hooks/awareness-ignore-add.sh . <skill>     bind current repo to a context skill
+#   hooks/awareness-ignore-add.sh               plain opt-out, current repo
 
-ripley
+ripley -> foleon-ripley
