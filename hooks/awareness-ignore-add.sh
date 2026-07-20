@@ -32,6 +32,9 @@ fi
 printf '%s\n' "$entry" >> "$ignore_file"
 echo "Added to opt-out list: $entry"
 
-git -C "$repo_root" add "$ignore_file"
-git -C "$repo_root" commit -m "Opt out '$entry' from project-awareness nudge" >/dev/null
-echo "Committed to skills-tinky."
+# Commit ONLY the blacklist file. The pathspec form commits this one path from the
+# working tree and leaves any other staged/unstaged changes untouched — so it never
+# sweeps up a commit-in-progress you have waiting.
+git -C "$repo_root" commit -m "Opt out '$entry' from project-awareness nudge" \
+  -- "$ignore_file" >/dev/null
+echo "Committed to skills-tinky (blacklist only; other changes left untouched)."
