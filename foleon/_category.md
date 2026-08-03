@@ -22,4 +22,11 @@ description: <what it does + trigger phrases, incl. "ripley", "foleon", app name
 user-invokable: true
 ```
 
-**Skills here.** foleon-ripley (project-context skill for the `ripley` monorepo)
+**Two kinds of skill live here.** *Project-context* skills carry one repo's context for the
+awareness router and must follow the PCS standard above. *Capability* skills are Foleon-only tools
+that do work; they follow the normal skill conventions, not PCS.
+
+**Skills here.**
+- `foleon-ripley` — project-context skill for the `ripley` monorepo (PCS reference implementation)
+- `foleon-cheatsheet` — capability skill: mirrors admitted findings from the discoveries log into the
+  Notion cheat sheet, per [`docs/stds/CHEAT_SHEET.md`](../docs/stds/CHEAT_SHEET.md)

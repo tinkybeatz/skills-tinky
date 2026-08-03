@@ -5,17 +5,20 @@ description: >-
   human-facing Notion cheat-sheet database — applying the admission filter,
   rewriting each one for a human, deduplicating against what is already there,
   and leaving the row for you to approve. Use whenever: a finding was just
-  appended to `foleon-ripley`'s `knowledge.md`; a hook reports pending
-  cheat-sheet findings at session start or session end; the queue needs
-  draining; or the discoveries log needs migrating to the structured PCS-6
-  schema. Trigger phrases: "sync the cheat sheet", "update the cheat sheet",
-  "add this to the cheat sheet", "drain the cheatsheet queue", "cheat sheet",
-  "notion cheat sheet", "migrate the knowledge log", "backfill the cheat sheet",
+  appended to `foleon-ripley`'s `knowledge.md`; a hook reports pending findings
+  at session start or as a turn ends; the queue needs draining; or the
+  discoveries log needs migrating to the structured PCS-6 schema. Trigger
+  phrases: "sync the Foleon cheat sheet", "update the Foleon cheat sheet",
+  "add this to the Foleon cheat sheet", "my Foleon cheat sheet", "drain the
+  cheatsheet queue", "migrate the knowledge log", "backfill the cheat sheet",
   or explicit `/foleon-cheatsheet`. Requires the Notion MCP. It enforces
   `docs/stds/CHEAT_SHEET.md`: most findings are correctly REJECTED, rows are
-  rewritten never copied, and it never approves its own rows. Do NOT use it to
-  record project facts or conventions — that is `foleon-ripley`. Do NOT use it
-  to author or edit skills — that is `skill-creator`.
+  rewritten never copied, and it never approves its own rows. Do NOT use it for
+  the skills-tinky README skills cheat-sheet — that is `./generate-catalog.sh`.
+  Do NOT use it to capture a conversation into an arbitrary Notion page — that
+  is `notion-knowledge-capture`; this skill moves governed findings into one
+  specific database. Do NOT use it to record project facts or conventions —
+  that is `foleon-ripley`.
 user-invokable: true
 ---
 

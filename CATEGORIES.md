@@ -22,6 +22,8 @@ Entry points: **`god`** turns a goal into a plan across these skills ("/god i wa
 | `personal/` | Personal-life & side-project domains, organized into subfolders |
 | `foleon/` | Foleon-only work: `ripley` project context and Foleon-specific capabilities, kept out of the shared codebase |
 
+**Not a category:** [`docs/stds/`](docs/stds/README.md) holds the repo's **standards** (normative rules with enforcement, e.g. the Project-Context Skill and Cheat Sheet standards). It contains no `SKILL.md`, so the taxonomy audit skips it. Note that `docs/` therefore serves double duty — skill category *and* standards home.
+
 ## Installing / updating
 
 Run `./link-skills.sh` to (re)create the flat symlinks in `~/.claude/skills/`. It recurses the repo, links every `SKILL.md` folder by name, aborts on name collisions, and prunes stale links. A `git pull` alone updates existing skills live; re-run the script only when skills are added, removed, or moved.

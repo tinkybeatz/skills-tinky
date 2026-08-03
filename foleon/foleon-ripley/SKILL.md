@@ -13,8 +13,9 @@ description: >-
   or perf-analyzer act on Foleon code so they inherit the conventions
   (arrow-functions-only, no comments, Biome single-quote/120, Vitest+RTL+MSW tests
   in `__tests__`). Also append non-obvious discoveries about ripley to this skill's
-  knowledge log as you learn them. Do NOT use for non-Foleon projects — those rely
-  on their own repo CLAUDE.md.
+  knowledge log as you learn them — but mirroring a finding to the Notion cheat
+  sheet is `foleon-cheatsheet`'s job, not this one's. Do NOT use for non-Foleon
+  projects — those rely on their own repo CLAUDE.md.
 user-invokable: true
 ---
 
