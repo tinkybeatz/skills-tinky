@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 1.1.0 |
+| **Version** | 1.2.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
 | **Effective date** | 2026-07-20 |
@@ -92,6 +92,9 @@ A conforming skill **MUST** contain exactly these files (more `references/` allo
 - Before appending, the writer **MUST** search the log for the finding's key terms. On a match it
   **MUST** extend or correct the existing entry and refresh its date, rather than append a
   near-duplicate. `[SRC-006]`
+- Where a **script** exists for that search, the writer **MUST** use it rather than judging by eye —
+  a dedupe rule enforced only by instruction is the weakest link in the system. Reference
+  implementation: `foleon/foleon-cheatsheet/scripts/log.py check`. `[SRC-006]`
 - Entries **MAY** stay dense, multi-clause and jargon-heavy — the audience is an agent that reads the
   whole file. Human-facing rewriting happens **only** in the mirror (PCS-11). `[SRC-006]`
 - **MUST** state that when it grows heavy, stable facts are promoted into `project-facts.md`
@@ -145,6 +148,14 @@ A conforming skill **MUST** contain exactly these files (more `references/` allo
   it. `[SRC-006]`
 - The mirror **MUST NOT** relax [PCS-7](#pcs-7-self-enrich-boundary-critical): nothing is written into
   the served project's checkout. `[SRC-002]`
+- **Read-back (the reverse leg).** Rows the maintainer has **approved** on the external surface
+  **SHOULD** be pulled back into the skill as a **generated** reference file, so the skill's own
+  context benefits from the human's verification. Without this the mirror serves only the human, and a
+  finding can end up on the external surface while existing in **no** skill-facing file — which
+  defeats the purpose of a context skill. The file **MUST** be marked generated and **MUST NOT** be
+  hand-edited; only **approved** rows may be pulled; and it **MUST NOT** replace `project-facts.md` or
+  `knowledge.md`. Copying is correct here — the rows are already in their final human form.
+  Reference implementation: `foleon-ripley/references/cheatsheet-approved.md`. `[SRC-006]`
 
 **Enforcement:** `CHEAT_SHEET.md` conformance checklist; the mirror's review queue; manual review.
 
@@ -161,9 +172,10 @@ A project-context skill is conforming when **all** are true:
 - [ ] `SKILL.md`: how-to-use flow + self-enrich instruction + boundary + failure-modes table (PCS-4)
 - [ ] `project-facts.md` holds only stable, verifiable facts (PCS-5)
 - [ ] `knowledge.md` is a dated append log with a promote/prune rule (PCS-6)
-- [ ] Log entries follow the structured schema, and appends are deduplicated first (PCS-6)
+- [ ] Log entries follow the structured schema, and appends are deduplicated first — by script where one exists (PCS-6)
 - [ ] At most one external mirror, governed by its own editorial standard (PCS-11)
 - [ ] Mirrored rows are rewritten (not copied), cross-linked by external ID, created for review (PCS-11)
+- [ ] Approved rows are pulled back into a generated, never-hand-edited reference file (PCS-11)
 - [ ] No `CLAUDE.md`/`.claude/` written into the served repo (PCS-7)
 - [ ] Registered `<repo> -> <skill>` in `hooks/awareness-ignore.txt` (PCS-8)
 - [ ] Served repo does not also carry a committed `CLAUDE.md` (PCS-9)
@@ -208,4 +220,5 @@ temporarily non-conforming if tracked with a dated note in its `knowledge.md`.
 | Version | Date | Change |
 |---|---|---|
 | 1.0.0 | 2026-07-20 | Initial standard. Codifies the `foleon-ripley` architecture as the required shape for project-context skills. |
+| 1.2.0 | 2026-08-03 | **PCS-6**: where a dedupe script exists the writer MUST use it — a rule enforced only by instruction was the weakest link. **PCS-11**: added the **read-back leg**. Approved rows SHOULD be pulled back into a generated reference file, because the mirror was one-directional and a finding could exist on the external surface while being in no skill-facing file — found by audit, not theory. Checklist and enforcement updated. |
 | 1.1.0 | 2026-08-03 | **PCS-6 amended** — structured entry schema (`date · area · symptom — finding · refs · sheet`) and a mandatory dedupe-before-append search. **PCS-11 added** — optional single external mirror: log stays authoritative, transform is a rewrite not a copy, most entries are correctly rejected, cross-linked by external ID, created in a review state, PCS-7 boundary preserved. Checklist, enforcement table and sources updated. |

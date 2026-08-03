@@ -9,6 +9,13 @@ engineering work on Foleon. When something here goes stale, trust the live repo
 - pnpm **monorepo**. Stack: TypeScript · React · Biome · Vitest + React Testing Library + MSW; Cypress & Playwright for e2e.
 - Node `>=22 <23`, pnpm `11.1.1` — pnpm is enforced (`only-allow pnpm`); commit the lockfile.
 
+## Sources of truth — and one trap
+- `package.json` · `pnpm-workspace.yaml` · `biome.json` are authoritative. This file and
+  `knowledge.md` come next.
+- **Trap:** the ripley checkout's `.cursor/rules/*.mdc` are historical and partly *aspirational*.
+  `global-ripley-rule.mdc` still says the scope is `@ripley/*` — that line is **stale**, it is
+  `@foleon/*`. Treat all of `.cursor/rules` as reference, never as ground truth.
+
 ## Layout — `packages/`, scope `@foleon/*`
 - `foleon-core-editor` (`@foleon/editor`) — editor app
 - `foleon-core-viewer` (`@foleon/viewer`) · `foleon-core-viewer-dynamic` — preview / publish

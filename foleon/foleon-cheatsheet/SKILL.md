@@ -54,6 +54,7 @@ stop and say so — do not fall back to writing the row into the log or a file.
 | **Sync** (default) | hook report, or "sync the cheat sheet" | Drain the queue → filter → rewrite → dedupe → write → cross-link |
 | **Single** | "add this to the cheat sheet" | Same pipeline for one finding given in conversation, bypassing the queue |
 | **Migration** | "migrate the knowledge log" | One-off: restructure `knowledge.md` to PCS-6, then backfill the sheet. See `references/migration.md` |
+| **Pull** | "pull the approved rows", after approving a batch | The reverse leg: approved rows → a generated file Claude loads |
 
 ## Sync flow
 
@@ -98,6 +99,14 @@ python3 scripts/row.py key --area "Core / rendering" --symptom "..."
 canonical `Dedupe key`. Use the script rather than eyeballing — the caps are
 numeric and the key must be byte-stable, or dedupe silently breaks.
 
+The log has its own script, for the same reason (PCS-6):
+```bash
+python3 scripts/log.py check --area "Tests & Playwright" --symptom "..."
+python3 scripts/log.py lint     # verify the whole log against the schema
+```
+`check` exits non-zero when an existing entry is a likely duplicate — extend that
+entry and refresh its date instead of appending.
+
 **5. Dedupe — query before you write (CHS-11).** The Notion API **cannot search
 page bodies**, only properties, so the key must already be a property. Query the
 data source filtering `Dedupe key` `equals` the derived key. If that misses, try
@@ -121,6 +130,30 @@ later run does not reconsider it from scratch.
 
 **8. Report.** Per finding: admitted or rejected, the gate that failed, the row
 ID, and whether it was a create or an update. Then the queue is empty.
+
+## Pull — approved rows back to Claude
+
+Approved rows are the **highest-quality knowledge in the system**: the maintainer personally
+verified them, and they are already written to be scanned. Without this leg they serve only the
+human, and Claude keeps working from the raw log — which is exactly how a finding ends up on the
+cheat sheet but in no Claude-facing file.
+
+1. Query the `Lookup` view (already filtered to `Status = Approved`).
+2. Regenerate `foleon/foleon-ripley/references/cheatsheet-approved.md`, grouped by `Area`, one
+   line per row: `CS-nn · <Symptom> → <Fix>`, with `Why` and `Refs` appended when present.
+3. `foleon-ripley` loads that file as its third context layer.
+
+Rules that keep this safe:
+
+- The file is **generated**. Never hand-edit it — regenerate. Its header says so.
+- **Approved only.** `Needs review` rows are not yet trusted and must not reach Claude this way.
+- It **replaces nothing**. `project-facts.md` stays the curated stable facts, `knowledge.md` stays
+  the authoritative log; this is a third, human-verified layer.
+- Rewrite nothing here — the rows are already in their final human form. This leg is a **copy**,
+  which is the one place in this system where copying is correct.
+
+Run it after approving a batch. If `Lookup` is empty, write the file's empty state rather than
+deleting it, so the mechanism stays visible.
 
 ## Boundaries
 

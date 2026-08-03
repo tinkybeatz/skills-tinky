@@ -41,7 +41,12 @@ they do the work.
 2. **Apply the conventions to whatever you produce** — code, reviews, tests, plans.
    When a convention here conflicts with a generic default, this file wins for ripley.
 3. **Check the discoveries log.** Skim `references/knowledge.md` for gotchas and
-   hard-won specifics that aren't obvious from the code.
+   hard-won specifics that aren't obvious from the code. Entries are indexed by
+   **symptom**, so scan for what you're observing, not for the subsystem.
+4. **Read the approved rows.** `references/cheatsheet-approved.md` is the
+   maintainer-verified symptom → fix subset pulled from the Notion cheat sheet. It is
+   the most trustworthy layer — a human signed off on every line — so when it
+   disagrees with the log, it wins. It is generated; never edit it by hand.
 
 ## Keep it alive (self-enrich)
 Whenever you learn something **non-obvious** about ripley — a gotcha, an implicit
@@ -61,8 +66,12 @@ grouped and deduplicated without re-reading it:
 `<area>` is one of: Editor · Viewer · Core / rendering · Build & tooling ·
 Tests & Playwright · Conventions.
 
-**Search before you append.** If the finding is already logged, extend that entry
-and refresh its date rather than adding a near-duplicate.
+**Search before you append — with the script, not by eye** (PCS-6):
+```bash
+python3 ~/.claude/skills/foleon-cheatsheet/scripts/log.py check --area "<area>" --symptom "<symptom>"
+```
+It exits non-zero when an existing entry is a likely duplicate; extend that entry and
+refresh its date instead of adding a near-duplicate.
 
 Keep entries **dense** — this file is read by an agent that reads all of it, so
 completeness beats brevity here. Human-facing phrasing is a different job: the
@@ -80,6 +89,8 @@ This is Foleon-only. For any other project, use that project's own `CLAUDE.md`
 ## References
 - `references/project-facts.md` — the curated, stable project knowledge (load on use).
 - `references/knowledge.md` — the growing, dated discoveries log (append to it).
+- `references/cheatsheet-approved.md` — maintainer-approved symptom → fix rows, generated
+  from Notion by `foleon-cheatsheet` (read it; never edit it).
 
 ## Failure modes
 

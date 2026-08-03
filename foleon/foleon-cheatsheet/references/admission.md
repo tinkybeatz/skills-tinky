@@ -86,7 +86,23 @@ symptom you'll hit again → a cheat-sheet row. History → the log only.
 
 ## Rejection is the healthy outcome
 
-Of the 8 substantive entries in the log at migration time, **3** were admitted.
-If a sync admits most of what it sees, the gates were applied loosely — that is
-the failure mode this file exists to prevent. Re-read gate 1 and gate 4 first;
-they catch the most false positives.
+Actual result of the 2026-08-03 migration: **30 log entries → 18 rows**, so 12 were
+rejected. That admit rate is higher than typical because the log at that point was
+unusually dense with test-harness gotchas, which score maximally on all four gates —
+you hit them every time you write a Playwright test, each cost a full run to find,
+none are documented, and each resolves to a concrete lever.
+
+Do not read 18/30 as the target. What was rejected is the more useful signal:
+
+| Rejected | Gate |
+|---|---|
+| The PROD-3816 / PROD-3528 fix narratives | 1 — ticket history, no symptom leads there |
+| Toolchain versions, `@foleon/*` scope | 3 — `package.json` already says it (→ `project-facts.md`) |
+| "`.cursor/rules` are not ground truth" | 4 — a posture, not an action (→ `project-facts.md`) |
+| Pre-existing red on `main` | 1 — point-in-time state that will go stale |
+| The `load-hotspot` fixture | 2 — cheap to re-find with a grep |
+| Cinematic keyframe prefix, shared `dropdownTrigger2` testid | folded into the rows they belong to |
+
+If a *routine* sync admits most of what it sees, the gates were applied loosely — that
+is the failure mode this file exists to prevent. Re-read gate 1 and gate 4 first; they
+catch the most false positives.
