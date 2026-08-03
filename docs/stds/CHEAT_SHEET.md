@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 1.0.0 |
+| **Version** | 1.1.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
 | **Effective date** | 2026-08-03 |
@@ -12,6 +12,12 @@
 > **ID namespaces.** `CHS-n` identifies a rule *in this standard*. `CS-nn` identifies a *row* in
 > the cheat-sheet database (Notion Unique ID). They are deliberately different prefixes — never
 > mix them.
+
+**Reference implementation** — Notion database `Findings — symptom → fix`, a child of the
+`Foleon - Cheat Sheet` page:
+- database: `8020892f438f470eac8ad5da4c11809e`
+- data source: `collection://a7b041f4-7add-41e8-9ead-5fc6c62d6815`
+- views: `Lookup` (approved, grouped by Area) · `Review queue` (needs review) · `Stale` (past 90 days)
 
 ---
 
@@ -123,7 +129,7 @@ deliberate departure from Diátaxis product-mirroring.
 
   | Field | Type | Content |
   |---|---|---|
-  | `Title` | title | the symptom (CHS-4) |
+  | `Symptom` | title | the symptom (CHS-4) — the title property is **named** `Symptom`, so the rule is visible every time a row is written |
   | `Area` | select | one value from CHS-8 |
   | `Fix` | text | the action to take (CHS-6) |
   | `Why` | text | one-sentence cause — omitted when unknown `[SRC-016]` |
@@ -132,7 +138,13 @@ deliberate departure from Diátaxis product-mirroring.
 
 - A row **MUST** additionally carry exactly two machine fields: `Status` (CHS-10) and
   `Dedupe key` (CHS-11).
-- Fields **MUST NOT** be added to the schema without amending this standard. `[SRC-009]`
+- A row **MUST** carry a **unique-ID** field (`ID`, prefix `CS`) — the stable cross-link key required
+  by PCS-11. It is system-generated and immutable. `[SRC-011]`
+- **Derived** properties (formulas) that hold **no authored content** **MAY** exist where a view
+  filter cannot be expressed otherwise (see CHS-9). They are exempt from the closed-set rule because
+  they carry no information a human wrote.
+- Fields that hold **authored content MUST NOT** be added to the schema without amending this
+  standard. `[SRC-009]`
 - `Why` **MUST** be left empty rather than filled with speculation when the cause is unknown. `[SRC-016]`
 
 **Rationale:** Google SRE requires teams to "decide collectively what minimal, structured details your
@@ -144,7 +156,7 @@ provide-sources rules `[SRC-013]`.
 
 ### CHS-6 Length caps
 
-- `Title` **MUST NOT** exceed **10 words**. `[SRC-003]`
+- `Symptom` **MUST NOT** exceed **10 words**. `[SRC-003]`
 - `Fix` **MUST NOT** exceed **40 words or 3 lines**, whichever is hit first. `[SRC-002]`
 - `Fix` **MUST** state the action in its first sentence; caveats and conditions come after
   (inverted pyramid). `[SRC-002]`
@@ -209,7 +221,13 @@ Wozniak's rule 19 requires date stamping for exactly this reason `[SRC-013]`. Th
 maintainer decision (2026-08-03), chosen so the sweep is quarterly and a wrong row cannot survive
 half a year.
 
-**Enforcement:** `Stale` view filter (`Verified on` before 90 days ago AND `Status = Approved`).
+**Enforcement:** `Stale` view filter (`Past 90 days` is true AND `Status = Approved`).
+
+> **Implementation note (platform limit).** Notion's date filters offer only fixed relative presets
+> (today, one week/month/year ago) — **there is no 90-day option**. The window is therefore computed by
+> a derived boolean property, `Past 90 days` =
+> `if(empty(prop("Verified on")), false, dateBetween(now(), prop("Verified on"), "days") > 90)`,
+> and the `Stale` view filters on that. Changing the window means editing this formula, not the view.
 
 ### CHS-10 Review gate
 
@@ -218,14 +236,22 @@ half a year.
 - Promotion to `Status = Approved` **MUST** be a human action. `[SRC-011]`
 - The `Lookup` view **MUST** filter to `Status = Approved`, so unreviewed rows never appear in the
   surface consulted during work. `[SRC-012]`
-- `Status` **MUST** use Notion's `status` property type, not a plain `select`, so the workflow
-  categories are native and API-filterable. `[SRC-011]`
+- `Status` **MUST** offer exactly three states: `Needs review`, `Approved`, `Archived`. `[SRC-011]`
+- `Status` **MUST** be implemented as a `select`, or **MAY** be a `status` property if provisioned by
+  hand (see note). Either way it **MUST** be API-filterable. `[SRC-010]` `[SRC-011]`
 
 **Rationale:** the maintainer's stated requirement is a check on what lands in their own reference
 material. A three-state status with a filtered default view provides it without blocking the
 automation.
 
 **Enforcement:** view filter; API writes constrained to `Needs review`.
+
+> **Implementation note (platform limit).** Notion's `status` property type **cannot be created with
+> custom options through the API** — it always materialises with the defaults (Not started / In
+> progress / Done), and there is no DDL to rename them. A `select` is therefore the only
+> machine-provisionable option, and it filters identically via the API. The cost is losing the native
+> to-do/in-progress/complete grouping; the gain is that the whole schema is reproducible from this
+> standard without manual steps — which matters as soon as a second project gets a sheet.
 
 ### CHS-11 Dedupe key is a property
 
@@ -279,8 +305,8 @@ A cheat-sheet row is conforming when **all** are true:
 - [ ] Passes all four admission gates (CHS-2)
 - [ ] Covers exactly one symptom (CHS-3)
 - [ ] Title names the observable symptom, front-loaded, no banned opener (CHS-4)
-- [ ] Carries exactly the six human fields + `Status` + `Dedupe key` (CHS-5)
-- [ ] Title ≤ 10 words · `Fix` ≤ 40 words / 3 lines, action first · `Why` ≤ 1 sentence (CHS-6)
+- [ ] Carries exactly the six human fields + `Status` + `Dedupe key` + `ID` (CHS-5)
+- [ ] `Symptom` ≤ 10 words · `Fix` ≤ 40 words / 3 lines, action first · `Why` ≤ 1 sentence (CHS-6)
 - [ ] Imperative, neutral, no discovery narrative, no hedging (CHS-7)
 - [ ] `Area` is one of the six permitted values (CHS-8)
 - [ ] `Verified on` is set (CHS-9)
@@ -357,3 +383,4 @@ Two standing exceptions, permitted without a waiver:
 | Version | Date | Change |
 |---|---|---|
 | 1.0.0 | 2026-08-03 | Initial standard. Codifies admission gates, closed field set, symptom-indexed titles, length/voice caps, `Area` axis, 90-day decay policy, review gate, property-resident dedupe key, and the memorisation scope limit. Staleness window (90 days) and `Area` axis (concern-based) set by maintainer decision. |
+| 1.1.0 | 2026-08-03 | Corrections found by building the reference implementation. **CHS-5**: title property is named `Symptom`; the `ID` unique-ID field (PCS-11 cross-link key) is now part of the required set; derived formula properties are exempt from the closed-set rule. **CHS-9**: the 90-day window is computed by a `Past 90 days` boolean formula — Notion has no 90-day relative date preset. **CHS-10**: `Status` is a `select`, since the `status` type cannot be created with custom options via the API; the three state names are what the rule now binds. Both platform limits are documented inline. |
