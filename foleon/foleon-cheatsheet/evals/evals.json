@@ -1,0 +1,24 @@
+{
+  "skill_name": "foleon-cheatsheet",
+  "notes": "Gate discipline is the thing worth testing. The classic failure is admitting everything, so eval 1 is a reject case and comes first.",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Add this to the Foleon cheat sheet: 2026-07-21 — Fix for PROD-3816: moved the card frame styling (border-radius, border, box-shadow) off .CardItemInnerContainer onto .CardItemBackgroundContainer so the frame rounds while inset content stays square. Border cssSelector changed in BOTH card-item.model.ts and the editor's brand-settings preview component.",
+      "expected_output": "REJECTED on gate 1 (recurrence): this is ticket history, not a symptom you would ever look up. No Notion row is created. The reusable insight is already CS-3. Should say which gate failed and stop, without hedging or creating the row 'just in case'.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Add this to the Foleon cheat sheet: discovered that the editor imports Tailwind, whose Preflight resets all borders to none, while the viewer does not import Tailwind at all. So a border can look correct in the editor and be missing in the published doc. Took most of an afternoon to track down.",
+      "expected_output": "ADMITTED (passes all four gates). Runs the dedupe query BEFORE writing. Creates one row with Status='Needs review' only, Area='Editor' or 'Core / rendering', a symptom-indexed front-loaded title under 10 words (e.g. 'Border shows in editor, missing when published'), an imperative Fix under 40 words, a one-sentence Why, and a Dedupe key derived via scripts/row.py. Never sets Approved.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "sync the cheat sheet — there's a finding about the editor not booting after a build because env-config.js isn't copied into dist",
+      "expected_output": "Detects that this duplicates the existing row CS-1 via the Dedupe key query, and UPDATES that row (refreshing Verified on) instead of creating a second one. Reports it as an update, not a create.",
+      "files": []
+    }
+  ]
+}

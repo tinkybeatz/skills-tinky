@@ -45,10 +45,31 @@ they do the work.
 ## Keep it alive (self-enrich)
 Whenever you learn something **non-obvious** about ripley — a gotcha, an implicit
 convention, an architectural "why", a sharp edge — **append it to
-`references/knowledge.md`** (dated, one line). Editing it via
+`references/knowledge.md`**. Editing it via
 `~/.claude/skills/foleon-ripley/references/knowledge.md` writes through to the
 skills-tinky repo, so the knowledge accumulates in a repo you own — never in the
-ripley checkout. When the log grows heavy, promote the stable facts up into
+ripley checkout.
+
+Entries follow the **PCS-6 schema** — one finding per entry, so the log can be
+grouped and deduplicated without re-reading it:
+
+```
+- YYYY-MM-DD · <area> · <symptom> — <finding> · refs: <paths|tickets> · sheet: <CS-nn|none>
+```
+
+`<area>` is one of: Editor · Viewer · Core / rendering · Build & tooling ·
+Tests & Playwright · Conventions.
+
+**Search before you append.** If the finding is already logged, extend that entry
+and refresh its date rather than adding a near-duplicate.
+
+Keep entries **dense** — this file is read by an agent that reads all of it, so
+completeness beats brevity here. Human-facing phrasing is a different job: the
+`foleon-cheatsheet` skill decides whether a finding also earns a row in the Notion
+cheat sheet, and **rewrites** it for a human if so. Don't write for a human here,
+and don't mirror to Notion yourself.
+
+When the log grows heavy, promote the stable facts up into
 `references/project-facts.md` and prune the log.
 
 ## Boundary
@@ -68,3 +89,4 @@ This is Foleon-only. For any other project, use that project's own `CLAUDE.md`
 | Convention conflict | Generic default vs a ripley rule | The ripley rule in `project-facts.md` wins; state which you followed. |
 | Discovery lost | Learned something but didn't record it | Append it to `references/knowledge.md` before finishing the task. |
 | Log bloat | `knowledge.md` sprawling / duplicative | Promote stable facts into `project-facts.md`, prune the log to what's still non-obvious. |
+| Wrote for the wrong audience | Log entry reads like polished human copy, or a cheat-sheet row reads like the log | The log is dense and machine-facing; the sheet is scannable and human-facing. Hand mirroring to `foleon-cheatsheet` — never write both yourself. |

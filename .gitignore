@@ -1,0 +1,3 @@
+# Runtime state written by hooks — never committed.
+# hooks/state/ is recreated on demand (queue.sh does mkdir -p).
+hooks/state/
