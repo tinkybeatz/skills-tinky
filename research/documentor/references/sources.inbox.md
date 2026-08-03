@@ -197,6 +197,49 @@ For proposed new categories (🆕):
 | macOS26/Agent | https://github.com/macOS26/Agent | 2026-04-30 | 78 | Native Mac multi-LLM agent integrating osascript end-to-end |
 | Picus Security — MITRE T1059.002 AppleScript | https://www.picussecurity.com/resource/blog/t1059-002-applescript | 2026-04-30 | 76 | Offensive-security angle, relevant for client EDR deployment |
 
+### 🆕 UX research — reading, scanning & cognitive load
+
+> Rationale: Empirical research on how humans read, scan and retain information (eyetracking, working-memory limits, progressive disclosure). Distinct from "Mobile UX & Accessibility" (interaction/layout ergonomics) — this is about *text and information consumption*. 5 Tier 1–2 sources identified.
+
+| Title | URL | Date discovered | Score /100 | Justification |
+|---|---|---|---|---|
+| NN/g — Text Scanning Patterns: Eyetracking Evidence | https://www.nngroup.com/articles/text-scanning-patterns-eyetracking/ | 2026-08-03 | 92 | Primary eyetracking data; the 4 scanning patterns, layer-cake as most effective |
+| Cowan — The magical number 4 in short-term memory | https://www.cambridge.org/core/services/aop-cambridge-core/content/view/44023F1147D4A1D44BDC0AD226838496/S0140525X01003922a.pdf/the-magical-number-4-in-short-term-memory-a-reconsideration-of-mental-storage-capacity.pdf | 2026-08-03 | 92 | Peer-reviewed BBS target article, ~6.6k citations; supersedes Miller 7±2 |
+| NN/g — How Users Read on the Web (Nielsen) | https://www.nngroup.com/articles/how-users-read-on-the-web/ | 2026-08-03 | 85 | Original 79%/16% scanning study + measured usability deltas (47/58/27/124%) |
+| NN/g — First 2 Words: A Signal for the Scanning Eye | https://www.nngroup.com/articles/first-2-words-a-signal-for-scanning/ | 2026-08-03 | 85 | Grounds front-loading of headings/links/titles |
+| NN/g — Progressive Disclosure (Nielsen) | https://www.nngroup.com/articles/progressive-disclosure/ | 2026-08-03 | 84 | Canonical statement of the pattern + its effect on learnability/efficiency/errors |
+
+### 🆕 Documentation design & knowledge architecture
+
+> Rationale: Frameworks for *structuring* documentation and knowledge artifacts (documentation type systems, minimalism, knowledge-item formulation). Distinct from "Consulting & strategic frameworks" (communication structure for slides/reports) and from any tool-specific category. 2 Tier 1–2 sources + a candidate primary to acquire.
+
+| Title | URL | Date discovered | Score /100 | Justification |
+|---|---|---|---|---|
+| Diátaxis (Daniele Procida) — reference / how-to / start-here | https://diataxis.fr/ | 2026-08-03 | 90 | Authoritative documentation type framework; adopted by Canonical, Django, Gatsby. Normative type boundaries |
+| Wozniak — Twenty rules of formulating knowledge | https://www.supermemo.com/en/blog/twenty-rules-of-formulating-knowledge | 2026-08-03 | 78 | Primary author on the minimum information principle, atomicity, date-stamping. ⚠️ not peer-reviewed, vendor-authored, optimized for memorization |
+
+### 🆕 Notion (workspace & API)
+
+> Rationale: Notion is the user's knowledge-management substrate (3 skills in `notes/` depend on it) and the MCP target for automation. Property/view semantics and hard API constraints need a stable home. 3 official sources.
+
+| Title | URL | Date discovered | Score /100 | Justification |
+|---|---|---|---|---|
+| Notion API — Filter database entries | https://developers.notion.com/reference/post-database-query-filter | 2026-08-03 | 88 | Official; source of the critical constraint — property filters only, no page-body full-text search |
+| Notion Help — Database properties | https://www.notion.com/help/database-properties | 2026-08-03 | 85 | Official property-type reference (Status vs Select, Unique ID, Relation, Rollup) |
+| Notion Help — Database views, filters, sorts & groups | https://www.notion.com/help/views-filters-and-sorts | 2026-08-03 | 85 | Official; unlimited views, per-view filter scoping, AND/OR nesting depth, layouts |
+
+### Information Retrieval & source evaluation
+
+| Title | URL | Date discovered | Score /100 | Justification |
+|---|---|---|---|---|
+| Teevan, Adar, Jones & Potts — Information Re-Retrieval (SIGIR 2007) | http://teevan.org/publications/papers/sigir07.pdf | 2026-08-03 | 90 | Peer-reviewed; ~40% of queries are re-finding queries (1-yr log, 114 users + 119 survey). ⚠️ Possible overlap with "UX research — reading & scanning" |
+
+### DevOps, SRE & Observability
+
+| Title | URL | Date discovered | Score /100 | Justification |
+|---|---|---|---|---|
+| Google SRE Workbook — On-call (playbooks) | https://sre.google/workbook/on-call/ | 2026-08-03 | 88 | Primary; playbook minimal field set, alert↔entry pairing, staleness warning |
+
 ---
 
 ## Review history
