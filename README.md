@@ -86,6 +86,16 @@ Context skills must follow the **[Project-Context Skill standard](docs/stds/PROJ
 
 A context skill **may** also mirror its findings to one external, human-facing surface (PCS-11) — e.g. a Notion cheat sheet. The log stays authoritative and machine-facing; the mirror is a **rewrite for a human**, governed by the **[Cheat Sheet standard](docs/stds/CHEAT_SHEET.md)** (admission gates, closed field set, length/voice caps, 90-day decay, human review gate). Most log entries are correctly never mirrored.
 
+**The mirror is driven by three hooks** (`foleon-ripley` → Notion is the reference implementation):
+
+| Hook | Script | Role |
+|---|---|---|
+| `PostToolUse` (`Edit\|Write\|MultiEdit`) | [`hooks/cheatsheet-queue-append.py`](hooks/cheatsheet-queue-append.py) | Self-filters on the path; when the discoveries log is written, appends the added lines to `hooks/state/cheatsheet-queue.jsonl`. Instant and reasoning-free, so a finding is durable the moment it's logged. |
+| `Stop` | [`hooks/cheatsheet-queue-check.py`](hooks/cheatsheet-queue-check.py) | Blocks the stop **once per session** when the queue is non-empty, so findings get mirrored while context is warm. A marker file makes once-per-session a hard guarantee — a Stop hook that can re-fire on an unemptied queue is an infinite loop. |
+| `SessionStart` | same script | Reports a non-empty queue and offers the sync. This is the crash-recovery path: kill the terminal with cmd+Q and the findings are still queued, so a hard exit costs a delay, not data. |
+
+`SessionEnd` is deliberately **not** used — it is cleanup-only, cannot inject context, and its output is ignored, so it could never trigger the flush. The flush itself is the `foleon-cheatsheet` skill; the hooks only queue and prompt.
+
 **The router's full decision tree** (one hook drives both systems):
 
 | On session start, the repo is… | Router does |
