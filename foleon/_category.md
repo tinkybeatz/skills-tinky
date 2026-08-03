@@ -10,6 +10,11 @@
 
 **Architecture standard (required).** Every project-context skill here (one that carries a specific repo's context for the awareness router) **MUST** follow [`docs/stds/PROJECT_CONTEXT_SKILL.md`](../docs/stds/PROJECT_CONTEXT_SKILL.md): `SKILL.md` + `references/project-facts.md` + `references/knowledge.md`, registered in `hooks/awareness-ignore.txt` as `<repo> -> <skill>`. `foleon-ripley` is the reference implementation.
 
+**Cheat-sheet mirror (optional).** A context skill here MAY mirror admitted findings to one external
+human-facing surface (PCS-11). Content there is governed by
+[`docs/stds/CHEAT_SHEET.md`](../docs/stds/CHEAT_SHEET.md) — a rewrite for a human, never a copy of the
+log.
+
 **Default frontmatter.**
 ```yaml
 name: <folder-name>

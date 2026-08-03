@@ -84,6 +84,8 @@ open any repo ─▶ SessionStart hook checks for CLAUDE.md
 
 Context skills must follow the **[Project-Context Skill standard](docs/stds/PROJECT_CONTEXT_SKILL.md)** (`SKILL.md` + `references/project-facts.md` + `references/knowledge.md`); `foleon/foleon-ripley` is the reference. Everything resolves relative to the script, so it works wherever skills-tinky is cloned.
 
+A context skill **may** also mirror its findings to one external, human-facing surface (PCS-11) — e.g. a Notion cheat sheet. The log stays authoritative and machine-facing; the mirror is a **rewrite for a human**, governed by the **[Cheat Sheet standard](docs/stds/CHEAT_SHEET.md)** (admission gates, closed field set, length/voice caps, 90-day decay, human review gate). Most log entries are correctly never mirrored.
+
 **The router's full decision tree** (one hook drives both systems):
 
 | On session start, the repo is… | Router does |
