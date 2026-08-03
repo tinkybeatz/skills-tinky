@@ -49,13 +49,14 @@ cheat sheet), and most remaining log entries are ticket history or stable facts 
 both correctly rejected. If the backfill wants to add more than a handful, the
 gates are being applied too loosely.
 
-## Job 3 — Normalise the seeded dedupe keys
+## Job 3 — Normalise the seeded dedupe keys ✅ done 2026-08-03
 
 `CS-1`…`CS-6` were seeded by hand before `row.py` existed, so their `Dedupe key`
-values don't match the canonical derivation. Left alone, the next sync will
-create duplicates of all six.
+values didn't match the canonical derivation. Left alone, the next sync would have
+created duplicates of all six. **All six were normalised on 2026-08-03** — the
+table below is kept as the record and as a worked example of the derivation.
 
-Fix once: for each row, derive the canonical key and update it.
+To re-derive any key:
 
 ```bash
 python3 scripts/row.py key --area "Build & tooling"   --symptom "Editor won't boot after a build"
