@@ -3,7 +3,8 @@ name: foleon-cheatsheet
 description: >-
   Moves genuinely useful Foleon / ripley findings from Claude's discoveries log
   onto the maintainer's own Notion cheat sheet — a hub page linking to a small,
-  fixed set of category pages (Commands, Gotchas, Debugging, ...), each fact
+  fixed set of category pages nested under a project page (Ripley -
+  Commands, Ripley - Gotchas, ...), each fact
   its own heading — proposed in conversation and written only after an
   explicit yes. Never a database, never a new page per finding: category
   pages are a small fixed set the maintainer chose, not one per fact. Use
@@ -12,7 +13,7 @@ description: >-
   needs draining. Trigger phrases: "sync the Foleon cheat sheet", "update the
   Foleon cheat sheet", "add this to the Foleon cheat sheet", "my Foleon cheat
   sheet", "drain the cheatsheet queue", or explicit `/foleon-cheatsheet`.
-  Requires the Notion MCP. Enforces `docs/stds/CHEAT_SHEET.md` v2.2.0: most
+  Requires the Notion MCP. Enforces `docs/stds/CHEAT_SHEET.md` v2.3.0: most
   findings are correctly REJECTED, an entry is rewritten never copied, nothing
   is written to Notion without the maintainer's explicit go-ahead in that same
   conversation, and it never creates a new page or database row per finding.
@@ -31,7 +32,7 @@ lookup surface: short, scannable, aggressively filtered. This skill carries find
 rejects most of them on the way, and **never writes anything without the maintainer's explicit
 approval in the conversation itself.**
 
-Governed by [`docs/stds/CHEAT_SHEET.md`](../../docs/stds/CHEAT_SHEET.md) v2.2.0 and
+Governed by [`docs/stds/CHEAT_SHEET.md`](../../docs/stds/CHEAT_SHEET.md) v2.3.0 and
 [PCS-6 / PCS-11](../../docs/stds/PROJECT_CONTEXT_SKILL.md) v2.0.0. The standards win any disagreement
 with this file.
 
@@ -55,20 +56,28 @@ with this file.
 > now a hub page linking to a small, fixed set of category pages, each fact its own heading. This is
 > **not** the v1.x mistake: a page per bounded *category* (a handful, fixed) is a readability choice;
 > a page per *finding* (unbounded, one per fact) is what v2.0.0 removed. Don't confuse the two.
+>
+> **v2.3.0:** the maintainer is planning more Foleon projects beyond `ripley`. The hub is now a bare
+> **index** — one line per project — and each project's category pages nest under its own project
+> page, titled `<Project> - <Category>` (e.g. `Ripley - Debugging`). Nesting keeps the hub short as
+> projects are added; the title prefix keeps pages unambiguous in Notion's search, which shows titles
+> but not nesting. Never add a project's categories as siblings at the hub level.
 
 ## Target
 
 | Thing | Value |
 |---|---|
-| Hub page | `Foleon - Cheat Sheet` — `https://app.notion.com/p/3aae7f9407e780df888df6c667a4f4e1` |
-| Category pages (today) | `Commands` · `Packages` · `Conventions` · `Gotchas` · `Debugging` — each a child page of the hub, linked from it |
+| Hub page | `Foleon - Cheat Sheet` — `https://app.notion.com/p/3aae7f9407e780df888df6c667a4f4e1` — a **bare index**, one line per project (CHS-9a) |
+| Project page (today) | `Ripley` — the only project so far; a child of the hub |
+| Category pages (today) | `Ripley - Commands` · `Ripley - Packages` · `Ripley - Conventions` · `Ripley - Gotchas` · `Ripley - Debugging` — each a child of `Ripley`, linked from it |
 | Queue | `hooks/state/cheatsheet-queue.jsonl` (repo-relative) |
 | Log | `foleon/foleon-ripley/references/knowledge.md` |
-| Local mirror | `foleon/foleon-ripley/references/cheatsheet-approved.md` (generated, concatenates all category pages) |
+| Local mirror | `foleon/foleon-ripley/references/cheatsheet-approved.md` (generated, concatenates all of `Ripley`'s category pages) |
 
 Requires the **Notion MCP**. If a call fails because it is not connected, stop and say so — do not
-fall back to writing anywhere else. The exact category page list drifts as categories are added —
-**fetch the hub first** to get the current, real list; don't trust the table above blindly.
+fall back to writing anywhere else. The project and category lists drift as they're added — **fetch
+the hub, then the project page, every time** to get the current, real lists; don't trust the table
+above blindly.
 
 ## Sync flow
 
@@ -80,11 +89,13 @@ bash scripts/queue.sh drain     # prints all entries, then truncates
 An empty or missing queue is a normal outcome: say "nothing pending" and stop. `drain` prints before
 truncating, so a crash between the two loses nothing.
 
-**2. Fetch the hub, then the target category page — every time, fresh.** Fetch the hub to get the
-current category-page list and pick the one the finding belongs to (or note if none fits — seeing
-that live list is also what tells you whether a new category is truly warranted). Then fetch that
-one category page. Never reuse a fetch from earlier in the conversation; something may have changed.
-This read is also gate 5 below, not a separate step.
+**2. Fetch the hub, then the project page, then the target category page — every time, fresh.**
+Fetch the hub for the current project list (today: just `Ripley` — everything in `foleon-ripley`'s
+log is Ripley's, so this step is a formality until a second project exists). Fetch that project page
+for its current category-page list and pick the one the finding belongs to (or note if none fits —
+seeing the live list is also what tells you whether a new category is truly warranted). Then fetch
+that one category page. Never reuse a fetch from earlier in the conversation; something may have
+changed. This last read is also gate 5 below, not a separate step.
 
 **3. Filter — the five gates (CHS-2).** Every finding must pass **all five**:
 
@@ -119,9 +130,11 @@ Enforces banned openers and hedge/narrative voice — not length, which is judge
 nudge, not fail, on very long entries as a check against CHS-3 (still one fact?), never on length alone.
 
 **6. Propose in chat. Wait for an explicit yes.** Show the maintainer the exact entry (title + body,
-including any code block) and exactly where it goes — which category page, and which heading or
-sub-heading within it. This **is** the review gate (CHS-9) — there is no Notion-side status field, no review queue,
-nothing to configure. A "looks good" is enough; silence or a "no" is not a yes.
+including any code block) and exactly where it goes — which project, which category page, and which
+heading or sub-heading within it. If it's for a project other than the one the finding's log belongs
+to, that alone should stop you — you're in the wrong place. This **is** the review gate (CHS-9) —
+there is no Notion-side status field, no review queue, nothing to configure. A "looks good" is
+enough; silence or a "no" is not a yes.
 
 - **Yes** → go to step 7.
 - **No** → do not write anything. Mark the log entry `sheet: no` so it is not re-proposed. Say so and stop.

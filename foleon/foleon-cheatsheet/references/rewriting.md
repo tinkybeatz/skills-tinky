@@ -99,21 +99,27 @@ a leading `A` / `An` / `The`. Enforced by `row.py check`.
 Project jargon is *encouraged* — `@foleon/core`, `to-css`, KrakenD, Preflight. The audience is the
 maintainer.
 
-## Choosing a category page, then a heading (CHS-8)
+## Choosing a project, then a category page, then a heading (CHS-8, CHS-9a)
 
-Two decisions, in order:
+Three decisions, in order:
 
-1. **Which category page?** Fetch the hub for the real, current list — today: `Commands` ·
-   `Packages` · `Conventions` · `Gotchas` · `Debugging`. Pick the one you'd actually look under, not
-   the one that matches where the code lives. A rendering gotcha you'd hit while debugging generally
-   goes on `Gotchas`; a reusable console technique goes on `Debugging`.
-2. **New top-level heading, or under an existing sub-heading?** Once on the right page, check whether
-   it belongs alongside a natural cluster already there (e.g. `Commands` already groups `Building` /
-   `Running` / `Testing` / `Fixes`) — if so, it's a bullet under that sub-heading. Otherwise it's a new
-   `##` heading of its own.
+1. **Which project?** Today there's only `Ripley` — everything in `foleon-ripley`'s log belongs
+   there. This step becomes real the moment a second Foleon project gets its own project-context
+   skill; fetch the hub for the current, real project list rather than assuming.
+2. **Which category page?** Fetch the project page for its real, current list — today, under
+   `Ripley`: `Commands` · `Packages` · `Conventions` · `Gotchas` · `Debugging`. Pick the one you'd
+   actually look under, not the one that matches where the code lives. A rendering gotcha you'd hit
+   while debugging generally goes on `Gotchas`; a reusable console technique goes on `Debugging`.
+3. **New top-level heading, or under an existing sub-heading?** Once on the right page, check whether
+   it belongs alongside a natural cluster already there (e.g. `Ripley - Commands` already groups
+   `Building` / `Running` / `Testing` / `Fixes`) — if so, it's a bullet under that sub-heading.
+   Otherwise it's a new `##` heading of its own.
 
-**Both a new category page and a new top-level heading are rare and deliberate.** If nothing existing
-fits at either level, say so explicitly when proposing — "this doesn't fit any current category;
-propose a new page for `X`?" — rather than forcing it into the closest one. CHS-8 wants 4–8 categories
-total (however they're split between pages and headings) and ~10 entries per category before it needs
-to split further; check both before proposing something new.
+**A new category page, and especially a new project page, are rare and deliberate.** If nothing
+existing fits, say so explicitly when proposing — "this doesn't fit any current category; propose a
+new page for `X`?" — rather than forcing it into the closest one. CHS-8 wants 4–8 categories per
+project (however split between pages and headings) and ~10 entries per category before splitting
+further; CHS-9a wants the hub itself to stay one line per project. Check all three levels before
+proposing something new, and remember: a new category page is titled `<Project> - <Category>`, never
+just `<Category>` (CHS-9a) — even though it's nested under the project, the prefix is what keeps it
+unambiguous in Notion's own search.

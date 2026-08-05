@@ -1,9 +1,11 @@
 # ripley — Foleon cheat sheet (GENERATED, mirrored from Notion)
 
-> **Do not hand-edit.** This concatenates every category page under the `Foleon - Cheat Sheet` Notion
-> hub, refreshed by `foleon-cheatsheet` whenever any of them changes. Edit the Notion pages, not this
-> file — this file is overwritten on the next pull. The human side is split across several short
-> pages for readability (CHS-8); this file stays one, so reading it is still just "read one file."
+> **Do not hand-edit.** This concatenates every category page under `Ripley` (the project page nested
+> under the `Foleon - Cheat Sheet` hub — CHS-9a), refreshed by `foleon-cheatsheet` whenever any of
+> them changes. Edit the Notion pages, not this file — this file is overwritten on the next pull. The
+> human side is split across several short pages, nested by project, for readability (CHS-8, CHS-9a);
+> this file stays one, so reading it is still just "read one file." If a second Foleon project gets
+> its own project-context skill, it gets its own such file — this one stays Ripley-only.
 
 Everything below already went through conversational approval before it was written (CHS-9) — there
 is no separate "approved" filter to apply, because there is no per-item anything on any of these

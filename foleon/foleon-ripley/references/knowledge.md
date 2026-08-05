@@ -304,6 +304,35 @@ facts up into `project-facts.md` and prune here.
   culprit. Keep the probe in DevTools → Sources → Snippets so it survives the constant reloads. Anchor follow-up
   greps on the semantic `ripley__*` classes (they come from identifier constants); `sc-*` hashes are
   build-generated and ungreppable — for those, React DevTools names the component. · refs: PROD-3270 · sheet: yes
+- 2026-08-05 · Core / rendering · Mixpanel event missing / no Mixpanel SDK to grep for — ripley NEVER calls a
+  Mixpanel SDK; grepping `mixpanel` finds only ONE hit, a test title
+  (`foleon-core-viewer/src/apps/previewer/entry.personalization.test.tsx` "should call trackData with data for
+  MixPanel"). Everything is pushed to `window.dataLayer` and GTM fans out to Mixpanel downstream, so a missing
+  event is a GTM-container problem, not a code problem — the app cannot know whether it reached Mixpanel.
+  TWO SEPARATE tracking modules, easy to confuse: (1) `foleon-core/src/shared/tracking/index.ts` — PRODUCT
+  analytics for the editor: `trackData(eventName, data)` pushes `{event: eventName, ...data}`; event names live
+  in the `trackingEvents` enum (~28: addBackgroundImage, replaceImage, createBlock, publishPublication,
+  republishPublication, openPreview, createPage, changedAttribute, viewportChange, activatedFont, …) plus
+  free-string call sites that BYPASS the enum (`content.store.ts` `'translate'`/`'undo'`/`'redo'` — and it
+  imports `trackDataGTM as trackData`, a different function under the same local name; `assistant/container.tsx`
+  `'textAssistanceIdea'`), so the enum is NOT the full event catalogue — grep `trackData(` for that.
+  Helpers wrap it: `trackAttribute` (all → `changedAttribute`, suppresses ITEM_SECTION min/max height+width, and
+  for `display` on non-xl viewports rewrites `name`→viewport label + `value`→show/hide), `trackPlaceMedia`
+  (derives `source` = unsplash|<provider>|stock|custom by sniffing `//cdn.foleon.com/upload/stock/` in
+  `_links.image.href`), `syncTrackData` (a promise wrapper, resolves regardless). `trackThis` is the legacy
+  GA-UA shape — every call emits the SAME event name `editorEvent` with category/action/label/value props
+  (`TrackingCategory`/`TrackingEvent`/`TrackingLabel` enums). (2) `foleon-core/src/common/tracking/**` — READER
+  analytics for published docs (`events/google-and-foleon-analytics.ts`, `ITrackingGTM.gtmCode`, per-doc
+  `gtm_code` from the API `hal.ts`, `INSTANT_ANALYTICS_URL` + `PARDOT_TRACKING_SCRIPT_URL` in `config/.env.*`).
+  Form submissions push their own dataLayer payload directly (`entities/form/viewer/form.viewer.tsx`
+  `pushFormDataToWindowDataLayer`), not via `trackData`. GTM snippet is inlined at
+  `foleon-core-editor/src/index.html:62`. Playwright strips `googletagmanager` from recordings
+  (`create-route-from-recording.ts` thirdPartyFilterWords) → tracking is absent under integration tests by
+  design. Two sharp edges in `shared/tracking/index.ts`: `trackData`'s catch does `throw new Error()`, DISCARDING
+  the original error and re-throwing an empty one into the caller (a tracking failure can break the user action
+  it was instrumenting — it does not fail soft despite looking like it does); and `trackingEvents`/`ItemEnum`/
+  `TrackingCategory` are `enum`s, violating the const-assertion-union convention — legacy, don't cargo-cult when
+  adding events. · refs: `foleon-core/src/shared/tracking/index.ts` · `common/tracking/**` · sheet: none
 - 2026-08-03 · Build & tooling · 403 Forbidden from local requests — run `sh scripts/prepare-auth.sh`.
   Recorded during the PCS-6 migration: this finding existed only on the Notion cheat sheet (row CS-2) and in
   no Claude-facing file, which PCS-11 forbids — the log is authoritative and a finding must never live only in

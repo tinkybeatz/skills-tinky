@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 2.0.0 |
+| **Version** | 2.1.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
 | **Effective date** | 2026-07-20 |
@@ -134,9 +134,15 @@ A conforming skill **MUST** contain exactly these files (more `references/` allo
 ### PCS-11 External mirror (optional)
 - A project-context skill **MAY** mirror admitted findings to **exactly one** external, human-facing
   surface. Zero or one — never several. `[SRC-006]`
-- The mirror **MUST** be a **single page** (or a small fixed set of pages) organized by heading, never
-  a database of per-finding rows. A database whose rows are individual findings is, mechanically, a
-  new page per finding — the exact structure PCS-11 exists to prevent. `[SRC-006]`
+- The mirror **MUST** be a **single page** (or a small fixed set of pages, nested under one project
+  page — see below) organized by heading, never a database of per-finding rows. A database whose rows
+  are individual findings is, mechanically, a new page per finding — the exact structure PCS-11 exists
+  to prevent. `[SRC-006]`
+- **Multiple project-context skills MAY share one hub.** A shared hub does not violate "exactly
+  one" — each skill's mirror is still exactly one (its own project page and that page's category
+  pages); the hub above them is simply a bare index. The hub itself **MUST NOT** hold any project's
+  categories directly — one project page per project, categories nested under it, per
+  [`CHEAT_SHEET.md`](CHEAT_SHEET.md) CHS-9a. `[SRC-006]`
 - `references/knowledge.md` **MUST** remain authoritative. A finding **MUST NOT** exist only in the
   mirror. `[SRC-006]`
 - The mirror's content **MUST** be governed by its own editorial standard — for cheat sheets,
@@ -233,6 +239,7 @@ temporarily non-conforming if tracked with a dated note in its `knowledge.md`.
 | Version | Date | Change |
 |---|---|---|
 | 1.0.0 | 2026-07-20 | Initial standard. Codifies the `foleon-ripley` architecture as the required shape for project-context skills. |
+| **2.1.0** | 2026-08-05 | **PCS-11 amended for multiple projects.** Clarified that several project-context skills MAY share one hub without violating "exactly one mirror" — each skill's mirror is still exactly one project page (plus that page's categories); the hub is a bare index above them, never holding any project's categories directly. Points at the new `CHEAT_SHEET.md` CHS-9a for the concrete nesting/naming rule. |
 | **2.0.0** | 2026-08-05 | **PCS-11 rewritten.** The mirror MUST be a single page organized by heading, never a per-finding database — a database row is mechanically a new page per finding, exactly what a database-backed mirror produced and the maintainer rejected on sight. Review MUST be conversational, before the write; a Notion-side review-status field is explicitly disallowed, since it reintroduces the same per-item structure. `sheet:` in PCS-6 becomes `yes\|no\|none` (no external row ID exists to reference). Read-back simplifies to a plain copy of the mirror's current text, since everything on it was already conversationally approved. Scope change; version bumped MAJOR. |
 | 1.2.0 | 2026-08-03 | **PCS-6**: where a dedupe script exists the writer MUST use it — a rule enforced only by instruction was the weakest link. **PCS-11**: added the **read-back leg**. Approved rows SHOULD be pulled back into a generated reference file, because the mirror was one-directional and a finding could exist on the external surface while being in no skill-facing file — found by audit, not theory. Checklist and enforcement updated. |
 | 1.1.0 | 2026-08-03 | **PCS-6 amended** — structured entry schema (`date · area · symptom — finding · refs · sheet`) and a mandatory dedupe-before-append search. **PCS-11 added** — optional single external mirror: log stays authoritative, transform is a rewrite not a copy, most entries are correctly rejected, cross-linked by external ID, created in a review state, PCS-7 boundary preserved. Checklist, enforcement table and sources updated. |

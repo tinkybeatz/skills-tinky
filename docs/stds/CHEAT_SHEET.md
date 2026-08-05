@@ -3,11 +3,11 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 2.2.0 |
+| **Version** | 2.3.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
 | **Effective date** | 2026-08-05 |
-| **Applies to** | The human-facing Notion hub page (and its small, fixed set of category child pages) a project-context skill maintains for its maintainer (reference implementation: `Foleon - Cheat Sheet`) |
+| **Applies to** | The human-facing Notion hub page, its project pages, and their category child pages, maintained for the maintainer across one or more project-context skills (reference implementation: `Foleon - Cheat Sheet`) |
 
 > **v2.0.0 replaces the entire v1.x architecture.** v1.x built a Notion *database* with one row per
 > admitted finding. In Notion, every database row **is a page** — so "one row per finding" is
@@ -18,10 +18,11 @@
 > worse place. Both defects are structural, not tunable. The whole database is gone; nothing here
 > carries it forward. See the [v2.0.0 changelog entry](#change-log) for the full account.
 
-**Reference implementation** — a hub page with 5 category child pages, no database:
-`Foleon - Cheat Sheet` (`https://app.notion.com/p/3aae7f9407e780df888df6c667a4f4e1`) links to
-`Commands`, `Packages`, `Conventions`, `Gotchas`, `Debugging` — each a child page, each fact its own
-`##` heading (or grouped under a `##` sub-heading, e.g. `Commands` → `Building`).
+**Reference implementation** — a bare hub, one project page, category pages nested under it, no
+database: `Foleon - Cheat Sheet` (the hub) links to `Ripley` (the project page), which links to
+`Ripley - Commands`, `Ripley - Packages`, `Ripley - Conventions`, `Ripley - Gotchas`,
+`Ripley - Debugging` — each a child of `Ripley`, each fact its own `##` heading (or grouped under a
+`##` sub-heading, e.g. `Ripley - Commands` → `Building`).
 
 ---
 
@@ -200,10 +201,9 @@ checklist wording should be "simple and exact" in "the familiar language of the 
 
 ### CHS-8 Categories — pages or headings, never properties
 
-- A category **MUST** be either a **child page** of the hub (reference implementation: `Commands`,
-  `Packages`, `Conventions`, `Gotchas`, `Debugging`) or a `##` heading within a page — **never** a
-  database property, select field, or anything requiring schema configuration. New categories are
-  added by writing a page or a heading. `[SRC-018]`
+- A category **MUST** be either a **child page** (of the hub, or of a project page — see CHS-9a) or a
+  `##` heading within a page — **never** a database property, select field, or anything requiring
+  schema configuration. New categories are added by writing a page or a heading. `[SRC-018]`
 - The maintainer's own organisation **is** the category set — there **SHOULD** be roughly **4 to 8**
   categories at a time, whether pages or headings. This is not a theoretical taxonomy; it's
   observed retrieval behaviour, which is stronger evidence than anything this standard could invent
@@ -218,6 +218,28 @@ checklist wording should be "simple and exact" in "the familiar language of the 
 category count itself needs the same discipline whether it's rendered as pages or headings. Splitting
 into pages (rather than keeping headings on one page) is purely a **readability** choice as content
 grows — it does not change what a "category" is or how many of them there should be.
+
+### CHS-9a Multiple projects share one hub, nested by project
+
+- When a project-context skill's mirror shares a hub with other projects' mirrors (e.g. several
+  Foleon repos under one Notion workspace), the hub **MUST** hold one **project page** per project,
+  and each project's categories **MUST** be children of that project's page, not siblings at the hub
+  level. The hub itself **MUST** stay a bare index: one line per project, nothing else.
+- A category page's **title MUST be prefixed with its project name** (e.g. `Ripley - Debugging`, not
+  `Debugging`) even though it is nested under the project page. Nesting disambiguates while browsing;
+  the prefix disambiguates in Notion's global search and quick-open, neither of which shows the
+  nesting path.
+- This is **not** an exception to CHS-5/CHS-8 — a project page is itself just another bounded,
+  human-chosen category-of-categories, same discipline as everything else in this standard.
+
+**Rationale:** the maintainer's own request, generalised: *"the current cheat-sheet as the main
+index, a header per project... categories represented by independent files... Ripley - Debugging...
+so readability isn't compromised when I start working on multiple projects."* Flat category pages
+without project nesting would recreate, one level up, exactly the scaling problem CHS-5 exists to
+prevent — a hub listing 5 categories × N projects as undifferentiated siblings.
+
+**Enforcement:** reviewed at proposal time; the hub's line count (one per project) and each project
+page's category count (CHS-8) are both visible on open.
 
 **Enforcement:** reviewed at proposal time; category count and per-category entry count are visible
 just by opening the hub (page list) or a category page (heading list).
@@ -296,6 +318,7 @@ A cheat-sheet bullet is conforming when **all** are true:
 - [ ] As short as the fact allows, but not artificially truncated; lead phrase alone identifies the topic (CHS-6)
 - [ ] Imperative, neutral, no discovery narrative, no hedging (CHS-7)
 - [ ] Placed under one of ~4–8 categories (pages or headings); no category exceeds ~10 entries (CHS-8)
+- [ ] If the hub serves multiple projects: the entry's category page is nested under its project page, titled `<Project> - <Category>` (CHS-9a)
 - [ ] Shown to the maintainer, exact wording, and approved **before** the write (CHS-9)
 - [ ] The full page was freshly read immediately before proposing (CHS-10)
 
@@ -354,6 +377,7 @@ the exception.
 | 1.0.0 | 2026-08-03 | Initial standard: database, per-finding rows, closed field set, `Status`/`Dedupe key` properties, 90-day decay. |
 | 1.1.0 | 2026-08-03 | Corrections from building the reference implementation (title property naming, `ID` field, formula-based staleness, `Status` as `select`). |
 | 1.2.0 | 2026-08-03 | Log dedupe scripted; read-back leg added (approved rows → local file). |
+| **2.3.0** | 2026-08-05 | **Project nesting, on maintainer request.** Anticipating other Foleon projects: *"the current cheat-sheet as the main index, a header per project... categories represented by independent files... Ripley - Debugging... so readability isn't compromised when I start working on multiple projects."* New rule **CHS-9a**: the hub stays a bare per-project index; each project gets one project page; that project's categories nest under it; category page titles are prefixed with the project name (nesting disambiguates while browsing, the prefix disambiguates in Notion's search/quick-open, which shows titles but not nesting). Reference implementation restructured: `Foleon - Cheat Sheet` (hub, one line) → `Ripley` (project page) → `Ripley - Commands` / `Ripley - Packages` / `Ripley - Conventions` / `Ripley - Gotchas` / `Ripley - Debugging` (moved via Notion's page-move, not recreated — all content preserved). CHS-8 cross-references the new rule; checklist and "Applies to" updated for the extra layer. |
 | **2.2.0** | 2026-08-05 | **Multi-page structure, on maintainer request.** As the reference implementation grew, the maintainer proposed splitting the single page into "a file per category," each fact getting a real heading rather than a bold lead phrase, and related facts (e.g. `Commands` → `Building`) grouped under a sub-heading. This is compatible with everything v2.0.0 corrected: a *page per bounded category* (a handful, fixed) is a readability choice, not the *page per finding* (unbounded, one per fact) that v2.0.0 removed — CHS-5 now states that distinction explicitly so it isn't re-litigated by mistake. CHS-4 generalised from "bold lead phrase" to "title," covering both a real heading and a bold-in-bullet phrase as equally conforming. CHS-8 renamed and rewritten: categories are pages or headings, still 4–8 of them, still capped at ~10 entries each before splitting further, still never a database property. Reference implementation restructured: hub page (`Foleon - Cheat Sheet`) + 5 category child pages (`Commands`, `Packages`, `Conventions`, `Gotchas`, `Debugging`); `Playwright gotchas` dropped (emptied by the maintainer's own pruning — a category with nothing in it is not scaffolded back). Page-length metric now applies per category page. |
 | **2.1.0** | 2026-08-05 | **CHS-6 corrected on direct maintainer pushback.** The v2.0.0 version of CHS-6 set a hard ~35-word cap and CHS-5 treated a fenced code block as a rare exception to it. The maintainer rejected both: a bullet needing a "how to use it" clause or a command snippet is normal, not a violation. CHS-6 now sets **no fixed length** — an entry is as short as the fact allows, may include an explanatory clause and/or a code block, and is judged only by whether its lead phrase (CHS-4) still identifies the topic in one clause. CHS-5's code-block allowance is promoted from "standing exception" to a normal part of an entry. What actually keeps the page short is unchanged: CHS-2 (most things are rejected) and CHS-3 (one bullet, one fact) — length was never the real lever, and pretending otherwise is what produced the wrong rule. Conformance checklist, enforcement table, exceptions and one metric updated accordingly. |
 | 2.0.0 | 2026-08-05 | **Full architecture reversal.** The maintainer rejected the v1.x database on sight: every finding created a new page ("this is not a cheat-sheet, it's a document with 10000 of infos"), and — found on inspection — 13 of the 18 rows created during the v1.2.0 backfill duplicated a bullet already on the maintainer's own hand-written page, because admission never checked against that page's actual content, only against other database rows. The v1.x database was trashed in full. **CHS-5 (closed field set), CHS-9 (staleness/decay), CHS-10 (Status review gate) and CHS-11 (Dedupe-key property) are removed.** Replaced with: one page, one bullet per fact under an existing heading (CHS-5, rewritten), a fifth admission gate — "not already said" (CHS-2) — checked by reading the whole page (CHS-10, rewritten), and a conversational review gate before any write (CHS-9, rewritten) in place of a Notion-side status field. Net effect: fewer rules (11 vs 12), because most of what v1.x enforced with schema is now enforced simply by there being one short page. |
