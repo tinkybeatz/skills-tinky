@@ -5,8 +5,11 @@ answer in the time it takes to scan a short list. **These need different text.**
 or lightly editing the log entry violates CHS-1 — the transform is a rewrite, and the result is
 exactly **one bullet**, matching the page's existing voice.
 
-Validate the composed bullet with `python3 scripts/row.py check --bullet "..."` before proposing it.
-The word cap is numeric — don't estimate it.
+Validate the composed entry with `python3 scripts/row.py check --bullet "..."` before proposing it.
+It checks voice (banned openers, hedging, discovery narrative) — **not length**. There is no word cap
+(CHS-6, v2.1.0): an entry is as short as the fact allows, and extends to include a short explanatory
+clause or a fenced code block whenever the bare fact would be ambiguous or unusable without one. The
+one thing that must stay short is the **lead phrase** — it alone has to identify the topic.
 
 ## Match the page's own style
 
@@ -49,6 +52,31 @@ bullet should be indistinguishable in style from one the maintainer wrote themse
 What changed: the DOM tour became nothing (dropped — not needed to act). The causal chain became the
 minimum needed to know *which layer to touch*. Three findings in the log became one bullet, because
 only one of them clears admission on its own merits.
+
+## Worked transform — when the fact genuinely needs more (CHS-6, v2.1.0)
+
+Not every admissible fact fits a single clause. When the bare instruction would be unusable without
+knowing *why* or *how*, extend the entry — an explanatory clause, a fenced code block, or both. This
+is not a violation; a rigid length cap here was tried and rejected as unusable.
+
+**Log entry:**
+
+> 2026-07-22 — the apps bundle `@foleon/core`'s built `dist`, not its source. Editing core `src` alone
+> does nothing visible until you rebuild the whole chain: core, then editor, then copy env-config —
+> forgetting the last step leaves the editor unable to boot.
+
+**Entry (lead phrase + why + code, all admissible under CHS-6):**
+
+> `**Changed @foleon/core?** The apps bundle its built dist, not the source — editing src alone changes nothing until you rebuild the chain:`
+> ```bash
+> pnpm --filter @foleon/core build
+> pnpm --filter @foleon/editor build
+> cp src/env-config.js dist/env-config.js
+> ```
+
+The lead phrase (`**Changed @foleon/core?**`) still identifies the topic in one clause — that's the
+only thing CHS-6 actually requires. Everything after it is exactly as long as needed to make the fact
+usable, no longer.
 
 ## Banned openers (CHS-4)
 

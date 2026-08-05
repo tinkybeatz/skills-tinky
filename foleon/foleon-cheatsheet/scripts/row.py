@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
-"""Mechanical enforcement of the cheat-sheet standard (docs/stds/CHEAT_SHEET.md v2.0.0).
+"""Mechanical enforcement of the cheat-sheet standard (docs/stds/CHEAT_SHEET.md v2.1.0).
 
-There is no database and no per-item fields anymore — a proposed addition is one
-markdown bullet line, full stop. This script checks that ONE line against the
-caps, banned openers and hedge/narrative words in CHS-4/6/7. It does not, and
-cannot, check CHS-2 gate 5 ("not already said") — that requires reading the
-live page, which is judgement, not a regex.
+There is no database and no per-item fields — a proposed addition is one entry
+(a bullet, optionally with an explanatory clause and/or a fenced code block).
+CHS-6 (v2.1.0) deliberately has no length cap: an entry is as short as the fact
+allows and may extend to include a "how to use it" clause or a command
+snippet. This script does NOT check length. It checks the things that are
+still genuinely mechanical: banned openers (CHS-4) and hedge/narrative voice
+(CHS-7). It does not, and cannot, check CHS-2 gate 5 ("not already said") —
+that requires reading the live page — or whether the entry is "as short as
+the fact allows," which is judgement, not a regex.
 
-Exit 0 = pass, 1 = fail. Prints one line per violation.
+Exit 0 = pass, 1 = fail. Prints one line per violation. A pass here is
+necessary, never sufficient — gate 5 and the maintainer's yes still apply.
 """
 
 import argparse
 import re
 import sys
-
-MAX_WORDS = 35  # CHS-6 — whole bullet, not split across fields
 
 # CHS-4: openers that carry no information.
 BANNED_OPENERS = [
@@ -38,10 +41,15 @@ NARRATIVE_PHRASES = [
     'during debugging', 'it appears that',
 ]
 
+# Not a rule, not a fail — past this, ask yourself whether it's still one
+# fact (CHS-3) or should split. Purely a nudge for the writer.
+LONG_ENTRY_NUDGE_WORDS = 120
+
 
 def strip_formatting(text):
-    """Strip inline code, bold and markdown link syntax so counts reflect the
-    words a reader actually parses, not the markup around them."""
+    """Strip inline code, bold and fenced code blocks so voice checks read
+    what a reader actually parses, not markup or literal command text."""
+    text = re.sub(r'```.*?```', ' ', text, flags=re.S)
     text = re.sub(r'`[^`]*`', ' ', text)
     text = text.replace('**', '')
     return text
@@ -51,33 +59,21 @@ def count_words(text):
     return len([w for w in strip_formatting(text).split() if w.strip()])
 
 
-def count_lines(text):
-    return len([ln for ln in text.splitlines() if ln.strip()])
-
-
 def find_phrases(text, phrases):
     low = ' ' + re.sub(r'[^a-z0-9\s]+', ' ', strip_formatting(text).lower()) + ' '
     low = re.sub(r'\s+', ' ', low)
     return [p for p in phrases if f' {p} ' in low]
 
 
-def check(bullet):
+def check(entry):
     problems = []
+    notes = []
 
-    if not bullet.strip():
-        return ['bullet is empty']
-
-    if count_lines(bullet) > 1:
-        problems.append('bullet spans more than one line — CHS-5 wants one bullet, '
-                         'one fact (a fenced code block for a command sequence is fine, '
-                         'that goes under the bullet, not counted here)')
-
-    words = count_words(bullet)
-    if words > MAX_WORDS:
-        problems.append(f'{words} words, max {MAX_WORDS} (CHS-6)')
+    if not entry.strip():
+        return ['entry is empty'], []
 
     # Banned opener check: strip a leading bold marker, then check the first words.
-    lead = re.sub(r'^\*\*', '', bullet.strip())
+    lead = re.sub(r'^\*\*', '', entry.strip())
     normalised = re.sub(r'[^a-z0-9\s]+', ' ', lead.lower()).strip()
     for opener in sorted(BANNED_OPENERS, key=len, reverse=True):
         if normalised == opener or normalised.startswith(opener + ' '):
@@ -86,30 +82,39 @@ def check(bullet):
                 f'front-load the informative words instead (CHS-4)')
             break
 
-    for hedge in find_phrases(bullet, HEDGE_WORDS):
+    for hedge in find_phrases(entry, HEDGE_WORDS):
         problems.append(
             f'hedge "{hedge}" — an uncertain fact fails admission gate 4, '
             f'it does not get hedged onto the page (CHS-7)')
-    for phrase in find_phrases(bullet, NARRATIVE_PHRASES):
+    for phrase in find_phrases(entry, NARRATIVE_PHRASES):
         problems.append(f'discovery narrative "{phrase}" (CHS-7)')
 
-    return problems
+    words = count_words(entry)
+    if words > LONG_ENTRY_NUDGE_WORDS:
+        notes.append(
+            f'{words} words (excluding code) — not a violation, but check CHS-3: '
+            f'is this still one fact, or has it drifted into two that should split?')
+
+    return problems, notes
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('cmd', choices=['check'])
     parser.add_argument('--bullet', required=True,
-                         help='the exact markdown bullet line, as it would be written to the page')
+                         help='the full entry as it would be written to the page — '
+                              'the bullet, plus any explanatory clause and fenced code block')
     args = parser.parse_args()
 
-    problems = check(args.bullet)
+    problems, notes = check(args.bullet)
     if problems:
         print('FAIL — rewrite before proposing it:')
         for p in problems:
             print(f'  - {p}')
         return 1
     print('PASS (still needs CHS-2 gate 5 — read the live page — and the maintainer\'s yes)')
+    for n in notes:
+        print(f'  note: {n}')
     return 0
 
 

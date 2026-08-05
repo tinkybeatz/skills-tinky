@@ -11,7 +11,7 @@ description: >-
   needs draining. Trigger phrases: "sync the Foleon cheat sheet", "update the
   Foleon cheat sheet", "add this to the Foleon cheat sheet", "my Foleon cheat
   sheet", "drain the cheatsheet queue", or explicit `/foleon-cheatsheet`.
-  Requires the Notion MCP. Enforces `docs/stds/CHEAT_SHEET.md` v2.0.0: most
+  Requires the Notion MCP. Enforces `docs/stds/CHEAT_SHEET.md` v2.1.0: most
   findings are correctly REJECTED, a bullet is rewritten never copied, nothing
   is written to Notion without the maintainer's explicit go-ahead in that same
   conversation, and it never creates a new page or database row. Do NOT use it
@@ -30,16 +30,25 @@ lookup surface: short, scannable, aggressively filtered. This skill carries find
 rejects most of them on the way, and **never writes anything without the maintainer's explicit
 approval in the conversation itself.**
 
-Governed by [`docs/stds/CHEAT_SHEET.md`](../../docs/stds/CHEAT_SHEET.md) v2.0.0 and
+Governed by [`docs/stds/CHEAT_SHEET.md`](../../docs/stds/CHEAT_SHEET.md) v2.1.0 and
 [PCS-6 / PCS-11](../../docs/stds/PROJECT_CONTEXT_SKILL.md) v2.0.0. The standards win any disagreement
 with this file.
 
-> **v2.0.0 corrected a real mistake.** An earlier version of this skill wrote a Notion *database*, one
+> **Two corrections, both from direct maintainer pushback — read both before touching this skill.**
+>
+> **v2.0.0:** an earlier version of this skill wrote a Notion *database*, one
 > row per finding. Every database row is a page, so that produced a new page per finding — the
 > maintainer's own words: *"this is not a cheat-sheet, it's a document with 10000 of infos."* Worse, 13
 > of the first 18 rows duplicated a bullet already on the maintainer's hand-written page, because
 > nothing had ever checked the finding against that page's actual content. The database is gone. There
 > is now exactly **one target: the page itself.**
+>
+> **v2.1.0:** the first version of CHS-6 set a hard **~35-word cap** and treated a fenced code block as
+> a rare exception. Also rejected: *"35 words threshold is bullshit... it also needs to be able to
+> contain commands/code snippets."* Correct — an entry needing a "how to use it" clause or a snippet is
+> normal, not a violation. **There is no length cap now.** The only fixed requirement is that the lead
+> phrase alone identifies the topic; everything else is judged by whether it's still one fact (CHS-3),
+> never by a word count.
 
 ## Target
 
@@ -81,17 +90,21 @@ conversation; something may have changed. This read is also gate 5 below, not a 
 nothing. Report each rejection with the failing gate named. Worked examples, including a real
 duplicate-detection case: `references/admission.md`.
 
-**4. Compose one bullet (CHS-4/6/7).** Never copy the log's prose — it is written for an agent that
-reads everything. Match the page's own style: a **bold lead phrase**, front-loaded, then the fact —
-one line, ≤35 words, imperative if it's an action, no hedging, no discovery narrative. Decide which
-existing heading it belongs under (rarely: propose a new heading, only if nothing existing fits).
-Full transform guide with before/after pairs: `references/rewriting.md`.
+**4. Compose one entry (CHS-4/6/7).** Never copy the log's prose — it is written for an agent that
+reads everything. Match the page's own style: a **bold lead phrase**, front-loaded, then the fact.
+There is **no word cap** (CHS-6, v2.1.0) — add a short "why" / "how to use it" clause or a fenced code
+block whenever the fact is genuinely ambiguous or unusable without one. What's fixed is the lead
+phrase: it alone must identify the topic, imperative if it's an action, no hedging, no discovery
+narrative. Decide which existing heading it belongs under (rarely: propose a new heading, only if
+nothing existing fits). Full transform guide with before/after pairs, including a rich
+explanation-plus-code example: `references/rewriting.md`.
 
 **5. Validate mechanically.**
 ```bash
 python3 scripts/row.py check --bullet "..."
 ```
-Enforces the word cap, banned openers, and hedge/narrative words. Use it — do not eyeball the cap.
+Enforces banned openers and hedge/narrative voice — not length, which is judgement (CHS-6). It'll
+nudge, not fail, on very long entries as a check against CHS-3 (still one fact?), never on length alone.
 
 **6. Propose in chat. Wait for an explicit yes.** Show the maintainer the exact bullet and the exact
 heading. This **is** the review gate (CHS-9) — there is no Notion-side status field, no review queue,
@@ -149,6 +162,7 @@ python3 scripts/log.py lint     # verify the whole log against the schema
 | Wrote without a yes | A bullet appears that was never explicitly approved | This is the single worst failure this skill can produce. Revert the edit, apologize plainly, do not repeat the pattern. |
 | Everything gets proposed | Several bullets proposed from one session | Suspect the gates were applied loosely. Re-read `references/admission.md` — a high proposal rate is the classic failure. |
 | Duplicated an existing bullet | The maintainer points out it's already on the page | Gate 5 was skipped or the page wasn't freshly fetched. Always re-fetch immediately before proposing. |
+| Truncated a genuinely useful explanation or dropped a needed command | An entry that's technically true but unusable without more context | There is no length cap (CHS-6, v2.1.0). Add the "why"/"how to use it" clause or the code block back — don't cut something true just to seem terse. |
 | Copied the log's wording | Bullet reads dense, multi-clause, jargon-narrated | Rewrite per CHS-1. A bullet that matches its log entry violates the standard. |
 | Tempted to build a database/status field "for tidiness" | Any urge to add structure beyond one bullet under one heading | Don't. That is exactly how this skill ended up wrong the first time. Re-read the v2.0.0 note above. |
 | Heading doesn't fit | Finding spans two headings | Split into two bullets, or ask before inventing a new heading — don't force it under the closest existing one. |

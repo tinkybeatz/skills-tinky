@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 2.0.0 |
+| **Version** | 2.1.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
 | **Effective date** | 2026-08-05 |
@@ -126,33 +126,48 @@ is "by far the most effective way" to scan a list of short items `[SRC-001]`.
 
 ### CHS-5 One page, one artifact — no per-fact structure
 
-- A fact **MUST** be exactly **one bullet line** under an existing or new `##` heading on the page. It
-  **MUST NOT** be its own page, its own database row, or carry any per-item property (status, ID,
-  dedupe key, verified-on date). `[SRC-018]`
-- A fix that is irreducibly a multi-step command sequence **MAY** use a fenced code block directly
-  under its bullet — the page already does this in `## Commands`; that pattern extends naturally and
-  needs no exception process.
+- A fact **MUST** be **one entry** — a bullet, optionally followed by a short explanatory clause and/or
+  a fenced code block — under an existing or new `##` heading on the page. It **MUST NOT** be its own
+  page, its own database row, or carry any per-item property (status, ID, dedupe key, verified-on
+  date). `[SRC-018]`
+- A fenced code block **MAY** follow a bullet whenever the fact is a command, snippet, or short
+  sequence. This is a **normal** part of an entry, not an exception — the page already does this
+  throughout `## Commands`.
+- A bullet **MAY** carry a short "what it's for" or "how to use it" clause when the bare fact would be
+  ambiguous or unusable without it. Richness that serves understanding is not the defect v2.0.0
+  corrected; a *database of per-finding pages* was.
 
 **Rationale:** this is the direct correction of the v1.x defect. A database's row-is-a-page structure
 is incompatible with "read it in one scan"; there is no version of a database of individual findings
 that avoids this, because the incompatibility is in what a database row *is*, not in how it is
-configured.
+configured. That correction is about **structure** (one page, not many), not about **content**
+richness — conflating the two was the mistake in the first CHS-6 (see the v2.1.0 changelog entry).
 
 **Enforcement:** structural — there is no schema left to violate. Reviewed at proposal time.
 
-### CHS-6 Length caps
+### CHS-6 Length — judged by the fact, not a word count
 
-- A bullet **MUST NOT** exceed roughly **35 words** or **2 lines** once rendered. `[SRC-002]`
-- The action, if there is one, **MUST** come first in the bullet; caveats after (inverted pyramid).
+- There is **no fixed word or line cap.** A bullet **MUST** be as short as the fact allows, and **MAY**
+  extend to include an explanatory clause or a fenced code block (CHS-5) whenever the fact is
+  genuinely ambiguous or unusable without one.
+- The **lead phrase (CHS-4) MUST still make the topic identifiable from the first clause alone** —
+  length below that line is fine; ambiguity in it is not.
+- The action, if there is one, **SHOULD** come first; caveats and explanation after (inverted pyramid).
   `[SRC-002]`
-- The **whole page MUST stay short enough to read end to end in under a minute** — see the page-length
-  metric. This is the real cap; the per-bullet cap exists to serve it.
+- The **whole page SHOULD stay short enough to read end to end in a few minutes** — see the
+  page-length metric. This is enforced by CHS-2 (most findings are rejected) and CHS-3 (one bullet,
+  one fact), **not** by capping any individual entry's length.
 
-**Rationale:** halving conventional word count measured +58% usability on its own `[SRC-002]`; a
-one-minute read is the actual product being built, and every other rule in this standard serves that
-number.
+**Rationale (revised 2026-08-05, see v2.1.0):** the original version of this rule set a hard ~35-word
+cap and treated anything longer as a violation — which meant an entry that legitimately needed a
+"why" clause or a command snippet failed the standard by design. That was wrong: the actual goal
+(halving word count measured +58% usability on its own, `[SRC-002]`) is about **cutting waffle**, not
+about **banning explanation**. A page stays short because almost nothing is admitted (CHS-2) and each
+admitted thing is exactly one fact (CHS-3) — length of an individual, real, one-fact entry was never
+the lever that mattered.
 
-**Enforcement:** word/line count is mechanically checkable and **SHOULD** be validated before any proposal.
+**Enforcement:** judged at proposal time — does the lead phrase alone identify the topic? Is there
+exactly one fact here, or should this split (CHS-3)? There is no numeric check to run.
 
 ### CHS-7 Voice
 
@@ -257,7 +272,7 @@ A cheat-sheet bullet is conforming when **all** are true:
 - [ ] Covers exactly one fact (CHS-3)
 - [ ] Opens with a front-loaded bold lead phrase, no banned opener (CHS-4)
 - [ ] Is one bullet line under an existing heading — no new page, no property (CHS-5)
-- [ ] ≤ 35 words / 2 lines, action first (CHS-6)
+- [ ] As short as the fact allows, but not artificially truncated; lead phrase alone identifies the topic (CHS-6)
 - [ ] Imperative, neutral, no discovery narrative, no hedging (CHS-7)
 - [ ] Placed under one of ~4–8 headings; no heading exceeds ~10 bullets (CHS-8)
 - [ ] Shown to the maintainer, exact wording, and approved **before** the write (CHS-9)
@@ -267,7 +282,8 @@ A cheat-sheet bullet is conforming when **all** are true:
 
 | Mechanism | Covers | Automated |
 |---|---|---|
-| Writing agent pre-proposal validation (word/line count, banned openers, hedge words) | CHS-4, CHS-6, CHS-7 | Yes |
+| Writing agent pre-proposal validation (banned openers, hedge words, narrative phrases) | CHS-4, CHS-7 | Yes |
+| Length and richness judged against the fact, not a number (CHS-6) | CHS-6 | No — judgement, by design |
 | Fresh full-page read before every proposal | CHS-2 gate 5, CHS-10 | Yes (mechanical fetch), judged by the writer |
 | Conversational approval before any write | CHS-1, CHS-2, CHS-3, CHS-9, CHS-11 | No — by design (CHS-9) |
 | Heading/bullet count visible on open | CHS-8 | No — visual, not enforced |
@@ -277,9 +293,10 @@ A cheat-sheet bullet is conforming when **all** are true:
 Exceptions follow the repo's standard waiver process: rule ID, justification, risk, mitigation,
 expiry (≤ 90 days), rollback.
 
-One standing exception: a fix that is a genuine multi-step command sequence **MAY** use a fenced code
-block under its bullet (CHS-5) rather than being forced into 35 words — the page's `## Commands`
-section already does this.
+None standing. CHS-5/CHS-6 already accommodate explanatory clauses and code blocks directly — v2.0.0
+had one exception here (a "MAY use a fenced code block... rather than being forced into 35 words"),
+which was itself evidence the underlying rule was wrong; v2.1.0 removed the rule instead of keeping
+the exception.
 
 ## Metrics
 
@@ -287,7 +304,7 @@ section already does this.
 |---|---|---|
 | **Page length** | readable end to end in < 1 minute (rough proxy: ≤ 150 lines total) | Manual — open the page |
 | **Duplicate rate** | 0 bullets restating another bullet | Manual read-through at each sweep |
-| **Cap conformance** | 100% of bullets within CHS-6 | Mechanical check before each proposal |
+| **One-glance test** | the topic of every entry is identifiable from its lead phrase alone | Reviewed at proposal time, not measured |
 | **Admission precision** | maintainer still finds ≥ 90% of bullets worth keeping at a periodic read-through | Sweep outcome |
 | **Consultation** | the maintainer actually opens the page when stuck, instead of re-deriving | Self-report |
 
@@ -316,4 +333,5 @@ section already does this.
 | 1.0.0 | 2026-08-03 | Initial standard: database, per-finding rows, closed field set, `Status`/`Dedupe key` properties, 90-day decay. |
 | 1.1.0 | 2026-08-03 | Corrections from building the reference implementation (title property naming, `ID` field, formula-based staleness, `Status` as `select`). |
 | 1.2.0 | 2026-08-03 | Log dedupe scripted; read-back leg added (approved rows → local file). |
-| **2.0.0** | 2026-08-05 | **Full architecture reversal.** The maintainer rejected the v1.x database on sight: every finding created a new page ("this is not a cheat-sheet, it's a document with 10000 of infos"), and — found on inspection — 13 of the 18 rows created during the v1.2.0 backfill duplicated a bullet already on the maintainer's own hand-written page, because admission never checked against that page's actual content, only against other database rows. The v1.x database was trashed in full. **CHS-5 (closed field set), CHS-9 (staleness/decay), CHS-10 (Status review gate) and CHS-11 (Dedupe-key property) are removed.** Replaced with: one page, one bullet per fact under an existing heading (CHS-5, rewritten), a fifth admission gate — "not already said" (CHS-2) — checked by reading the whole page (CHS-10, rewritten), and a conversational review gate before any write (CHS-9, rewritten) in place of a Notion-side status field. Net effect: fewer rules (11 vs 12), because most of what v1.x enforced with schema is now enforced simply by there being one short page. |
+| **2.1.0** | 2026-08-05 | **CHS-6 corrected on direct maintainer pushback.** The v2.0.0 version of CHS-6 set a hard ~35-word cap and CHS-5 treated a fenced code block as a rare exception to it. The maintainer rejected both: a bullet needing a "how to use it" clause or a command snippet is normal, not a violation. CHS-6 now sets **no fixed length** — an entry is as short as the fact allows, may include an explanatory clause and/or a code block, and is judged only by whether its lead phrase (CHS-4) still identifies the topic in one clause. CHS-5's code-block allowance is promoted from "standing exception" to a normal part of an entry. What actually keeps the page short is unchanged: CHS-2 (most things are rejected) and CHS-3 (one bullet, one fact) — length was never the real lever, and pretending otherwise is what produced the wrong rule. Conformance checklist, enforcement table, exceptions and one metric updated accordingly. |
+| 2.0.0 | 2026-08-05 | **Full architecture reversal.** The maintainer rejected the v1.x database on sight: every finding created a new page ("this is not a cheat-sheet, it's a document with 10000 of infos"), and — found on inspection — 13 of the 18 rows created during the v1.2.0 backfill duplicated a bullet already on the maintainer's own hand-written page, because admission never checked against that page's actual content, only against other database rows. The v1.x database was trashed in full. **CHS-5 (closed field set), CHS-9 (staleness/decay), CHS-10 (Status review gate) and CHS-11 (Dedupe-key property) are removed.** Replaced with: one page, one bullet per fact under an existing heading (CHS-5, rewritten), a fifth admission gate — "not already said" (CHS-2) — checked by reading the whole page (CHS-10, rewritten), and a conversational review gate before any write (CHS-9, rewritten) in place of a Notion-side status field. Net effect: fewer rules (11 vs 12), because most of what v1.x enforced with schema is now enforced simply by there being one short page. |

@@ -11,7 +11,7 @@ change log. Authored and amended with the `standard-maker` skill.
 | Standard | Rules | Governs |
 |---|---|---|
 | [`PROJECT_CONTEXT_SKILL.md`](PROJECT_CONTEXT_SKILL.md) | `PCS-1`…`PCS-11` | Skills that carry one project's context for the awareness router: placement, naming, required files, the self-enrich boundary, registration, and the optional external mirror. Reference implementation: `foleon/foleon-ripley`. |
-| [`CHEAT_SHEET.md`](CHEAT_SHEET.md) | `CHS-1`…`CHS-12` | What may be written to a human-facing cheat-sheet database and how: admission gates, closed field set, symptom-indexed titles, length and voice caps, decay policy, review gate. Reference implementation: the Foleon `Findings` database in Notion, written by `foleon/foleon-cheatsheet`. |
+| [`CHEAT_SHEET.md`](CHEAT_SHEET.md) | `CHS-1`…`CHS-11` | What may be written to a human-facing cheat-sheet **page** and how: five admission gates (including "not already said"), one bullet per fact under an existing heading, length judged by the fact not a word count, voice, and a conversational review gate before any write. No database. Reference implementation: the `Foleon - Cheat Sheet` Notion page, written by `foleon/foleon-cheatsheet`. |
 
 The two compose: PCS-11 permits a project-context skill to mirror findings to one external
 surface, and `CHEAT_SHEET.md` governs what that surface may contain.

@@ -303,7 +303,7 @@ facts up into `project-facts.md` and prune here.
   Diffing (on vs off, working element vs broken one) is what actually localizes the bug — the delta is the
   culprit. Keep the probe in DevTools → Sources → Snippets so it survives the constant reloads. Anchor follow-up
   greps on the semantic `ripley__*` classes (they come from identifier constants); `sc-*` hashes are
-  build-generated and ungreppable — for those, React DevTools names the component. · refs: PROD-3270 · sheet: none
+  build-generated and ungreppable — for those, React DevTools names the component. · refs: PROD-3270 · sheet: yes
 - 2026-08-03 · Build & tooling · 403 Forbidden from local requests — run `sh scripts/prepare-auth.sh`.
   Recorded during the PCS-6 migration: this finding existed only on the Notion cheat sheet (row CS-2) and in
   no Claude-facing file, which PCS-11 forbids — the log is authoritative and a finding must never live only in
