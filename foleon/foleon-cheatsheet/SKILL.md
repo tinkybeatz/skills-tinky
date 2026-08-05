@@ -2,23 +2,24 @@
 name: foleon-cheatsheet
 description: >-
   Moves genuinely useful Foleon / ripley findings from Claude's discoveries log
-  onto the maintainer's own Notion cheat-sheet page — one short bullet per
-  fact, under an existing heading, proposed in conversation and written only
-  after an explicit yes. No database, no new page per finding: everything
-  lands on the one page the maintainer already wrote for themselves. Use
+  onto the maintainer's own Notion cheat sheet — a hub page linking to a small,
+  fixed set of category pages (Commands, Gotchas, Debugging, ...), each fact
+  its own heading — proposed in conversation and written only after an
+  explicit yes. Never a database, never a new page per finding: category
+  pages are a small fixed set the maintainer chose, not one per fact. Use
   whenever: a finding was just appended to `foleon-ripley`'s `knowledge.md`; a
   hook reports pending findings at session start or as a turn ends; the queue
   needs draining. Trigger phrases: "sync the Foleon cheat sheet", "update the
   Foleon cheat sheet", "add this to the Foleon cheat sheet", "my Foleon cheat
   sheet", "drain the cheatsheet queue", or explicit `/foleon-cheatsheet`.
-  Requires the Notion MCP. Enforces `docs/stds/CHEAT_SHEET.md` v2.1.0: most
-  findings are correctly REJECTED, a bullet is rewritten never copied, nothing
+  Requires the Notion MCP. Enforces `docs/stds/CHEAT_SHEET.md` v2.2.0: most
+  findings are correctly REJECTED, an entry is rewritten never copied, nothing
   is written to Notion without the maintainer's explicit go-ahead in that same
-  conversation, and it never creates a new page or database row. Do NOT use it
-  for the skills-tinky README skills cheat-sheet — that is `./generate-catalog.sh`.
-  Do NOT use it to capture a conversation into an arbitrary Notion page — that
-  is `notion-knowledge-capture`. Do NOT use it to record project facts or
-  conventions — that is `foleon-ripley`.
+  conversation, and it never creates a new page or database row per finding.
+  Do NOT use it for the skills-tinky README skills cheat-sheet — that is
+  `./generate-catalog.sh`. Do NOT use it to capture a conversation into an
+  arbitrary Notion page — that is `notion-knowledge-capture`. Do NOT use it to
+  record project facts or conventions — that is `foleon-ripley`.
 user-invokable: true
 ---
 
@@ -30,7 +31,7 @@ lookup surface: short, scannable, aggressively filtered. This skill carries find
 rejects most of them on the way, and **never writes anything without the maintainer's explicit
 approval in the conversation itself.**
 
-Governed by [`docs/stds/CHEAT_SHEET.md`](../../docs/stds/CHEAT_SHEET.md) v2.1.0 and
+Governed by [`docs/stds/CHEAT_SHEET.md`](../../docs/stds/CHEAT_SHEET.md) v2.2.0 and
 [PCS-6 / PCS-11](../../docs/stds/PROJECT_CONTEXT_SKILL.md) v2.0.0. The standards win any disagreement
 with this file.
 
@@ -49,19 +50,25 @@ with this file.
 > normal, not a violation. **There is no length cap now.** The only fixed requirement is that the lead
 > phrase alone identifies the topic; everything else is judged by whether it's still one fact (CHS-3),
 > never by a word count.
+>
+> **v2.2.0:** the maintainer asked for "a file per category" as the reference implementation grew —
+> now a hub page linking to a small, fixed set of category pages, each fact its own heading. This is
+> **not** the v1.x mistake: a page per bounded *category* (a handful, fixed) is a readability choice;
+> a page per *finding* (unbounded, one per fact) is what v2.0.0 removed. Don't confuse the two.
 
 ## Target
 
 | Thing | Value |
 |---|---|
-| Page | `Foleon - Cheat Sheet` — `https://app.notion.com/p/3aae7f9407e780df888df6c667a4f4e1` |
+| Hub page | `Foleon - Cheat Sheet` — `https://app.notion.com/p/3aae7f9407e780df888df6c667a4f4e1` |
+| Category pages (today) | `Commands` · `Packages` · `Conventions` · `Gotchas` · `Debugging` — each a child page of the hub, linked from it |
 | Queue | `hooks/state/cheatsheet-queue.jsonl` (repo-relative) |
 | Log | `foleon/foleon-ripley/references/knowledge.md` |
-| Local mirror | `foleon/foleon-ripley/references/cheatsheet-approved.md` (generated) |
-| Headings on the page (today) | `Commands` · `Packages` · `Conventions` · `Gotchas` · `Playwright gotchas` |
+| Local mirror | `foleon/foleon-ripley/references/cheatsheet-approved.md` (generated, concatenates all category pages) |
 
 Requires the **Notion MCP**. If a call fails because it is not connected, stop and say so — do not
-fall back to writing anywhere else.
+fall back to writing anywhere else. The exact category page list drifts as categories are added —
+**fetch the hub first** to get the current, real list; don't trust the table above blindly.
 
 ## Sync flow
 
@@ -73,8 +80,11 @@ bash scripts/queue.sh drain     # prints all entries, then truncates
 An empty or missing queue is a normal outcome: say "nothing pending" and stop. `drain` prints before
 truncating, so a crash between the two loses nothing.
 
-**2. Fetch the page — every time, fresh.** Never reuse a page you fetched earlier in the
-conversation; something may have changed. This read is also gate 5 below, not a separate step.
+**2. Fetch the hub, then the target category page — every time, fresh.** Fetch the hub to get the
+current category-page list and pick the one the finding belongs to (or note if none fits — seeing
+that live list is also what tells you whether a new category is truly warranted). Then fetch that
+one category page. Never reuse a fetch from earlier in the conversation; something may have changed.
+This read is also gate 5 below, not a separate step.
 
 **3. Filter — the five gates (CHS-2).** Every finding must pass **all five**:
 
@@ -83,21 +93,23 @@ conversation; something may have changed. This read is also gate 5 below, not a 
 3. **Non-obviousness** — is it absent from or contradicted by the obvious source? If `package.json`
    or the official docs already say it, it fails.
 4. **Actionability** — does it resolve to a *do this*? Pure explanation fails.
-5. **Not already said** — read the page you just fetched. Is this fact, or something close enough to
-   it, already there? If yes, it fails — even if the wording would be better.
+5. **Not already said** — read the category page you just fetched. Is this fact, or something close
+   enough to it, already there? If yes, it fails — even if the wording would be better.
 
 **Most findings fail, and that is correct.** The log keeps everything either way, so rejecting costs
 nothing. Report each rejection with the failing gate named. Worked examples, including a real
 duplicate-detection case: `references/admission.md`.
 
 **4. Compose one entry (CHS-4/6/7).** Never copy the log's prose — it is written for an agent that
-reads everything. Match the page's own style: a **bold lead phrase**, front-loaded, then the fact.
+reads everything. An entry is usually its own **heading** on the category page (title = the lead
+phrase, front-loaded), with the fact as body text below it — match the style already on that page.
 There is **no word cap** (CHS-6, v2.1.0) — add a short "why" / "how to use it" clause or a fenced code
-block whenever the fact is genuinely ambiguous or unusable without one. What's fixed is the lead
-phrase: it alone must identify the topic, imperative if it's an action, no hedging, no discovery
-narrative. Decide which existing heading it belongs under (rarely: propose a new heading, only if
-nothing existing fits). Full transform guide with before/after pairs, including a rich
-explanation-plus-code example: `references/rewriting.md`.
+block whenever the fact is genuinely ambiguous or unusable without one. What's fixed is the title: it
+alone must identify the topic, imperative if it's an action, no hedging, no discovery narrative.
+Decide whether it's a new top-level heading, or belongs under an existing sub-heading grouping
+related facts (e.g. `Commands` → `Building`) — rarely, propose a new category page, only if nothing
+existing fits. Full transform guide with before/after pairs, including a rich explanation-plus-code
+example: `references/rewriting.md`.
 
 **5. Validate mechanically.**
 ```bash
@@ -106,8 +118,9 @@ python3 scripts/row.py check --bullet "..."
 Enforces banned openers and hedge/narrative voice — not length, which is judgement (CHS-6). It'll
 nudge, not fail, on very long entries as a check against CHS-3 (still one fact?), never on length alone.
 
-**6. Propose in chat. Wait for an explicit yes.** Show the maintainer the exact bullet and the exact
-heading. This **is** the review gate (CHS-9) — there is no Notion-side status field, no review queue,
+**6. Propose in chat. Wait for an explicit yes.** Show the maintainer the exact entry (title + body,
+including any code block) and exactly where it goes — which category page, and which heading or
+sub-heading within it. This **is** the review gate (CHS-9) — there is no Notion-side status field, no review queue,
 nothing to configure. A "looks good" is enough; silence or a "no" is not a yes.
 
 - **Yes** → go to step 7.
@@ -164,5 +177,6 @@ python3 scripts/log.py lint     # verify the whole log against the schema
 | Duplicated an existing bullet | The maintainer points out it's already on the page | Gate 5 was skipped or the page wasn't freshly fetched. Always re-fetch immediately before proposing. |
 | Truncated a genuinely useful explanation or dropped a needed command | An entry that's technically true but unusable without more context | There is no length cap (CHS-6, v2.1.0). Add the "why"/"how to use it" clause or the code block back — don't cut something true just to seem terse. |
 | Copied the log's wording | Bullet reads dense, multi-clause, jargon-narrated | Rewrite per CHS-1. A bullet that matches its log entry violates the standard. |
-| Tempted to build a database/status field "for tidiness" | Any urge to add structure beyond one bullet under one heading | Don't. That is exactly how this skill ended up wrong the first time. Re-read the v2.0.0 note above. |
+| Tempted to build a database/status field "for tidiness" | Any urge to add structure beyond an entry under a category page/heading | Don't. That is exactly how this skill ended up wrong the first time. Re-read the v2.0.0 note above. |
+| Tempted to pre-create empty category pages "to complete the set" | About to add a page/heading with nothing in it yet | Don't (CHS-8). Create a category when its first fact is admitted, not before. |
 | Heading doesn't fit | Finding spans two headings | Split into two bullets, or ask before inventing a new heading — don't force it under the closest existing one. |

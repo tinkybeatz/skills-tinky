@@ -3,11 +3,11 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 2.1.0 |
+| **Version** | 2.2.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
 | **Effective date** | 2026-08-05 |
-| **Applies to** | The single human-facing Notion page a project-context skill maintains for its maintainer (reference implementation: `Foleon - Cheat Sheet`) |
+| **Applies to** | The human-facing Notion hub page (and its small, fixed set of category child pages) a project-context skill maintains for its maintainer (reference implementation: `Foleon - Cheat Sheet`) |
 
 > **v2.0.0 replaces the entire v1.x architecture.** v1.x built a Notion *database* with one row per
 > admitted finding. In Notion, every database row **is a page** — so "one row per finding" is
@@ -18,9 +18,10 @@
 > worse place. Both defects are structural, not tunable. The whole database is gone; nothing here
 > carries it forward. See the [v2.0.0 changelog entry](#change-log) for the full account.
 
-**Reference implementation** — the page itself, no database:
-`Foleon - Cheat Sheet` (`https://app.notion.com/p/3aae7f9407e780df888df6c667a4f4e1`), organized by
-`##` heading, one bullet per fact.
+**Reference implementation** — a hub page with 5 category child pages, no database:
+`Foleon - Cheat Sheet` (`https://app.notion.com/p/3aae7f9407e780df888df6c667a4f4e1`) links to
+`Commands`, `Packages`, `Conventions`, `Gotchas`, `Debugging` — each a child page, each fact its own
+`##` heading (or grouped under a `##` sub-heading, e.g. `Commands` → `Building`).
 
 ---
 
@@ -109,41 +110,53 @@ thing" `[SRC-013]`; troubleshooting entries stay "focused tightly on one symptom
 
 **Enforcement:** reviewed at proposal time; a bullet containing "and" joining two unrelated facts is a signal.
 
-### CHS-4 Lead phrase
+### CHS-4 Lead phrase / title
 
-- A bullet **SHOULD** open with a **bold lead phrase** naming the observable thing, in the reader's own
-  words — matching the page's existing style (`**Editor ≠ viewer**: …`, `**Cards**: …`). `[SRC-016]` `[SRC-008]`
-- The lead phrase **MUST** front-load the informative words — the first two or three words alone
-  **SHOULD** convey what the bullet is about. `[SRC-003]`
-- A bullet **MUST NOT** open with a non-informative lead-in: `Issue with`, `Problem with`, `How to`,
+- A fact's title **MUST** front-load the informative words, in the reader's own words — the first two
+  or three words alone **SHOULD** convey what it's about. `[SRC-003]`
+- Where a fact is written as a heading (CHS-5), the title **IS** the heading text. Where it is written
+  as a bullet within a shared section, it **SHOULD** open with a **bold lead phrase** playing the same
+  role (`**Editor ≠ viewer**: …`). Either is CHS-4-conforming — the mechanism (heading vs. bold text)
+  is a formatting choice, not a rule. `[SRC-016]` `[SRC-008]`
+- A title **MUST NOT** open with a non-informative lead-in: `Issue with`, `Problem with`, `How to`,
   `Note about`, `Fix for`, `When you`, `Something about`, or a leading article. `[SRC-003]`
 
 **Rationale:** users read roughly the first two words of a line before deciding whether to keep
-reading `[SRC-003]`; the layer-cake scanning pattern — a bold lead phrase acting like a mini-heading —
-is "by far the most effective way" to scan a list of short items `[SRC-001]`.
+reading `[SRC-003]`; the layer-cake scanning pattern — a title acting like a mini-heading — is "by far
+the most effective way" to scan a list of short items `[SRC-001]`. A real Notion heading gets this for
+free (and adds Notion's outline/TOC as a bonus); a bold lead phrase inside a bullet approximates it
+when a fact is too small to deserve its own heading.
 
-**Enforcement:** banned-opener list is mechanically checkable; lead-phrase quality is reviewed at proposal time.
+**Enforcement:** banned-opener list is mechanically checkable; title quality is reviewed at proposal time.
 
-### CHS-5 One page, one artifact — no per-fact structure
+### CHS-5 One fact, one entry — no per-finding page or database row
 
-- A fact **MUST** be **one entry** — a bullet, optionally followed by a short explanatory clause and/or
-  a fenced code block — under an existing or new `##` heading on the page. It **MUST NOT** be its own
-  page, its own database row, or carry any per-item property (status, ID, dedupe key, verified-on
-  date). `[SRC-018]`
-- A fenced code block **MAY** follow a bullet whenever the fact is a command, snippet, or short
-  sequence. This is a **normal** part of an entry, not an exception — the page already does this
-  throughout `## Commands`.
-- A bullet **MAY** carry a short "what it's for" or "how to use it" clause when the bare fact would be
-  ambiguous or unusable without it. Richness that serves understanding is not the defect v2.0.0
-  corrected; a *database of per-finding pages* was.
+- A fact **MUST** be **one entry**: either its own heading (with the explanation and/or a fenced code
+  block as its body), or a bullet within a shared section when several small facts are grouped. It
+  **MUST NOT** be its own **page**, its own **database row**, or carry any per-item property (status,
+  ID, dedupe key, verified-on date). `[SRC-018]`
+- The mirror **MAY** be split into a **small, fixed set of category pages** (e.g. `Commands`,
+  `Gotchas`, `Debugging`), each a child of one hub page — this is a *structural* choice (CHS-8) and is
+  explicitly not the defect v2.0.0 removed. The distinction that matters: **one page per bounded
+  category** (stays a handful, doesn't grow with findings) is fine; **one page per finding** (grows
+  without bound, one per fact) is what's forbidden.
+- Within a category page, related facts **MAY** be grouped under a shared `##`/`###` sub-heading (e.g.
+  `Commands` → `## Building`) when a natural cluster exists. This is optional structure, introduced
+  when it helps, not scaffolded in advance for categories with nothing in them yet.
+- A fenced code block **MAY** follow any entry whenever the fact is a command, snippet, or short
+  sequence — a normal part of an entry, not an exception.
+- An entry **MAY** carry a short "what it's for" or "how to use it" clause when the bare fact would be
+  ambiguous or unusable without it. Richness that serves understanding was never the defect; a
+  *database of per-finding pages* was (v2.0.0), and a *hard length cap* was (v2.1.0).
 
-**Rationale:** this is the direct correction of the v1.x defect. A database's row-is-a-page structure
-is incompatible with "read it in one scan"; there is no version of a database of individual findings
-that avoids this, because the incompatibility is in what a database row *is*, not in how it is
-configured. That correction is about **structure** (one page, not many), not about **content**
-richness — conflating the two was the mistake in the first CHS-6 (see the v2.1.0 changelog entry).
+**Rationale:** the v1.x defect was that a database row **is** a page — there is no configuration of a
+database of individual findings that avoids one page per fact, because the incompatibility is in what
+a row *is*. A **page per category** has no such problem: it is a small, fixed, human-chosen set (CHS-8
+caps it at 4–8), not one unit per finding. The maintainer's own request — "I'm thinking about having a
+file per category" — is exactly this shape, and is compatible with everything v2.0.0 corrected.
 
-**Enforcement:** structural — there is no schema left to violate. Reviewed at proposal time.
+**Enforcement:** structural — there is no schema left to violate, and the category-page count is
+visible just by looking at the hub. Reviewed at proposal time.
 
 ### CHS-6 Length — judged by the fact, not a word count
 
@@ -185,21 +198,29 @@ checklist wording should be "simple and exact" in "the familiar language of the 
 
 **Enforcement:** hedge-word and narrative-phrase lists are mechanically greppable; reviewed at proposal time.
 
-### CHS-8 Headings, not properties
+### CHS-8 Categories — pages or headings, never properties
 
-- Categories **MUST** be the page's own `##` headings — there is no `Area` property, no select field,
-  nothing to configure. New headings are added by writing them. `[SRC-018]`
-- The page **SHOULD** hold roughly **4 to 8** headings at a time. Reference implementation currently
-  has 5 (`Commands`, `Packages`, `Conventions`, `Gotchas`, `Playwright gotchas`).
-- A heading whose bullet list exceeds roughly **10 items** **SHOULD** be split into two more specific
-  headings, rather than left to grow.
+- A category **MUST** be either a **child page** of the hub (reference implementation: `Commands`,
+  `Packages`, `Conventions`, `Gotchas`, `Debugging`) or a `##` heading within a page — **never** a
+  database property, select field, or anything requiring schema configuration. New categories are
+  added by writing a page or a heading. `[SRC-018]`
+- The maintainer's own organisation **is** the category set — there **SHOULD** be roughly **4 to 8**
+  categories at a time, whether pages or headings. This is not a theoretical taxonomy; it's
+  observed retrieval behaviour, which is stronger evidence than anything this standard could invent
+  instead. `[SRC-018]`
+- A category (page or heading) whose content exceeds roughly **10 entries** **SHOULD** either split
+  into sub-headings within it (CHS-5) or, if it's grown into a genuinely distinct topic, become its
+  own category — rather than being left to grow unbounded.
+- A category **MUST NOT** be created empty "to complete the taxonomy." A heading or page with nothing
+  under it yet is clutter, not structure — create it when the first fact for it is admitted.
 
-**Rationale:** working-memory focus of attention holds about 4 chunks, not 7±2 `[SRC-005]`. The
-specific headings above are not invented — they are the maintainer's own pre-existing organisation
-`[SRC-018]`, which is stronger evidence than any theoretical taxonomy this standard could propose instead.
+**Rationale:** working-memory focus of attention holds about 4 chunks, not 7±2 `[SRC-005]`, so the
+category count itself needs the same discipline whether it's rendered as pages or headings. Splitting
+into pages (rather than keeping headings on one page) is purely a **readability** choice as content
+grows — it does not change what a "category" is or how many of them there should be.
 
-**Enforcement:** reviewed at proposal time; heading count and per-heading bullet count are visible just
-by opening the page.
+**Enforcement:** reviewed at proposal time; category count and per-category entry count are visible
+just by opening the hub (page list) or a category page (heading list).
 
 ### CHS-9 Review gate — conversational, not a status field
 
@@ -271,10 +292,10 @@ A cheat-sheet bullet is conforming when **all** are true:
 - [ ] Passes all five admission gates, including "not already said" (CHS-2)
 - [ ] Covers exactly one fact (CHS-3)
 - [ ] Opens with a front-loaded bold lead phrase, no banned opener (CHS-4)
-- [ ] Is one bullet line under an existing heading — no new page, no property (CHS-5)
+- [ ] Is one entry (heading or bullet) within an existing category — no new per-finding page, no property (CHS-5)
 - [ ] As short as the fact allows, but not artificially truncated; lead phrase alone identifies the topic (CHS-6)
 - [ ] Imperative, neutral, no discovery narrative, no hedging (CHS-7)
-- [ ] Placed under one of ~4–8 headings; no heading exceeds ~10 bullets (CHS-8)
+- [ ] Placed under one of ~4–8 categories (pages or headings); no category exceeds ~10 entries (CHS-8)
 - [ ] Shown to the maintainer, exact wording, and approved **before** the write (CHS-9)
 - [ ] The full page was freshly read immediately before proposing (CHS-10)
 
@@ -302,7 +323,7 @@ the exception.
 
 | Metric | Target | Measurement |
 |---|---|---|
-| **Page length** | readable end to end in < 1 minute (rough proxy: ≤ 150 lines total) | Manual — open the page |
+| **Page length** | each category page readable end to end in a glance (rough proxy: ≤ 40 lines) | Manual — open the page |
 | **Duplicate rate** | 0 bullets restating another bullet | Manual read-through at each sweep |
 | **One-glance test** | the topic of every entry is identifiable from its lead phrase alone | Reviewed at proposal time, not measured |
 | **Admission precision** | maintainer still finds ≥ 90% of bullets worth keeping at a periodic read-through | Sweep outcome |
@@ -333,5 +354,6 @@ the exception.
 | 1.0.0 | 2026-08-03 | Initial standard: database, per-finding rows, closed field set, `Status`/`Dedupe key` properties, 90-day decay. |
 | 1.1.0 | 2026-08-03 | Corrections from building the reference implementation (title property naming, `ID` field, formula-based staleness, `Status` as `select`). |
 | 1.2.0 | 2026-08-03 | Log dedupe scripted; read-back leg added (approved rows → local file). |
+| **2.2.0** | 2026-08-05 | **Multi-page structure, on maintainer request.** As the reference implementation grew, the maintainer proposed splitting the single page into "a file per category," each fact getting a real heading rather than a bold lead phrase, and related facts (e.g. `Commands` → `Building`) grouped under a sub-heading. This is compatible with everything v2.0.0 corrected: a *page per bounded category* (a handful, fixed) is a readability choice, not the *page per finding* (unbounded, one per fact) that v2.0.0 removed — CHS-5 now states that distinction explicitly so it isn't re-litigated by mistake. CHS-4 generalised from "bold lead phrase" to "title," covering both a real heading and a bold-in-bullet phrase as equally conforming. CHS-8 renamed and rewritten: categories are pages or headings, still 4–8 of them, still capped at ~10 entries each before splitting further, still never a database property. Reference implementation restructured: hub page (`Foleon - Cheat Sheet`) + 5 category child pages (`Commands`, `Packages`, `Conventions`, `Gotchas`, `Debugging`); `Playwright gotchas` dropped (emptied by the maintainer's own pruning — a category with nothing in it is not scaffolded back). Page-length metric now applies per category page. |
 | **2.1.0** | 2026-08-05 | **CHS-6 corrected on direct maintainer pushback.** The v2.0.0 version of CHS-6 set a hard ~35-word cap and CHS-5 treated a fenced code block as a rare exception to it. The maintainer rejected both: a bullet needing a "how to use it" clause or a command snippet is normal, not a violation. CHS-6 now sets **no fixed length** — an entry is as short as the fact allows, may include an explanatory clause and/or a code block, and is judged only by whether its lead phrase (CHS-4) still identifies the topic in one clause. CHS-5's code-block allowance is promoted from "standing exception" to a normal part of an entry. What actually keeps the page short is unchanged: CHS-2 (most things are rejected) and CHS-3 (one bullet, one fact) — length was never the real lever, and pretending otherwise is what produced the wrong rule. Conformance checklist, enforcement table, exceptions and one metric updated accordingly. |
 | 2.0.0 | 2026-08-05 | **Full architecture reversal.** The maintainer rejected the v1.x database on sight: every finding created a new page ("this is not a cheat-sheet, it's a document with 10000 of infos"), and — found on inspection — 13 of the 18 rows created during the v1.2.0 backfill duplicated a bullet already on the maintainer's own hand-written page, because admission never checked against that page's actual content, only against other database rows. The v1.x database was trashed in full. **CHS-5 (closed field set), CHS-9 (staleness/decay), CHS-10 (Status review gate) and CHS-11 (Dedupe-key property) are removed.** Replaced with: one page, one bullet per fact under an existing heading (CHS-5, rewritten), a fifth admission gate — "not already said" (CHS-2) — checked by reading the whole page (CHS-10, rewritten), and a conversational review gate before any write (CHS-9, rewritten) in place of a Notion-side status field. Net effect: fewer rules (11 vs 12), because most of what v1.x enforced with schema is now enforced simply by there being one short page. |

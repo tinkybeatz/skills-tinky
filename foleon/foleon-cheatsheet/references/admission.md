@@ -45,6 +45,11 @@ reading the page directly — there is no shortcut, because there is no property
 
 ## Worked examples (post-gate-5)
 
+Page state referenced below is a snapshot from when these were written — the maintainer has since
+pruned and restructured (page-per-category, headings instead of bold-in-bullet). Re-fetch the real
+page before trusting any "already there" claim; the *technique* each example teaches is what to take
+away, not the specific wording quoted.
+
 ### ✅ ADMIT — a genuinely new, short, durable fact
 
 > Log entry: "TWO SEPARATE test suites, easy to confuse: `pnpm editor:test` runs only UNIT tests
