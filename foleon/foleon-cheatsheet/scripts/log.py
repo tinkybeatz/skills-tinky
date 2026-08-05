@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Dedupe-before-append enforcement for the PCS-6 discoveries log.
 
-The cheat sheet gets its non-redundancy from a byte-stable Dedupe key (row.py).
-The log had only an instruction telling the model to "search first", which is
-weaker on the side that matters most for Claude. This closes that gap.
+The cheat-sheet mirror gets its non-redundancy from reading the live page in full
+before every proposal (CHS-2 gate 5, CHS-10 — there is no database and no
+per-item property to query against). The log had only an instruction telling
+the model to "search first", which is weaker on the side that matters most for
+Claude. This closes that gap for the log specifically.
 
   check    find existing entries whose symptom overlaps a candidate.
            Exit 1 when one looks like a duplicate — extend that entry instead.

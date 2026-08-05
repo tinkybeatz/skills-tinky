@@ -1,8 +1,7 @@
-# The four admission gates (CHS-2)
+# The five admission gates (CHS-2)
 
-A finding earns a cheat-sheet row only if it passes **all four**. Most don't.
-The log keeps everything either way, so rejecting is free — and a sheet that
-admits everything is just the log with worse formatting.
+A finding earns a bullet only if it passes **all five**. Most don't. The log keeps everything either
+way, so rejecting is free — and a page that admits everything is just the log with a nicer font.
 
 | Gate | Question | Fails when |
 |---|---|---|
@@ -10,99 +9,95 @@ admits everything is just the log with worse formatting.
 | 2. Retrieval cost | Was re-deriving it expensive (~10 min+, or required reading source)? | A grep or a glance at config answers it |
 | 3. Non-obviousness | Is it absent from — or contradicted by — the obvious source? | `package.json`, the README or the official docs already say it |
 | 4. Actionability | Does it resolve to a *do this*? | It's explanation, background, or a fact with no action attached |
+| 5. **Not already said** | Read the current page. Is this — or something close enough — already there? | It matches an existing bullet, even in different words |
 
-Report the **first** gate a finding fails. One named gate is a decision; four
-paragraphs of hedging is not.
-
----
-
-## Worked examples
-
-These are real entries from `foleon-ripley/references/knowledge.md`.
-
-### ✅ ADMIT — card children inherit border-radius
-
-> 2026-07-21 — GOTCHA: card child element viewers use `border-radius: inherit`
-> (e.g. `entities/background/viewer/background.shared.tsx`, and the editor's
-> `item-action-overlay`). So ANY `border-radius` on `.CardItemInnerContainer` is
-> inherited by every child which then rounds its OWN 4 corners → that IS the
-> "content becomes round" bug. … Final fix: border-radius on the FRAME layer for
-> bg/border/shadow, and `clip-path: inset(0 round …)` on the content container.
-
-- **Recurrence** ✓ — rounded-corner work recurs across card-like components.
-- **Retrieval cost** ✓ — cost a full debugging cycle across three files.
-- **Non-obviousness** ✓ — nothing in the code announces `inherit`; the symptom actively misleads you toward the wrong layer.
-- **Actionability** ✓ — resolves to a concrete lever: radius on the frame, `clip-path` on the content.
-
-Becomes `CS-3`.
-
-### ❌ REJECT — gate 1 (recurrence): the PROD-3816 changelog
-
-> 2026-07-21 — Fix for the above (PROD-3816): moved the card "frame" styling off
-> `.CardItemInnerContainer` onto `.CardItemBackgroundContainer` … border
-> cssSelector changed in BOTH `card-item.model.ts` AND the editor's
-> brand-settings preview.
-
-This is a record of *what was done on one ticket*. You will never arrive at the
-sheet asking "what did PROD-3816 change?" — you'll ask git. The reusable insight
-inside it is already `CS-3`; the ticket narrative is not separately admissible.
-
-**This is the most common false positive.** A log entry describing a fix reads
-like cheat-sheet material because it contains a fix. Ask what *symptom* would
-bring you here. If the answer is "none — I'd only find this by already knowing
-about it", reject.
-
-### ❌ REJECT — gate 3 (non-obviousness): toolchain versions
-
-> Node `>=22 <23` · pnpm `11.1.1` (enforced)
-
-`package.json` enforces this and will error at you. A row here would be a second
-source of truth that can silently go stale — actively worse than nothing.
-
-### ❌ REJECT — gate 4 (actionability): where the old convention lists live
-
-> 2026-07-20 — Fuller (historical, partly aspirational) convention lists live in
-> the ripley repo's `.cursor/rules/*.mdc`. Treat them as reference, not ground
-> truth — `project-facts.md` and this log are authoritative.
-
-Genuinely non-obvious and worth knowing, but it resolves to a *posture*, not an
-action. It belongs in `project-facts.md`, which is exactly where it is. Not
-everything valuable is a cheat-sheet row.
-
-### ⚠️ BORDERLINE — the `@foleon/*` scope correction
-
-> Package scope is `@foleon/*`, **not** `@ripley/*`. The legacy Cursor rule still
-> says `@ripley/` — that line is stale.
-
-Gate 3 passes strongly (a live file *contradicts* reality). Gate 4 is weak — the
-action is "trust `package.json`". Rejected as a row, because it is a **fact about
-the project**, and facts belong in `project-facts.md` where they are loaded
-automatically. Rows are for *symptom → fix*.
-
-**The rule of thumb this establishes:** a stable fact → `project-facts.md`. A
-symptom you'll hit again → a cheat-sheet row. History → the log only.
+Gate 5 did not exist in v1.x. Its absence is the actual root cause of the v1.x failure below — read
+this before applying the other four, because a finding can pass gates 1–4 cleanly and still fail gate
+5, and gate 5 is the one that actually protects the page.
 
 ---
 
-## Rejection is the healthy outcome
+## The v1.x failure, in numbers
 
-Actual result of the 2026-08-03 migration: **30 log entries → 18 rows**, so 12 were
-rejected. That admit rate is higher than typical because the log at that point was
-unusually dense with test-harness gotchas, which score maximally on all four gates —
-you hit them every time you write a Playwright test, each cost a full run to find,
-none are documented, and each resolves to a concrete lever.
+On 2026-08-03 a batch of 18 "findings" were written as new database rows (each — because Notion rows
+are pages — a new page). The maintainer rejected the whole thing on sight: *"this is not a
+cheat-sheet, it's a document with 10000 of infos."*
 
-Do not read 18/30 as the target. What was rejected is the more useful signal:
+On inspection, **13 of the 18 rows restated a bullet already on the maintainer's own hand-written
+page**, just longer and in a worse place:
 
-| Rejected | Gate |
+| New row said | Already on the page, one line |
 |---|---|
-| The PROD-3816 / PROD-3528 fix narratives | 1 — ticket history, no symptom leads there |
-| Toolchain versions, `@foleon/*` scope | 3 — `package.json` already says it (→ `project-facts.md`) |
-| "`.cursor/rules` are not ground truth" | 4 — a posture, not an action (→ `project-facts.md`) |
-| Pre-existing red on `main` | 1 — point-in-time state that will go stale |
-| The `load-hotspot` fixture | 2 — cheap to re-find with a grep |
-| Cinematic keyframe prefix, shared `dropdownTrigger2` testid | folded into the rows they belong to |
+| "Editor won't boot after a build" → copy env-config.js | `cp src/env-config.js dist/env-config.js # after every build, or the editor won't boot` — in `## Commands` |
+| "403 Forbidden from local requests" → run prepare-auth.sh | `sh scripts/prepare-auth.sh # fixes 403 Forbidden` — in `## Commands` |
+| "Card content rounds along with the card" → clip-path fix | `**Cards**: ... Children use border-radius: inherit → clip with clip-path...` — in `## Gotchas` |
+| "Animation won't replay after swapping the asset" → remount with key | `**Animations are pure CSS** — ... Remount with a key.` — in `## Gotchas` |
+| ...9 more, all Playwright gotchas | Already one-liners in `## Playwright gotchas` |
 
-If a *routine* sync admits most of what it sees, the gates were applied loosely — that
-is the failure mode this file exists to prevent. Re-read gate 1 and gate 4 first; they
-catch the most false positives.
+None of this was a wording problem. The admission gates that existed (recurrence, retrieval cost,
+non-obviousness, actionability) were checking each new finding against *other database rows* and
+against generic sources like `package.json` — **never against the maintainer's own page.** A finding
+can be genuinely non-obvious relative to the codebase and still be completely obvious relative to a
+page that already says it. Gate 5 exists specifically to close that hole, and it is checked by
+reading the page directly — there is no shortcut, because there is no property to query.
+
+---
+
+## Worked examples (post-gate-5)
+
+### ✅ ADMIT — a genuinely new, short, durable fact
+
+> Log entry: "TWO SEPARATE test suites, easy to confuse: `pnpm editor:test` runs only UNIT tests
+> (Vitest); the integration/e2e suite is `pnpm --filter @foleon/editor test:playwright`, which reads
+> *rendered* CSS. A green local vitest run does NOT cover integration."
+
+- **Recurrence** ✓ — this distinction recurs every time someone changes a DOM layer.
+- **Retrieval cost** ✓ — costs a full debugging cycle to learn the hard way.
+- **Non-obviousness** ✓ — nothing in `package.json` states which suite covers what.
+- **Actionability** ✓ — resolves to "run the other command too."
+- **Not already said** ✓ — the page has no mention of the vitest/Playwright distinction anywhere.
+
+Proposed bullet, under `## Gotchas`: *"**Two test suites**: `pnpm editor:test` is unit-only (Vitest);
+`pnpm --filter @foleon/editor test:playwright` is integration and reads rendered CSS — a green vitest
+run doesn't cover it."* 28 words, one line, matches the page's existing voice.
+
+### ❌ REJECT — gate 5 (already said), despite passing 1–4 cleanly
+
+> Log entry: "Card-item DOM has 2 layers: `.CardItemInnerContainer` (content) and
+> `.CardItemBackgroundContainer` (frame, bg/border/radius/shadow). Children use `border-radius:
+> inherit`, so radius on the content layer rounds every child. Fix: radius on the frame layer,
+> `clip-path: inset(0 round …)` on the content layer."
+
+Gates 1–4 all pass — this is a real, costly, non-obvious, actionable finding. **Gate 5 fails anyway**:
+the page already has *"**Cards**: `.CardItemBackgroundContainer` = frame ..., `.CardItemInnerContainer`
+= content ... Children use `border-radius: inherit` → clip with `clip-path: inset(0 round …)`
+instead."* Same fact, already said, arguably in a tighter form. This is the exact shape of 13 of the 18
+v1.x mistakes — check gate 5 *first* on anything that smells like a rendering/DOM gotcha, since that's
+where the existing `## Gotchas` section already has the most coverage.
+
+### ❌ REJECT — gate 1 (recurrence): a fix narrative
+
+> Log entry: "Fix for PROD-3816: moved the card frame styling off `.CardItemInnerContainer` onto
+> `.CardItemBackgroundContainer` ... border cssSelector changed in BOTH `card-item.model.ts` AND the
+> editor's brand-settings preview component."
+
+This is a record of *what was done on one ticket*. Nobody arrives at a cheat sheet asking "what did
+PROD-3816 change?" — they ask git or the ticket. The reusable insight inside it is the Cards bullet
+above, already on the page; the ticket narrative is not separately admissible.
+
+### ❌ REJECT — gate 4 (actionability): a fact with no action
+
+> Log entry: "Fuller (historical, partly aspirational) convention lists live in the ripley repo's
+> `.cursor/rules/*.mdc`. Treat them as reference, not ground truth."
+
+Genuinely non-obvious, genuinely true, and resolves to a *posture* rather than an action — "trust
+`project-facts.md` instead." That's exactly where it lives, in `project-facts.md`. Not everything
+worth knowing is a cheat-sheet bullet.
+
+---
+
+## Rejection is the healthy outcome — and it's the majority every time
+
+If a routine sync proposes more than one or two bullets, stop and re-check gate 5 specifically —
+proposing a lot is the single strongest signal that the gates are being applied loosely, and it is
+exactly what happened the first time this system ran.

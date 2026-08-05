@@ -1,23 +1,23 @@
 {
   "skill_name": "foleon-cheatsheet",
-  "notes": "Gate discipline is the thing worth testing. The classic failure is admitting everything, so eval 1 is a reject case and comes first.",
+  "notes": "Gate discipline is the thing worth testing, and v2.0.0 added a fifth gate for exactly this reason. Eval 1 is a rejected-as-history case. Eval 2 is the case that failed in v1.x: a fact that passes gates 1-4 easily but is already on the page (Editor ≠ viewer / Tailwind Preflight is an existing bullet) — it must fail gate 5. Eval 3 is a genuinely admissible, genuinely new fact, and must end with a proposal in chat and NO Notion write until an explicit yes.",
   "evals": [
     {
       "id": 1,
       "prompt": "Add this to the Foleon cheat sheet: 2026-07-21 — Fix for PROD-3816: moved the card frame styling (border-radius, border, box-shadow) off .CardItemInnerContainer onto .CardItemBackgroundContainer so the frame rounds while inset content stays square. Border cssSelector changed in BOTH card-item.model.ts and the editor's brand-settings preview component.",
-      "expected_output": "REJECTED on gate 1 (recurrence): this is ticket history, not a symptom you would ever look up. No Notion row is created. The reusable insight is already CS-3. Should say which gate failed and stop, without hedging or creating the row 'just in case'.",
+      "expected_output": "REJECTED on gate 1 (recurrence): this is ticket history, not something anyone would look up. No proposal is made, nothing is written to Notion, no database or page is created. Should name the failing gate and stop, without hedging or writing 'just in case'.",
       "files": []
     },
     {
       "id": 2,
       "prompt": "Add this to the Foleon cheat sheet: discovered that the editor imports Tailwind, whose Preflight resets all borders to none, while the viewer does not import Tailwind at all. So a border can look correct in the editor and be missing in the published doc. Took most of an afternoon to track down.",
-      "expected_output": "ADMITTED (passes all four gates). Runs the dedupe query BEFORE writing. Creates one row with Status='Needs review' only, Area='Editor' or 'Core / rendering', a symptom-indexed front-loaded title under 10 words (e.g. 'Border shows in editor, missing when published'), an imperative Fix under 40 words, a one-sentence Why, and a Dedupe key derived via scripts/row.py. Never sets Approved.",
+      "expected_output": "REJECTED on gate 5 (not already said) — this is the exact v1.x failure mode. The skill must fetch the live Foleon - Cheat Sheet page, find the existing bullet '**Editor ≠ viewer**: the editor imports Tailwind (Preflight resets borders), the viewer doesn't...' under ## Gotchas, and reject on that basis, even though gates 1-4 pass easily. A pass that creates a new row, page, or bullet here is the specific regression this eval exists to catch.",
       "files": []
     },
     {
       "id": 3,
-      "prompt": "sync the cheat sheet — there's a finding about the editor not booting after a build because env-config.js isn't copied into dist",
-      "expected_output": "Detects that this duplicates the existing row CS-1 via the Dedupe key query, and UPDATES that row (refreshing Verified on) instead of creating a second one. Reports it as an update, not a create.",
+      "prompt": "add this to the cheat sheet: pnpm editor:test only runs unit tests (Vitest), the real integration suite is pnpm --filter @foleon/editor test:playwright and it reads rendered CSS — a green vitest run doesn't mean the integration suite passes",
+      "expected_output": "ADMITTED (passes all five gates, including gate 5 — not on the page today). The skill composes ONE bullet matching the page's existing bold-lead-phrase style, validates it with scripts/row.py check, states which heading it belongs under (Gotchas or Playwright gotchas), and PROPOSES the exact wording in chat — then STOPS and waits. It must NOT call any Notion write tool in this turn. No CS-nn id, no database, no Status property anywhere in its behavior or language.",
       "files": []
     }
   ]

@@ -30,4 +30,6 @@ surface, and `CHEAT_SHEET.md` governs what that surface may contain.
 - Versioned in the file's header table (`MAJOR.MINOR.PATCH`): PATCH = wording, MINOR = rule added or
   changed, MAJOR = scope change or rule removal. Every change gets a change-log row.
 - A rule prefix must not collide with an identifier used elsewhere in the system. `CHS-n` names a
-  *rule*; `CS-nn` names a *row* in the cheat-sheet database — deliberately different prefixes.
+  *rule in this standard* — there is no separate per-item ID namespace, since v2.0.0 removed the
+  database that once needed one (a database row is a page; see `CHEAT_SHEET.md`'s v2.0.0 changelog
+  entry).

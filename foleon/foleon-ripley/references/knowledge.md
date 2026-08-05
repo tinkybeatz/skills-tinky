@@ -10,13 +10,14 @@ Non-obvious findings: gotchas, implicit conventions, architectural "why"s, sharp
 **Schema** (PCS-6 — one finding per entry):
 
 ```
-- YYYY-MM-DD · <area> · <symptom> — <finding> · refs: <paths|tickets> · sheet: <CS-nn|none>
+- YYYY-MM-DD · <area> · <symptom> — <finding> · refs: <paths|tickets> · sheet: <yes|no|none>
 ```
 
 - `<area>` — one of: Editor · Viewer · Core / rendering · Build & tooling · Tests & Playwright · Conventions
 - `<symptom>` — what you *observe*, so the log can be scanned and deduplicated without reading every finding
-- `sheet:` — the cheat-sheet row this was mirrored to, or `none` if it was rejected (so a later sync
-  does not reconsider it from scratch)
+- `sheet:` — `yes` if this fact is on the Foleon cheat-sheet page, `no` if it was proposed and
+  declined, `none` if never evaluated or rejected by the gates. There is no per-item ID to point at —
+  the mirror is one page, not a database.
 
 **Before appending, search this file** for the finding's key terms. On a match, extend that entry and
 refresh its date rather than adding a near-duplicate. When the log grows heavy, promote the stable
@@ -32,7 +33,7 @@ facts up into `project-facts.md` and prune here.
   BOTH via `appendToCSS` (cssSelector=`.CardItemInnerContainer`) and an explicit
   `set(...BackgroundContainer...)`. Because InnerContainer wraps content + has `overflow:hidden`, its
   radius CLIPS the content → rounding the card also rounds the image/text/button inside.
-  · refs: `card-item.viewer.tsx` · `card-item.style.to-css.ts` · sheet: CS-3
+  · refs: `card-item.viewer.tsx` · `card-item.style.to-css.ts` · sheet: none
 - 2026-07-21 · Core / rendering · Card children inherit any radius on the content layer — card child
   element viewers use `border-radius: inherit` (e.g. `entities/background/viewer/background.shared.tsx`,
   and the editor's `item-action-overlay` selection overlay). So ANY `border-radius` on
@@ -43,7 +44,7 @@ facts up into `project-facts.md` and prune here.
   `.CardItemInnerContainer` to clip content flush-to-the-card-corner (e.g. a full-bleed top image) to
   the rounded silhouette. `clip-path` is NOT inherited, so interior content (text/button) never rounds.
   Use this whenever you need "clip to rounded card shape" without children inheriting a radius.
-  · refs: `background.shared.tsx` · `item-action-overlay` · sheet: CS-3
+  · refs: `background.shared.tsx` · `item-action-overlay` · sheet: none
 - 2026-07-21 · Core / rendering · Card frame styling had to move off the content layer (PROD-3816) —
   moved the card "frame" styling (border-radius, border, box-shadow) off `.CardItemInnerContainer` onto
   `.CardItemBackgroundContainer` so the frame rounds while inset content stays square. Radius+shadow via
@@ -59,11 +60,11 @@ facts up into `project-facts.md` and prune here.
   `tests/integration/**`), which CI runs separately and which reads *rendered* CSS. A green local vitest run
   does NOT cover integration — after changing which DOM layer a style lands on, always run the matching
   Playwright spec. Reproduce one file: `cd packages/foleon-core-editor && pnpm test:playwright
-  tests/integration/editor-brand-kit/content/card.ts`. · refs: `tests/integration/**` · sheet: CS-12
+  tests/integration/editor-brand-kit/content/card.ts`. · refs: `tests/integration/**` · sheet: none
 - 2026-07-22 · Tests & Playwright · Many CI annotations, one real failure — CI editor integration runs
   fail-fast (`--max-failures=1`) sharded 8-way: ONE real failure cancels the other 7 shards ("The operation
   was canceled" / "strategy configuration was canceled") — that cascade inflates the annotation count. Don't
-  read N annotations as N distinct bugs; find the single real failing spec. · refs: — · sheet: CS-11
+  read N annotations as N distinct bugs; find the single real failing spec. · refs: — · sheet: none
 - 2026-07-22 · Tests & Playwright · Brand-kit card assertions had to follow the layer move — consequence of
   PROD-3816: brand-kit card integration tests in `editor-brand-kit/content/card.ts` assert
   border/border-weight/rounded-corners/shadow via `getCardInnerContainer` — these had to switch to
@@ -81,14 +82,14 @@ facts up into `project-facts.md` and prune here.
   container — go through the `pnpm test:playwright` script (it also sets PLAYWRIGHT_ENV=production for the SSL
   webServer). When a card/layout change shifts height, expect the cascade: everything below the first affected
   element shows as a red diff (vertical shift), not just the element itself.
-  · refs: `scripts/playwright-in-docker.sh` · sheet: CS-5
+  · refs: `scripts/playwright-in-docker.sh` · sheet: none
 - 2026-07-22 · Tests & Playwright · Playwright reblessed every snapshot — Playwright CLI QUIRK in this repo's
   viewer config: a positional spec-path filter is unreliable — passing two file paths + `-g` ran only one file;
   passing one file path (with or without `-g`) ran the WHOLE suite (500+ tests). With `--update-snapshots` that
   silently reblesses every stable screenshot. ALWAYS `git status -- '*.png'` after an update run and revert
   strays (a flaky infographic-counter darwin snapshot got rewritten this way and had to be reverted). Scope the
   update by running in a throwaway and checking the resulting diff, not by trusting the path filter.
-  · refs: — · sheet: CS-4
+  · refs: — · sheet: none
 - 2026-07-24 · Core / rendering · Phantom border in the published doc only (PROD-3754) —
   `entities/styles/border/border.to-css.ts` emits `border-<side>-style: solid` (unconditionally at size 50) +
   `border-<side>-color` (whenever a color exists), but width ONLY when truthy. The border settings panel's
@@ -98,7 +99,7 @@ facts up into `project-facts.md` and prune here.
   Result: `solid` + color + no width → browser falls back to `border-width: medium` (~3px). The EDITOR hides
   this because it imports Tailwind (`src/tailwind.css` `@import "tailwindcss"`) whose Preflight resets
   `*{border-width:0;border-style:solid}`; the VIEWER/published doc has no such reset → the phantom border
-  paints. Classic "editor ≠ preview" border divergence. · refs: `border.to-css.ts` · PROD-3754 · sheet: CS-14
+  paints. Classic "editor ≠ preview" border divergence. · refs: `border.to-css.ts` · PROD-3754 · sheet: none
 - 2026-07-24 · Core / rendering · Explicit `width: 0px` is the fix, and `'0'` is truthy — force an explicit
   `border-<side>-width: 0px` for any side with no positive width
   (`if (!(Number(border[side]?.width) > 0)) appendToCSS(..., '0px')`), AFTER the value loop. Note width is
@@ -107,19 +108,19 @@ facts up into `project-facts.md` and prune here.
   width≤0: the brand-kit tests `editor-brand-kit/content/card.ts` "changes border color" assert
   `toHaveCSS('border-color', ...)` after setting ONLY a color (no width) — dropping the side removes the color
   and fails them. Emitting explicit width:0 keeps color queryable AND kills the medium fallback.
-  · refs: `border.to-css.ts` · sheet: CS-14
+  · refs: `border.to-css.ts` · sheet: none
 - 2026-07-24 · Build & tooling · Core change not reflected in the editor — `border.to-css.ts` is shared by ALL
   bordered entities (block/button/image/table/card/text), editor AND viewer both bundle it from
   `@foleon/core`'s ESM dist. So after editing core `src`, you MUST rebuild:
   `pnpm --filter @foleon/core build` (tsc → dist/esm+cjs) THEN `pnpm --filter @foleon/editor build` (vite
   bundles core's dist, no source alias) THEN `cp src/env-config.js dist/env-config.js` before the Playwright
-  production webServer (`serve:ssl` serves `dist`) will reflect the change. · refs: — · sheet: CS-16
+  production webServer (`serve:ssl` serves `dist`) will reflect the change. · refs: — · sheet: none
 - 2026-07-24 · Tests & Playwright · Playwright finds no tests for a brand-kit spec — files under
   `tests/integration/editor-brand-kit/**` are plain `*.ts` (NOT `*.spec.ts`) and are found only via their
   PROJECT (`--project="Brand Kit Editor"`, testDir set per project in `playwright.config.ts`). Positional path
   filters ("content/card.ts") reliably return "No tests found" (the known CLI quirk); `-g "Card"` (matches the
   joined title, `›` are display-only, not in the title string) works. `-g "Content tab › Card"` does NOT match
-  — never put `›` in a `-g` pattern. · refs: `playwright.config.ts` · sheet: CS-9
+  — never put `›` in a `-g` pattern. · refs: `playwright.config.ts` · sheet: none
 - 2026-07-27 · Core / rendering · Image container logs never fire in the editor — IMAGE render paths DIVERGE
   between apps, which is why logs "go missing" when debugging
   `foleon-core/src/entities/image/viewer/image.container.tsx`. The VIEWER
@@ -131,7 +132,7 @@ facts up into `project-facts.md` and prune here.
   `AnimationClipWrapper` > `ImageViewer`) — it never mounts `ImageViewerContainer` and never reaches
   `renderImg`. So `ImageViewer` is the ONLY shared component; a log in `ImageViewerContainer`/`renderImg` fires
   in viewer/preview only, and `renderImg`'s `shouldShowLinkDisplay` branch is print-mode only.
-  · refs: `image.container.tsx` · `image.editor.tsx` · sheet: CS-15
+  · refs: `image.container.tsx` · `image.editor.tsx` · sheet: none
 - 2026-07-27 · Core / rendering · Image border scales with the animation (PROD-3528) — "animation exceeds the
   border in Editor": `image.model.ts` emits cinematic zoom + scroll animations onto
   `.${CSSIdentifiers.Image}` (the `<img>` itself) and the border onto `.FigureWrapper`. The viewer keeps that
@@ -152,16 +153,16 @@ facts up into `project-facts.md` and prune here.
   ordinary canvas images with `visibility: hidden|none` at the active screensize (`visibility.queries.ts`
   `isNotDisplayed`), which the editor still renders behind a `VisibilityOverlay` and which CAN carry a zoom
   animation. Don't reason about that branch as card-only.
-  · refs: `@entities/image/settings-panel/index.tsx` · sheet: CS-17
+  · refs: `@entities/image/settings-panel/index.tsx` · sheet: none
 - 2026-07-27 · Tests & Playwright · Second setting won't open in the settings panel — the settings panel is a
   DRILL-DOWN (`settings-panel.content-renderer.tsx` `activeIndex`), not an accordion — after
   `openSetting('Border')` the category list is REPLACED, so touching a second setting needs a back click
   (`.settings-panel-category-container-back-icon`); added `SettingsPanel.closeSetting()` for this.
-  · refs: `settings-panel.content-renderer.tsx` · sheet: CS-7
+  · refs: `settings-panel.content-renderer.tsx` · sheet: none
 - 2026-07-27 · Tests & Playwright · Animation panel missing from the test DOM — `AnimationCinematic` is behind
   the `editor.cinematicAnimations` flag and `return null`s without it — add the toggle to
   `tests/integration/shared/utils/routes/feature-flag-route.ts` or the dropdown simply isn't in the DOM.
-  · refs: `feature-flag-route.ts` · sheet: CS-8
+  · refs: `feature-flag-route.ts` · sheet: none
 - 2026-07-27 · Tests & Playwright · Cinematic keyframe names are prefixed — `animation-cinematic.to-css.ts`
   emits `cinematic-${name}`, so assert `animation-name: cinematic-zoomIn`, not `zoomIn`.
   · refs: `animation-cinematic.to-css.ts` · sheet: none
@@ -176,12 +177,12 @@ facts up into `project-facts.md` and prune here.
   `--workers=1`. Real failure: same test, same line, same locator every time, and it survives CI-style
   `--retries=2`. Decisive tell — Playwright prints `1 flaky` when a retry passes and `1 failed` when none do,
   so run the suspect with `--workers=1 --retries=2` and read that word before blaming the pipeline. Re-running
-  the job will NOT clear a `1 failed`. · refs: — · sheet: CS-5
+  the job will NOT clear a `1 failed`. · refs: — · sheet: none
 - 2026-07-28 · Tests & Playwright · `image.editor-link.test.ts` is flaky locally — the failing set changes
   every run (2-3 of 8), always `hover` timeouts in `SettingsPanel.openForEntity`. It's parallel execution —
   local config is `workers: undefined` (all cores) while CI is `workers: 1, retries: 2`. Don't chase these as
   regressions; reproduce with `--workers=1` before believing a failure there is real.
-  · refs: `image.editor-link.test.ts` · sheet: CS-5
+  · refs: `image.editor-link.test.ts` · sheet: none
 - 2026-07-28 · Tests & Playwright · Pre-existing red on `main` (local darwin) —
   `editor-doc/@entities/infographic/infographic-counter/infographic-counter.brand-kit-drawer.test.ts` ›
   `SettingsPanel › Animation`. Times out in `SettingsPanel.openForEntity('infographic-counter-number', 1)` →
@@ -195,7 +196,7 @@ facts up into `project-facts.md` and prune here.
   because the Playwright production webServer serves `dist`, not `src`. Sequence that works:
   `git checkout main -- <file>` (this STAGES it) → `pnpm build:integration` → `cp src/env-config.js
   dist/env-config.js` → run spec → `git restore --staged --worktree <file>` → rebuild → re-copy env-config.
-  Forgetting the env-config copy after either build leaves the editor unable to boot. · refs: — · sheet: CS-1
+  Forgetting the env-config copy after either build leaves the editor unable to boot. · refs: — · sheet: none
 - 2026-07-31 · Core / rendering · Animation won't replay after swapping the asset (PROD-3521) —
   cinematic/entrance animations are pure CSS — nothing "triggers" them. `background.styles.ts` →
   `animation-cinematic.to-css.ts` emits `animation-name: cinematic-<name>` (20s, 1 iteration, `fill: both`,
@@ -208,7 +209,7 @@ facts up into `project-facts.md` and prune here.
   from 0. Covers block AND column backgrounds and both media types in one place, and needs no `@foleon/core`
   rebuild. Precedent for the same class of bug: `animation-cinematic.tsx handleAnimationUpdate` sets the name
   to 'none' then reapplies inside a rAF — that trick writes mutations (dirties the doc), the `key` approach
-  doesn't. · refs: PROD-3521 · `background.editor.tsx` · sheet: CS-6
+  doesn't. · refs: PROD-3521 · `background.editor.tsx` · sheet: none
 - 2026-07-31 · Tests & Playwright · Media library opens but the gallery is empty — the current ML
   (`@foleon/assets-library` 1.6.29) lists assets from `GET /k/resources/media?...` (KrakenD shape:
   `{data:[{id,type:'image',name,access_type,view:{created_on,parent_topiary_id,filetype,filesize,properties,
@@ -219,12 +220,12 @@ facts up into `project-facts.md` and prune here.
   `mediaLibrary*` testids in `data-testids.ts` (`media-library.gallery.media-item...`) are STALE — they match
   nothing (`link-modal.ts` still uses them). `view.links.self` becomes the entity `assetRef`
   (`getMediaItemPropsToChange` reads `_links.self.href`), so give the stub a different image id than the doc's
-  current background or a "replace" is a no-op. · refs: `media-resources-route.ts` · sheet: CS-10
+  current background or a "replace" is a no-op. · refs: `media-resources-route.ts` · sheet: none
 - 2026-07-31 · Tests & Playwright · Block `BackgroundAnimation` panel needs TWO flags — cinematic + scroll:
   `editor.scrollAnimations` (else `background-animation.tsx` returns null) AND `editor.cinematicAnimations`
   (else `animation-cinematic.tsx` returns null). Neither is in the shared `featureFlagRoute`; added
   `featureFlagRouteWithAnimations` (base toggles + both) rather than enabling them for every editor-doc test.
-  · refs: `background-animation.tsx` · sheet: CS-8
+  · refs: `background-animation.tsx` · sheet: none
 - 2026-07-31 · Tests & Playwright · Need a block with an image background as a fixture — the `load-hotspot`
   recording (`url: doc/119281/pages/812305`) has a block with an image background whose `assetRef` is
   `https://api.staging.foleon.cloud/image/1493060` — the go-to recording for block-background tests (hotspots
@@ -245,18 +246,66 @@ facts up into `project-facts.md` and prune here.
   the image border-vs-animation and card-radius-inherit entries above: a layer added for animation/parallax
   ends up co-planar with editor interaction chrome. At-risk beyond the editor: static, unpositioned
   interactive content inside a scroll-effect block (positioned content escapes via its own z-index).
-  · refs: PROD-3270 · sheet: CS-18
-- 2026-08-03 · Tests & Playwright · Editor chrome unclickable, cause unknown — TECHNIQUE for any "editor chrome
-  disappears / isn't clickable" bug here: `document.elementsFromPoint(x, y)` fired from a keydown handler (you
-  can't hover and type at once), dumping per row `contains(prev)`, whether the row is inside the suspect
-  container, and computed `position`/`transform`/`overflow`/`z-index`/`pointer-events`. Its order is PAINT
-  order, so it interleaves unrelated subtrees — always test containment separately or you will misread it as an
-  ancestor chain. Diff the stack with the feature on vs off, and on a working element vs a broken one; the
-  delta is the culprit. Keep the probe in DevTools → Sources → Snippets so it survives the constant reloads.
-  Anchor greps on the semantic `ripley__*` classes (they come from identifier constants); `sc-*` hashes are
-  build-generated and ungreppable — for those, React DevTools names the component. · refs: — · sheet: CS-13
+  ROOT CAUSE + FIX: the two parallax wrappers in `background/viewer/parallax/components/parallax.consumer.tsx`
+  (`ParallaxConsumerWrapper`, absolute + the `Container` that carries `.parallax-consumer`, fixed) never declared
+  `pointer-events: none`, while the element they wrap — `BackgroundContainerStyles` / `.viewer-background` in
+  `background/viewer/background.shared.tsx` — always did. So the non-parallax render is click-through and the
+  parallax render is not; adding `pointer-events: none` to `ParallaxConsumerWrapper` alone restores parity
+  (`pointer-events` is inherited, so the inner `Container` and `BackgroundAnimationClip` are covered — patching
+  only the inner `.parallax-consumer` does NOT fix it, because its absolute PARENT still hit-tests).
+  Safe because nothing interactive lives in that subtree: `withParallaxConsumer` has exactly ONE usage
+  (`background-image.container.tsx`), video backgrounds never take the parallax path, the background renders no
+  `children`, and hotspots are siblings of the background rather than descendants (the "hotspots disappear
+  outside the background" comment on `.viewer-background`'s `overflow: hidden` is stale). Verified: ci:compile,
+  868 core unit tests, 25 editor integration (hotspot + map-form), 174 viewer integration (linking + gallery),
+  no screenshot drift. · refs: PROD-3270 · `parallax.consumer.tsx` · `background.shared.tsx` · sheet: none
+- 2026-08-03 · Tests & Playwright · Parallax backgrounds are effectively untested — nearly every editor/viewer
+  fixture sets `background.scrollRate: "1"`, and `background-image.container.tsx` treats `undefined | '1'` (and
+  `prefers-reduced-motion`, and template/overlay routes via `disableParallax`) as "no parallax" — so the whole
+  parallax subtree is skipped. The ONLY integration fixture that reaches it is
+  `editor-doc/@entities/map-form/__mocks__/load-empty-map-forms/load-empty-map.forms.ts` (`scrollRate: '0'`),
+  and it asserts nothing about it. Consequence: a parallax-only regression passes CI. Cheap guard added in
+  `background/viewer/__tests__/background-image.container.test.tsx` — render with `scrollRate="0.5"`, then
+  `getComputedStyle(container.querySelector('.parallax-consumer').parentElement).pointerEvents === 'none'`;
+  jsdom DOES resolve styled-components class rules for this (returns `''` when the declaration is absent, so the
+  test genuinely fails without the fix). Note core has NO jest-dom (`toHaveStyle` is unavailable) — use raw
+  `getComputedStyle`. · refs: `background-image.container.test.tsx` · sheet: none
+- 2026-08-05 · Tests & Playwright · Editor chrome unclickable, cause unknown — TECHNIQUE for any "editor chrome
+  disappears / isn't clickable" bug here: press-to-inspect `elementsFromPoint` probe, generalized (v2, supersedes
+  the gallery-specific v1). Paste once, hover the suspect area, press `q`; no target selector needed up front:
+  ```
+  let p = { x: 0, y: 0 }
+  addEventListener('mousemove', e => (p = { x: e.clientX, y: e.clientY }), true)
+  const probe = () => {
+    const els = document.elementsFromPoint(p.x, p.y)
+    window.$probe = els.map((el, i) => ({
+      i, el, tag: el.tagName,
+      classes: [...el.classList].filter(c => !c.startsWith('sc-')).join(' ') || '(none)',
+      containsPrev: i > 0 ? el.contains(els[i - 1]) : null,
+      style: Object.fromEntries([...getComputedStyle(el)].map(k => [k, getComputedStyle(el).getPropertyValue(k)])),
+    }))
+    console.table(window.$probe.map(({ style, el, ...rest }) => rest))
+    console.log('Full CSS per layer: $probe[i].style — e.g. $probe[2].style.transform. Select element: $probe[2].el')
+  }
+  addEventListener('keydown', e => { if (e.key === 'q') probe() }, true)
+  ```
+  `els` is PAINT order (topmost first), not an ancestor chain — it interleaves unrelated subtrees, so read
+  `containsPrev` before assuming containment. `style` holds ALL computed CSS properties per layer (not a
+  curated subset) via `window.$probe`, so a suspect property you didn't think to list up front is still there.
+  Diff helper across two rows of one call, or across two separate `$probe` captures (e.g. feature on vs off):
+  ```
+  window.$diffStyle = (i, j) => {
+    const a = $probe[i].style, b = $probe[j].style, out = {}
+    for (const k of Object.keys(a)) if (a[k] !== b[k]) out[k] = { [i]: a[k], [j]: b[k] }
+    return out
+  }
+  ```
+  Diffing (on vs off, working element vs broken one) is what actually localizes the bug — the delta is the
+  culprit. Keep the probe in DevTools → Sources → Snippets so it survives the constant reloads. Anchor follow-up
+  greps on the semantic `ripley__*` classes (they come from identifier constants); `sc-*` hashes are
+  build-generated and ungreppable — for those, React DevTools names the component. · refs: PROD-3270 · sheet: none
 - 2026-08-03 · Build & tooling · 403 Forbidden from local requests — run `sh scripts/prepare-auth.sh`.
   Recorded during the PCS-6 migration: this finding existed only on the Notion cheat sheet (row CS-2) and in
   no Claude-facing file, which PCS-11 forbids — the log is authoritative and a finding must never live only in
   the mirror. Date is when it was logged here, not when it was learned.
-  · refs: `scripts/prepare-auth.sh` · sheet: CS-2
+  · refs: `scripts/prepare-auth.sh` · sheet: none

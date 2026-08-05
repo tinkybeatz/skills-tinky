@@ -1,114 +1,71 @@
 # Notion operations
 
-Live targets:
+Target: **one page**, no database.
+`Foleon - Cheat Sheet` — `https://app.notion.com/p/3aae7f9407e780df888df6c667a4f4e1`
 
-- database `8020892f438f470eac8ad5da4c11809e`
-- data source `collection://a7b041f4-7add-41e8-9ead-5fc6c62d6815`
+Requires the Notion MCP. If a call fails on connection, **stop and report** — never fall back to
+writing the fact somewhere else.
 
-Requires the Notion MCP. If a call fails on connection, **stop and report** —
-never fall back to writing the row somewhere else.
-
-## 1. Dedupe query — always before a write (CHS-11)
-
-The API filters on **properties only**; page-body text is not searchable. That is
-why `Dedupe key` is a property, and why this step cannot be skipped.
+## 1. Fetch — always fresh, every time
 
 ```
-mcp__notion__notion-query-data-sources
-  data_source_url: collection://a7b041f4-7add-41e8-9ead-5fc6c62d6815
-  filter on "Dedupe key" equals "<key from row.py key>"
+mcp__notion__notion-fetch
+  id: 3aae7f94-07e7-80df-888d-f6c667a4f4e1
 ```
 
-If `equals` returns nothing, try a `contains` pass on the distinctive stem of the
-symptom slug (e.g. `card-content-rounds`) to catch a near-duplicate someone
-phrased differently. Two cheap queries beat one duplicate row.
+Read the returned content in full. This is CHS-2 gate 5 ("not already said") and CHS-10 (dedupe) at
+once — there is no property to query, the fetch *is* the check. Never reuse a fetch from earlier in
+the conversation; something may have changed since (including your own prior edit this session).
 
-**Outcomes**
+## 2. Decide the heading and compose the bullet
 
-- **Exact match** → update that row (step 3). Never create.
-- **Near match** → prefer updating, and improve the existing `Symptom` if the new phrasing scans better. Two rows for one symptom is the failure this system exists to prevent.
-- **No match** → create (step 2).
+See `references/rewriting.md`. Validate with `python3 scripts/row.py check --bullet "..."` before
+moving on.
 
-If the query did not run — for any reason — **do not write**. Fail closed.
+## 3. Propose in chat — this is the review gate (CHS-9)
 
-## 2. Create
+Show the maintainer, verbatim, the bullet you're about to write and which heading it goes under.
+Wait for an explicit yes. There is no Notion-side approval step to fall back on if this is skipped —
+skipping it means writing something the maintainer never agreed to, which is the single worst outcome
+this skill can produce.
 
-```
-mcp__notion__notion-create-pages
-  parent: {"type": "data_source_id",
-           "data_source_id": "a7b041f4-7add-41e8-9ead-5fc6c62d6815"}
-  pages: [{
-    "properties": {
-      "Symptom": "...",
-      "Area": "Core / rendering",
-      "Fix": "...",
-      "Why": "...",                        // omit entirely if unknown
-      "Refs": "...",
-      "date:Verified on:start": "YYYY-MM-DD",
-      "Status": "Needs review",            // never anything else
-      "Dedupe key": "area-slug:symptom-slug"
-    }
-  }]
-```
+- **No response, a "maybe," or silence is not a yes.**
+- **No** → don't write. Mark the log entry `sheet: no`. Say so and stop.
 
-Notes that will bite otherwise:
-
-- The date property is written as **`date:Verified on:start`**, not `Verified on`.
-- `Status` is a `select` (not Notion's `status` type — it cannot be API-provisioned with custom options; see CHS-10).
-- Leave the page **body empty** unless the fix genuinely needs a long command sequence, in which case the body holds it and `Fix` holds a ≤40-word summary (the one standing CHS-6 exception).
-- Do **not** set `ID` — it is system-generated and immutable.
-
-The response returns `userDefined:ID` (e.g. `CS-7`). Keep it for step 4.
-
-## 3. Update an existing row
+## 4. Write — one targeted edit, never a full-page replace
 
 ```
 mcp__notion__notion-update-page
-  page_id: <the matched row>
-  command: update_properties
-  properties: {
-    "Fix": "...",                          // only if the new one is better
-    "date:Verified on:start": "YYYY-MM-DD" // always refresh on a re-verify
-  }
+  page_id: 3aae7f9407e780df888df6c667a4f4e1
+  command: update_content
+  content_updates: [{
+    old_str: "<the exact text of the CURRENT last bullet under the target heading>",
+    new_str: "<same text>\n<the new bullet>"
+  }]
 ```
 
-Rules: refresh `Verified on` on every confirming touch — that is what keeps the
-`Stale` view honest. Never change `Status` to `Approved`. If the row is already
-`Approved`, the only permitted edit is `Verified on` plus a genuine correction.
+Use the text you just fetched in step 1 for `old_str`, verbatim — a stale copy from earlier in the
+conversation can mismatch and either fail the edit or, worse, match the wrong occurrence. **Never use
+`replace_content`** for this — that rewrites the whole page and risks losing something added by hand
+since the last fetch.
 
-## 4. Cross-link back into the log (PCS-11)
+If the target is a genuinely new heading (rare — see `references/rewriting.md`), use
+`insert_content` with `position: {"type": "end"}` to append the new `## Heading` plus its first
+bullet, only after the maintainer has agreed to the new heading specifically, not just the bullet.
 
-Edit the log entry's `sheet:` field in
-`foleon/foleon-ripley/references/knowledge.md`:
+## 5. Cross-link and refresh the local mirror
 
-```
-- 2026-08-03 · Core / rendering · Card content rounds with the card — … · refs: … · sheet: CS-3
-```
+- Edit the log entry's `sheet:` field in `foleon/foleon-ripley/references/knowledge.md`: `sheet: yes`
+  on a write, `sheet: no` on a decline. Never write into the ripley checkout (PCS-7) — the log lives
+  in `skills-tinky`.
+- Regenerate `foleon/foleon-ripley/references/cheatsheet-approved.md`: fetch the page's current full
+  content and copy it in — verbatim, no rewriting, since everything on the page already went through
+  conversational approval. This is a plain mirror, refreshed whenever the page changes, so `foleon-
+  ripley` benefits from what's on the page without needing live Notion access every session.
 
-For a rejected finding write `sheet: none`, so a later sync doesn't re-litigate
-it. This is the mechanism that keeps the two artifacts pointing at each other
-instead of duplicating each other.
+## Failure to avoid
 
-**Never write into the ripley checkout** (PCS-7). The log lives in
-`skills-tinky`. If a path you're about to write resolves inside ripley, stop.
-
-## 5. Reading the surface
-
-```
-mcp__notion__notion-query-database-view
-  view_url: https://app.notion.com/p/8020892f438f470eac8ad5da4c11809e?v=<view-id>
-```
-
-| View | id (dashless) |
-|---|---|
-| Lookup | `3b1e7f9407e7812f819b000cea854f44` |
-| Review queue | `3b1e7f9407e7819fa39c000c3b18ab31` |
-| Stale | `3b1e7f9407e781e0a7a1000caddceb4d` |
-
-Use **Review queue** to check what is already pending before adding more, and
-**Stale** for the quarterly sweep.
-
-> **Unverified:** the `Stale` view filters a boolean formula compared as the text
-> `"true"`. It returns empty today because nothing is 90 days old yet — which is
-> also what a broken filter returns. Confirm it once by temporarily back-dating an
-> approved row before trusting it.
+Do not, under any circumstance for this skill, call `notion-create-database`, `notion-create-pages`
+with a `data_source_id` parent, or any tool that would create a new Notion page or database row. If a
+task seems to need one, that's the signal to stop and re-read `docs/stds/CHEAT_SHEET.md` CHS-5 — the
+whole point of v2.0.0 is that this skill never does that again.
