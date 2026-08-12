@@ -34,3 +34,16 @@ pnpm install
 The `~/.npmrc` token is a Google access token and expires in ~1h, so an install that worked earlier
 fails later. `pnpm gcp-auth` **cannot** refresh it — pnpm runs `install` before any script body, so
 it dies on the same 403 it exists to fix.
+
+### gcloud auth list says ACTIVE while the token is dead
+
+```bash
+gcloud auth print-access-token   # the real test
+```
+
+The listed account and the ability to mint a token expire separately, so `gcloud auth list` showing
+your account proves nothing during a 403. Test with `print-access-token`; if it fails, re-run
+`gcloud auth login`.
+
+Ignore `✗ Lockfile failed supply-chain policy check` — it prints on every install, including
+successful ones, and is unrelated to the 403 it appears next to.
