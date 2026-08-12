@@ -3,11 +3,11 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 2.3.0 |
+| **Version** | 2.4.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
 | **Effective date** | 2026-08-05 |
-| **Applies to** | The human-facing Notion hub page, its project pages, and their category child pages, maintained for the maintainer across one or more project-context skills (reference implementation: `Foleon - Cheat Sheet`) |
+| **Applies to** | The human-facing Notion hub page, its project pages (including the optional single `Foleon - Shared` pseudo-project page, CHS-9b), and their category child pages, maintained for the maintainer across one or more project-context skills (reference implementation: `Foleon - Cheat Sheet`) |
 
 > **v2.0.0 replaces the entire v1.x architecture.** v1.x built a Notion *database* with one row per
 > admitted finding. In Notion, every database row **is a page** — so "one row per finding" is
@@ -18,11 +18,19 @@
 > worse place. Both defects are structural, not tunable. The whole database is gone; nothing here
 > carries it forward. See the [v2.0.0 changelog entry](#change-log) for the full account.
 
-**Reference implementation** — a bare hub, one project page, category pages nested under it, no
-database: `Foleon - Cheat Sheet` (the hub) links to `Ripley` (the project page), which links to
+**Reference implementation** — a bare hub, one project page per project, category pages nested under
+each, no database: `Foleon - Cheat Sheet` (the hub) links to `Ripley` (a project page), which links to
 `Ripley - Commands`, `Ripley - Packages`, `Ripley - Conventions`, `Ripley - Gotchas`,
 `Ripley - Debugging` — each a child of `Ripley`, each fact its own `##` heading (or grouped under a
 `##` sub-heading, e.g. `Ripley - Commands` → `Building`).
+
+`Fio` **will join** as the second project page under the same hub (not yet created at v2.4.0), with
+`Fio - <Category>` pages created **lazily** as the first fact for each is admitted — CHS-8 forbids
+creating a category empty "to complete the taxonomy," which applies to the project page itself: do not
+create `Fio` until there is a first `Fio` fact to put under it. This needs no new rule; CHS-9a already
+specifies the nesting and the title prefix.
+What a second project *does* add is the question of where a fact true of **both** projects goes — see
+[CHS-9b](#chs-9b-cross-project-facts).
 
 ---
 
@@ -219,6 +227,9 @@ category count itself needs the same discipline whether it's rendered as pages o
 into pages (rather than keeping headings on one page) is purely a **readability** choice as content
 grows — it does not change what a "category" is or how many of them there should be.
 
+**Enforcement:** reviewed at proposal time; category count and per-category entry count are visible
+just by opening the hub (page list) or a category page (heading list).
+
 ### CHS-9a Multiple projects share one hub, nested by project
 
 - When a project-context skill's mirror shares a hub with other projects' mirrors (e.g. several
@@ -241,8 +252,35 @@ prevent — a hub listing 5 categories × N projects as undifferentiated sibling
 **Enforcement:** reviewed at proposal time; the hub's line count (one per project) and each project
 page's category count (CHS-8) are both visible on open.
 
-**Enforcement:** reviewed at proposal time; category count and per-category entry count are visible
-just by opening the hub (page list) or a category page (heading list).
+### CHS-9b Cross-project facts
+
+- A fact true of **more than one** project on the hub **MUST** be written **once**, under the project
+  whose work surfaced it, and **MUST NOT** be duplicated onto the other project's pages. Duplication
+  across project pages is the same defect CHS-2 gate 5 forbids within a page, one level up — and it is
+  worse there, because nothing prompts you to read the *other* project's pages before writing.
+- Where the fact is genuinely **shared infrastructure** rather than one project's business — the
+  `@foleon/*` package registry, Google Artifact Registry auth, shared tooling — it **MAY** instead go on
+  a **shared pseudo-project page** (`Foleon - Shared`), which **MUST** obey every rule a project page
+  obeys: nested directly under the hub, its categories nested under it and prefixed
+  (`Foleon - Shared - Commands`), 4–8 categories, created lazily.
+- At most **one** such shared page **MAY** exist. A second one is a signal the split is wrong. The hub
+  **MUST** still be a bare index — the shared page is one more line on it, not a special section.
+- Deciding between the two is a judgement call with a usable test: *would this fact still be true if
+  the project that surfaced it were deleted?* Yes → shared page. No → that project's page.
+- **The `sheet:` marker is per-log, not per-hub.** When a shared fact is mirrored, the log entry that
+  produced it is marked `sheet: yes` in **its own** skill's `knowledge.md` only. The other project's log
+  is **not** back-annotated — it has no entry to annotate, and inventing one to record "already on the
+  shared page" recreates per-item bookkeeping across logs (PCS-11).
+
+**Rationale:** with one project the question could not arise; `Fio` and `Ripley` make it immediate,
+since both are Foleon repos consuming the same private registry — an auth or tooling fact is genuinely
+true of both. The default is *write once, don't duplicate* because CHS-10's dedupe mechanism is "read
+the page," and a writer working on `fio` will not think to read `Ripley - Gotchas` first. The shared
+page exists so that "write it once" does not mean "file it arbitrarily under whichever project you
+happened to be in."
+
+**Enforcement:** reviewed at proposal time — the proposal states which project page (or the shared page)
+the entry targets, and why. The hub's line count makes a second shared page immediately visible.
 
 ### CHS-9 Review gate — conversational, not a status field
 
@@ -319,8 +357,9 @@ A cheat-sheet bullet is conforming when **all** are true:
 - [ ] Imperative, neutral, no discovery narrative, no hedging (CHS-7)
 - [ ] Placed under one of ~4–8 categories (pages or headings); no category exceeds ~10 entries (CHS-8)
 - [ ] If the hub serves multiple projects: the entry's category page is nested under its project page, titled `<Project> - <Category>` (CHS-9a)
+- [ ] If the fact is true of more than one project: written once — under the surfacing project, or on the single `Foleon - Shared` page when it would outlive that project — never duplicated across project pages (CHS-9b)
 - [ ] Shown to the maintainer, exact wording, and approved **before** the write (CHS-9)
-- [ ] The full page was freshly read immediately before proposing (CHS-10)
+- [ ] The full page was freshly read immediately before proposing — plus the `Foleon - Shared` page, if one exists, since a shared fact may already be recorded there (CHS-10, CHS-9b)
 
 ## Enforcement
 
@@ -374,6 +413,7 @@ the exception.
 
 | Version | Date | Change |
 |---|---|---|
+| **2.4.0** | 2026-08-12 | **Second project (`Fio`) onboarded; one genuine gap closed.** The nesting itself needed **no new rule** — CHS-9a (v2.3.0) already specified project pages, `<Project> - <Category>` titles and lazy creation, and it was written in anticipation of exactly this. What a second project *did* create is a case that could not previously arise: a fact true of **both** projects (both are Foleon repos consuming the same private `@foleon/*` registry, so an auth or tooling fact belongs to neither alone). New rule **CHS-9b**: write it **once** under the surfacing project — never duplicated across project pages, because CHS-10's dedupe mechanism is "read the page" and a writer working in `fio` will not think to read `Ripley - Gotchas` first — or, when the fact is shared infrastructure that would outlive that project, on a single `Foleon - Shared` pseudo-project page obeying every project-page rule. Includes the decision test (*would this still be true if the surfacing project were deleted?*), a cap of one shared page, and a note that `sheet:` marking stays per-log so a shared fact does not spawn bookkeeping entries in the other project's log. CHS-10 checklist item extended to include the shared page in the pre-proposal read. **Editorial fix:** restored CHS-8's `Enforcement` block, which the v2.3.0 CHS-9a insertion had left orphaned under CHS-9a (which carried two, the second describing category counts — CHS-8's). No normative change from that fix. |
 | 1.0.0 | 2026-08-03 | Initial standard: database, per-finding rows, closed field set, `Status`/`Dedupe key` properties, 90-day decay. |
 | 1.1.0 | 2026-08-03 | Corrections from building the reference implementation (title property naming, `ID` field, formula-based staleness, `Status` as `select`). |
 | 1.2.0 | 2026-08-03 | Log dedupe scripted; read-back leg added (approved rows → local file). |

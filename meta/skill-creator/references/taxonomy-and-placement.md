@@ -48,5 +48,28 @@ exactly `SKILL.md` + `references/project-facts.md` + `references/knowledge.md`, 
 served repo in `hooks/awareness-ignore.txt` as `<repo> -> <skill>` (via
 `hooks/awareness-ignore-add.sh . <skill>`). Use `foleon/foleon-ripley` as the template.
 
+**Declare the repo class (PCS-9a, required since PCS 3.0.0).** `SKILL.md` **MUST** carry exactly one
+line, verbatim:
+
+```
+**Repo mode:** silo-only     ← the checkout must stay AI-config-free (e.g. ripley)
+**Repo mode:** dual-home     ← the team owns the checkout and commits its own agent context (e.g. fio)
+```
+
+**Silo-only is the default.** Choose `dual-home` only when all three PCS-9a eligibility conditions
+hold, and then two things change materially:
+
+- **Read both, write one.** The skill's how-to-use flow MUST read the served repo's own committed
+  context files **and** the skill's files — both are sources of truth. But **every** write still goes
+  to the skill; the skill MUST NOT edit anything in the served repo's checkout (PCS-7 holds for both
+  classes). Those files usually belong to other people; putting a finding into them is a PR the
+  maintainer opens, not an action the skill takes.
+- **`project-facts.md` becomes an index + delta** — pointers by path to the repo's own files, plus only
+  what they don't cover. Restating them creates a copy that goes stale while the original moves on.
+
+Read PCS-9a before scaffolding one — copying `foleon-ripley` wholesale will produce a **non-conforming**
+dual-home skill, because its `## Boundary` section and its full-fat `project-facts.md` are both
+silo-only shapes.
+
 ## Forward hook
 Once a generated catalog/cheat-sheet exists at the repo root (README step 4), regenerate it after adding a skill so `god` and `concierge` stay fast and current. (No such file yet — skip until it exists.)

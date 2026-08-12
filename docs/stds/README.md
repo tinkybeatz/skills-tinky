@@ -10,11 +10,16 @@ change log. Authored and amended with the `standard-maker` skill.
 
 | Standard | Rules | Governs |
 |---|---|---|
-| [`PROJECT_CONTEXT_SKILL.md`](PROJECT_CONTEXT_SKILL.md) | `PCS-1`…`PCS-11` | Skills that carry one project's context for the awareness router: placement, naming, required files, the self-enrich boundary, registration, and the optional external mirror. Reference implementation: `foleon/foleon-ripley`. |
-| [`CHEAT_SHEET.md`](CHEAT_SHEET.md) | `CHS-1`…`CHS-11` | What may be written to a human-facing cheat-sheet **page** and how: five admission gates (including "not already said"), one bullet per fact under an existing heading, length judged by the fact not a word count, voice, and a conversational review gate before any write. No database. Reference implementation: the `Foleon - Cheat Sheet` Notion page, written by `foleon/foleon-cheatsheet`. |
+| [`PROJECT_CONTEXT_SKILL.md`](PROJECT_CONTEXT_SKILL.md) | `PCS-1`…`PCS-11` (incl. `PCS-9a`) | Skills that carry one project's context for the awareness router: placement, naming, required files, the self-enrich boundary, registration, and the optional external mirror. Governs **two repo classes** — silo-only (checkout stays AI-config-free) and dual-home (team owns the checkout; `PCS-9a` sets the boundary between committed context and the private silo). Reference implementation: `foleon/foleon-ripley` (silo-only). No dual-home skill exists yet — `foleon/foleon-fio` is the intended first one; PCS-9a was written ahead of it. |
+| [`CHEAT_SHEET.md`](CHEAT_SHEET.md) | `CHS-1`…`CHS-11` (incl. `CHS-9a`, `CHS-9b`) | What may be written to a human-facing cheat-sheet **page** and how: five admission gates (including "not already said"), one bullet per fact under an existing heading, length judged by the fact not a word count, voice, and a conversational review gate before any write. Multi-project hubs nest by project (`CHS-9a`) and write cross-project facts once (`CHS-9b`). No database. Reference implementation: the `Foleon - Cheat Sheet` Notion page, written by `foleon/foleon-cheatsheet`. |
 
 The two compose: PCS-11 permits a project-context skill to mirror findings to one external
 surface, and `CHEAT_SHEET.md` governs what that surface may contain.
+
+Note the `<rule>a` suffix convention (`PCS-9a`, `CHS-9a`, `CHS-9b`): when a new rule belongs
+*beside* an existing one, it takes a suffixed ID rather than the next free number. IDs are stable and
+never renumbered, so appending `PCS-12` for a rule that qualifies `PCS-9` would scatter one topic
+across the document. Suffixed IDs keep related rules adjacent without ever reusing an ID.
 
 ## Referenced from
 
@@ -22,6 +27,9 @@ surface, and `CHEAT_SHEET.md` governs what that surface may contain.
 - [`foleon/_category.md`](../../foleon/_category.md) → architecture standard + mirror
 - [`meta/skill-creator/references/taxonomy-and-placement.md`](../../meta/skill-creator/references/taxonomy-and-placement.md) → project-context skills
 - [`meta/concierge/scripts/audit.sh`](../../meta/concierge/scripts/audit.sh) → checks PCS-2, PCS-3, PCS-9
+  (check #10 implements PCS-9 exclusivity; as of PCS 3.0.0 it **must** read the mapped skill's
+  `Repo mode:` line and skip declared dual-home repos, and should gain a check that every
+  project-context skill declares a class at all)
 
 ## Conventions
 
