@@ -240,6 +240,37 @@ For proposed new categories (🆕):
 |---|---|---|---|---|
 | Google SRE Workbook — On-call (playbooks) | https://sre.google/workbook/on-call/ | 2026-08-03 | 88 | Primary; playbook minimal field set, alert↔entry pairing, staleness warning |
 
+### 🆕 Open banking, PSD2 & fintech APIs (EEA)
+
+> Rationale: A new domain — PSD2/Berlin Group account-information APIs, AISP licensing mechanics, eIDAS certificate requirements, and aggregator/bank developer documentation. Fits neither "Regulation & law (EU/France)" (which holds general legal sources, not API/technical specs) nor "AI & tech". 8 Tier 1–3 sources identified in this session.
+
+| Title | URL | Date discovered | Score /100 | Justification |
+|---|---|---|---|---|
+| N26 — PSD2 TPP documentation | https://github.com/n26/psd2-tpp-docs | 2026-08-03 | 93 | A bank's own TPP docs; the only source found explaining authorisation→presentment transactionId instability concretely |
+| Enable Banking — whitelisting own accounts (restricted usage) | https://enablebanking.com/docs/api/linked-accounts/ | 2026-08-03 | 91 | Primary vendor doc for the free restricted-production mode (own accounts only, no AISP licence needed) |
+| Enable Banking — FAQ | https://enablebanking.com/docs/faq/ | 2026-08-03 | 89 | Licence delegation, volume pricing model, 180-day consent validity, bank-level rate limits |
+| Revolut — Open Banking API eligibility | https://developer.revolut.com/docs/guides/build-banking-apps/introduction-to-the-open-banking-api/who-can-access-the-api | 2026-08-03 | 87 | Primary vendor statement that TPP registration + eIDAS certs are required |
+| Firefly III — data importer / third-party providers | https://docs.firefly-iii.org/how-to/data-importer/import/third-party-providers/ | 2026-08-03 | 85 | Reference open-source implementation of EEA bank ingestion; tracks provider free-tier changes |
+| European Payments Council — eIDAS and TPP identification (PSD2) | https://www.europeanpaymentscouncil.eu/sites/default/files/kb/file/2018-11/API%20EG%20058-18%20v1.0%20eIDAS%20and%20TPP%20identification%20(PSD2).pdf | 2026-08-03 | 82 | Institutional spec for QWAC/QSeal per ETSI TS 119 495; structurally stable despite 2018 date |
+| Actual Budget — bank sync documentation | https://actualbudget.org/docs/advanced/bank-sync/gocardless/ | 2026-08-03 | 81 | Best available evidence for the GoCardless July 2025 closure + historical free-tier limits |
+| Konsentus — eIDAS Qualified Certificates under PSD2 FAQ | https://www.konsentus.com/wp-content/uploads/eidas-qualified-certificates-under-psd2-faq.pdf | 2026-08-03 | 78 | Practitioner reference on certificate issuance flow; vendor-authored → credibility penalised |
+
+### Regulation & law (EU/France)
+
+| Title | URL | Date discovered | Score /100 | Justification |
+|---|---|---|---|---|
+| European Banking Authority (EBA) | https://www.eba.europa.eu | 2026-08-03 | 86 | Authority-level source: PSD2 authorisation/registration guidelines + Single Rulebook Q&A (binding interpretation) |
+| De Nederlandsche Bank (DNB) — PSD2 supervision | https://www.dnb.nl/en/sector-information/open-book-supervision/laws-and-eu-regulations/psd2/ | 2026-08-03 | 79 | NL national competent authority; relevant now that the user is NL-resident |
+
+### macOS Automation & Scripting (osascript / AppleScript / JXA)
+
+> ⚠️ Possible overlap: these two entries are **iOS** Shortcuts, not macOS. Consider renaming this category to "Apple platform automation" at the next review rather than creating a near-duplicate category.
+
+| Title | URL | Date discovered | Score /100 | Justification |
+|---|---|---|---|---|
+| Apple Support — Create a new personal automation (Shortcuts) | https://support.apple.com/guide/shortcuts/create-a-new-personal-automation-apdfbdbd7123/ios | 2026-08-03 | 88 | Authoritative *enumeration* of iOS automation triggers — usable for negative results (what does not exist) |
+| Apple Developer Forums — notification access & sandboxing | https://developer.apple.com/forums/thread/749836 | 2026-08-03 | 75 | Apple DTS engineer statements on App Sandbox limits; "impossible via public API = disallowed" |
+
 ---
 
 ## Review history
