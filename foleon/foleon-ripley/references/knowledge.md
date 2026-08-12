@@ -338,3 +338,42 @@ facts up into `project-facts.md` and prune here.
   no Claude-facing file, which PCS-11 forbids — the log is authoritative and a finding must never live only in
   the mirror. Date is when it was logged here, not when it was learned.
   · refs: `scripts/prepare-auth.sh` · sheet: none
+
+- 2026-08-07 · Editor · blue options-buttons bar covers a one-line text element so it can't be clicked to edit —
+  `OptionsButtons` (`@shared/options-buttons-new/index.tsx`) maps `positionY: 'inside'` to `top: 0` and
+  `'outside'` to `top: -27`, and the bar is a fixed `dragIconHeight = 27`px tall. So `'inside'` always eats the
+  top 27px of the entity's `ActiveIndicator` box (`@common/active-monitor`, a `Relative` — it is the bar's
+  offsetParent; `marginBottom` is real CSS margin so it does not add to that box). Text picks `'inside'`
+  whenever it is merely hovered. Any text entity shorter than ~27px is therefore 100% covered on hover. Fix
+  (PROD-3457) measures the
+  `TextViewerContainer` node (already available in `text.editor.tsx` via `useRefState`) with a ResizeObserver
+  and flips `positionY` to `'outside'`. Note the jsdom `ResizeObserver` in `test-utils/setup.ts` is a no-op
+  stub (observe/disconnect are `vi.fn()`), so only the synchronous first measurement is testable — keep the
+  height predicate a separately exported pure function. UNVERIFIED / DO NOT REPEAT: reading
+  `&& !isParentCardItem` in `options-button.tsx` suggests text inside a `card-item` is pinned to `'inside'`,
+  but observed behaviour in the editor contradicts that — the bar renders above the text in a card, and one
+  bar appears to serve both card texts. The real card positioning is NOT understood; do not reason about it
+  from that boolean alone. Note the PROD-3457 fix's `!hasRoomForOptionsButtonsInside ||` sits outside that
+  parenthesised group, so it does override the card branch for short texts — a card path that was never
+  verified in a browser.
+  · refs: `@entities/text/options-buttons/use-options-buttons-placement.tsx`, `@shared/options-buttons-new/use-options-buttons.tsx`, PROD-3457 · sheet: none
+- 2026-08-11 · Core / rendering · Swapping a `div` for a `button` in a `@foleon/core` entity looks fine in the
+  editor but breaks layout in the viewer — the two hosts ship DIFFERENT global resets. Editor imports Tailwind
+  preflight (`foleon-core-editor/src/tailwind.css:1` → zeroes border/padding/margin, `font: inherit`); viewer
+  ships only sanitize.css (`foleon-core-viewer/src/styles/sanitize.ts:104`) which DELIBERATELY preserves native
+  buttons (`-webkit-appearance: button`). So in the viewer a bare `<button>` inherits UA `display:inline-block`
+  (stacked children go side by side), `border: 2px outset` (black ring), `padding: 1px 6px` (+ any
+  `overflow:hidden` clips the icon) and UA `font`/`line-height` (wrong box height). Neither reset fixes
+  `display`, so inline-block bites BOTH apps. Rule: any `<button>` in `@foleon/core` must carry its own UA
+  reset in the styled-component — `display: block; padding: 0; border: 0; margin: 0; font: inherit;
+  text-align: inherit; appearance: none;` — placed BEFORE the `${({ styles }) => styles}` interpolation so
+  document theme styles still win. Verified: div and reset-button both compute 40×47 block stacked; unreset
+  button computes inline-block/2px/6px. · refs: `column-scroll/viewer/common/column-scroll.buttons.tsx`,
+  PROD-3885 · sheet: none
+- 2026-08-11 · Tests & Playwright · Editor Playwright suite passes while the viewer is visually broken — the
+  column-scroll spec `editor-doc/@entities/column/column.settings-panel-navigation.test.ts` asserts only
+  background-color, color, border-radius, visibility and role+name. It asserts NOTHING about box geometry, so a
+  `div`→`button` regression that reflows the buttons side by side and adds a UA border sails through green.
+  Geometry assertions (relative y of up vs down, `border-width`) are the missing coverage. Also: there is no
+  viewer-side test for these buttons at all. · refs: `column.settings-panel-navigation.test.ts`, PROD-3885 ·
+  sheet: none
