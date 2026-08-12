@@ -10,3 +10,4 @@
 #   hooks/awareness-ignore-add.sh               plain opt-out, current repo
 
 ripley -> foleon-ripley
+fio -> foleon-fio

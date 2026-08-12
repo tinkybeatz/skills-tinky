@@ -1,21 +1,26 @@
 ---
 name: foleon-ripley
 description: >-
-  Foleon project context for the `ripley` monorepo — stack, `@foleon/*` package
-  layout, commands, conventions, and accumulated gotchas — so engineering work on
-  Foleon acts with project awareness instead of blind. Use whenever a task touches
-  Foleon / ripley: reviewing, writing, testing, debugging, refactoring, or planning
-  code in the `editor` (`@foleon/editor`), `viewer` (`@foleon/viewer` /
-  `viewer-dynamic`), or any `@foleon/*` package (core, navigator, search, sdk,
-  ui-design-system, cookie-consent). Trigger phrases: "ripley", "foleon", "foleon
-  docs", "foleon editor", "foleon viewer", "the editor app", "the viewer app",
-  "@foleon", or explicit `/foleon-ripley`. Load it BEFORE senior-dev, test-writer,
-  or perf-analyzer act on Foleon code so they inherit the conventions
-  (arrow-functions-only, no comments, Biome single-quote/120, Vitest+RTL+MSW tests
-  in `__tests__`). Also append non-obvious discoveries about ripley to this skill's
-  knowledge log as you learn them — but mirroring a finding to the Notion cheat
-  sheet is `foleon-cheatsheet`'s job, not this one's. Do NOT use for non-Foleon
-  projects — those rely on their own repo CLAUDE.md.
+  Project context for the `ripley` monorepo — Foleon's **current production**
+  Docs editor and viewer: stack, `@foleon/*` package layout, commands,
+  conventions and accumulated gotchas. Use for work in ripley's own code:
+  `@foleon/editor`, `@foleon/viewer` / `viewer-dynamic`, or the **source** of any
+  `@foleon/*` package (core, navigator, search, sdk, ui-design-system,
+  cookie-consent). Trigger phrases: "ripley", "the ripley editor", "the ripley
+  viewer", "foleon docs", "@foleon/editor", "@foleon/viewer", "viewer-dynamic",
+  "../ripley", or explicit `/foleon-ripley`. **Not for `fio`** — the separate
+  foleon.ai repo (`@foleonai/*`, `apps/editor` + `apps/api`) replacing ripley;
+  it has its own skill, `foleon-fio`, and the two carry contradictory
+  conventions, so never apply one's rules to the other. Disambiguation: on a bare
+  "foleon" or "the editor app", choose by the working directory rather than
+  defaulting here; and when work merely *consumes* a published `@foleon/*`
+  package (fio dev-depends on `@foleon/core`), that is `foleon-fio` — only that
+  package's source is this skill. Load it BEFORE senior-dev, test-writer or
+  perf-analyzer act on ripley code so they inherit its conventions
+  (arrow-functions-only, NO comments, Biome single-quote/120, Vitest+RTL+MSW
+  tests in `__tests__`). Append non-obvious ripley discoveries to this skill's
+  knowledge log — mirroring one to the Notion cheat sheet is
+  `foleon-cheatsheet`'s job. Not for non-Foleon projects.
 user-invokable: true
 ---
 
@@ -68,7 +73,7 @@ Tests & Playwright · Conventions.
 
 **Search before you append — with the script, not by eye** (PCS-6):
 ```bash
-python3 ~/.claude/skills/foleon-cheatsheet/scripts/log.py check --area "<area>" --symptom "<symptom>"
+python3 ~/.claude/skills/foleon-cheatsheet/scripts/log.py check --project ripley --area "<area>" --symptom "<symptom>"
 ```
 It exits non-zero when an existing entry is a likely duplicate; extend that entry and
 refresh its date instead of adding a near-duplicate.
@@ -84,8 +89,15 @@ When the log grows heavy, promote the stable facts up into
 `references/project-facts.md` and prune the log.
 
 ## Boundary
+**Repo mode:** silo-only
+
+`ripley` is a shared work repo that must stay AI-config-free, so **all** of its context lives
+here and nothing Claude-specific is ever written into its checkout (PCS-7, PCS-9).
+
 This is Foleon-only. For any other project, use that project's own `CLAUDE.md`
 (see the project-awareness system in the skills-tinky README) — not this skill.
+Note that a Foleon repo the team *owns* may be **dual-home** instead (PCS-9a) — context split
+between its committed `CLAUDE.md` and a skill. Don't copy this section into such a skill.
 
 ## References
 - `references/project-facts.md` — the curated, stable project knowledge (load on use).
@@ -99,6 +111,7 @@ This is Foleon-only. For any other project, use that project's own `CLAUDE.md`
 |---|---|---|
 | Facts drift from reality | A command/convention here no longer matches ripley | Trust the live repo (`package.json`, `pnpm-workspace.yaml`, `biome.json`); fix `project-facts.md` and log the correction in `knowledge.md`. |
 | Applied to the wrong project | Triggered on a non-Foleon repo | Stop; defer to that repo's own `CLAUDE.md`. This skill is Foleon-only. |
+| **Crossed with `fio`** | Applied ripley's rules to fio (or quoted fio facts as ripley's) — the tell is a no-comments or Biome instruction landing in `fio`, whose `CLAUDE.md` *requires* explanatory comments + TSDoc and uses oxlint/oxfmt | Both repos are Foleon and both have an "editor app," so the names collide while the rules contradict. Establish which checkout you are in **before** applying anything; ripley facts stay in this skill's log, fio facts in `foleon-fio`'s. Never copy an entry between the two logs — if a fact is genuinely true of both, it is cross-repo and belongs to whichever log surfaced it (CHS-9b). |
 | Convention conflict | Generic default vs a ripley rule | The ripley rule in `project-facts.md` wins; state which you followed. |
 | Discovery lost | Learned something but didn't record it | Append it to `references/knowledge.md` before finishing the task. |
 | Log bloat | `knowledge.md` sprawling / duplicative | Promote stable facts into `project-facts.md`, prune the log to what's still non-obvious. |
