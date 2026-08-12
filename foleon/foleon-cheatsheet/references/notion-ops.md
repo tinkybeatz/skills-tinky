@@ -7,9 +7,10 @@ which shows titles but not nesting paths.
 
 Hub: `Foleon - Cheat Sheet` — `https://app.notion.com/p/3aae7f9407e780df888df6c667a4f4e1`
 Project pages (as of the last check — **always re-fetch the hub to get the real, current list**):
-`Ripley` (the only one so far).
+`Ripley`; `Fio` once its first fact is admitted (it is not created in advance — CHS-8).
 `Ripley`'s category pages: `Ripley - Commands` · `Ripley - Packages` · `Ripley - Conventions` ·
-`Ripley - Gotchas` · `Ripley - Debugging`.
+`Ripley - Gotchas` · `Ripley - Debugging`. Fio's are `Fio - <Category>`, created one at a time.
+An optional single `Foleon - Shared` page holds facts true of several projects (CHS-9b).
 
 Requires the Notion MCP. If a call fails on connection, **stop and report** — never fall back to
 writing the fact somewhere else.
@@ -21,9 +22,11 @@ mcp__notion__notion-fetch
   id: 3aae7f94-07e7-80df-888d-f6c667a4f4e1        # the hub — gives the current project-page list
 ```
 
-Read the hub's `<page url="...">Title</page>` entries to find the project this finding belongs to
-(today: always `Ripley`, since `foleon-ripley`'s log is the only source). Don't hardcode IDs across
-sessions — they're a snapshot. Then:
+Read the hub's `<page url="...">Title</page>` entries to find the project this finding belongs to.
+**The project comes from the queue entry's `project` field** (or from which log the finding was
+written to) — never guess it from the content. If the fact holds for several projects, apply CHS-9b:
+write it once, under the surfacing project, or on `Foleon - Shared` if it would outlive that project.
+Don't hardcode IDs across sessions — they're a snapshot. Then:
 
 ```
 mcp__notion__notion-fetch
@@ -114,15 +117,17 @@ level; they belong under the project page, per step 5.
 
 ## 7. Cross-link and refresh the local mirror
 
-- Edit the log entry's `sheet:` field in `foleon/foleon-ripley/references/knowledge.md`: `sheet: yes`
-  on a write, `sheet: no` on a decline. Never write into the ripley checkout (PCS-7) — the log lives
-  in `skills-tinky`.
-- Regenerate `foleon/foleon-ripley/references/cheatsheet-approved.md`: fetch the hub, then `Ripley`,
-  then **each** of `Ripley`'s category pages, and concatenate them under matching section headers into
-  the one local file — verbatim, no rewriting, since everything on them already went through
-  conversational approval. This keeps Claude's side as "read one file" even though the human side is
-  split across several. Refreshed whenever any of `Ripley`'s category pages change. (When a second
-  project exists, its own project-context skill gets its own such file — this one stays Ripley-only.)
+- Edit the log entry's `sheet:` field in **that project's own log** —
+  `foleon/foleon-ripley/references/knowledge.md` or `foleon/foleon-fio/references/knowledge.md`:
+  `sheet: yes` on a write, `sheet: no` on a decline. Never write into the served repo's checkout
+  (PCS-7, both classes) — the logs live in `skills-tinky`. A shared-page write is marked in the log
+  that surfaced it only; the other project's log is not back-annotated (CHS-9b).
+- Regenerate **that project's** `cheatsheet-approved.md`: fetch the hub, then that project page, then
+  **each** of its category pages, and concatenate them under matching section headers into the one
+  local file — verbatim, no rewriting, since everything on them already went through conversational
+  approval. This keeps Claude's side as "read one file" even though the human side is split across
+  several. Each project's file holds **only its own** pages: mixing them would put one project's facts
+  in front of every task in the other (PCS-11).
 
 ## Failure to avoid
 

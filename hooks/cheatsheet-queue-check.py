@@ -35,8 +35,12 @@ def repo_root(script_path):
     return None
 
 
+def queue_path(root):
+    return os.path.join(root, 'hooks', 'state', 'cheatsheet-queue.jsonl')
+
+
 def queue_count(root):
-    q = os.path.join(root, 'hooks', 'state', 'cheatsheet-queue.jsonl')
+    q = queue_path(root)
     if not os.path.isfile(q):
         return 0
     try:
@@ -44,6 +48,48 @@ def queue_count(root):
             return sum(1 for ln in fh if ln.strip())
     except Exception:
         return 0
+
+
+def queue_projects(root):
+    """Which projects the queued findings belong to, e.g. 'fio', 'fio and ripley'.
+
+    The hub holds one page per project (CHS-9a), so the flush has to know which
+    one(s) are pending — and naming them tells the maintainer what they're about
+    to be asked about. Entries written before the queue was project-aware have no
+    `project` key; fall back to parsing the log path, and if even that fails say
+    nothing rather than guessing a project name.
+    """
+    q = queue_path(root)
+    if not os.path.isfile(q):
+        return ''
+    names = []
+    try:
+        with open(q, encoding='utf-8') as fh:
+            for ln in fh:
+                ln = ln.strip()
+                if not ln:
+                    continue
+                try:
+                    rec = json.loads(ln)
+                except Exception:
+                    continue
+                name = rec.get('project')
+                if not name:
+                    parts = (rec.get('file') or '').replace(os.sep, '/').split('/')
+                    for p in parts:
+                        if '-' in p and parts[0] and p.startswith(parts[0] + '-'):
+                            name = p[len(parts[0]) + 1:]
+                            break
+                if name and name not in names:
+                    names.append(name)
+    except Exception:
+        return ''
+    names.sort()
+    if len(names) == 1:
+        return names[0] + ' '
+    if len(names) > 1:
+        return ', '.join(names[:-1]) + ' and ' + names[-1] + ' '
+    return ''
 
 
 def main():
@@ -66,13 +112,14 @@ def main():
     noun = 'finding' if count == 1 else 'findings'
     is_are = 'is' if count == 1 else 'are'
     was_were = 'was' if count == 1 else 'were'
+    who = queue_projects(root)  # 'fio ', 'fio and ripley ', or '' — trailing space included
 
     if event == 'SessionStart':
         print(json.dumps({
             'hookSpecificOutput': {
                 'hookEventName': 'SessionStart',
                 'additionalContext': (
-                    f'{count} ripley {noun} {is_are} queued for the Notion cheat sheet '
+                    f'{count} {who}{noun} {is_are} queued for the Notion cheat sheet '
                     f'from a previous session that ended before they were synced. '
                     f'Mention this to the user and offer to run the foleon-cheatsheet '
                     f'skill to process the queue. Do not run it unprompted.'
@@ -96,12 +143,13 @@ def main():
         print(json.dumps({
             'decision': 'block',
             'reason': (
-                f'{count} ripley {noun} {was_were} logged this session and {is_are} queued for '
+                f'{count} {who}{noun} {was_were} logged this session and {is_are} queued for '
                 f'the Notion cheat sheet. Invoke the foleon-cheatsheet skill now to '
-                f'process the queue: apply the four admission gates (most findings are '
-                f'correctly rejected), rewrite any survivors for a human, dedupe, and '
-                f'write them as "Needs review". Then stop. This prompt fires only once '
-                f'per session.'
+                f'process the queue: apply the five admission gates (most findings are '
+                f'correctly rejected — gate 5 is checked by reading the live category '
+                f'page for that project), rewrite any survivor for a human, then propose it in chat and '
+                f'wait for the maintainer\'s explicit yes before writing anything to '
+                f'Notion. Then stop. This prompt fires only once per session.'
             ),
         }))
         return 0

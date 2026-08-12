@@ -23,13 +23,38 @@ import os
 import re
 import sys
 
-AREAS = [
-    'Editor', 'Viewer', 'Core / rendering',
-    'Build & tooling', 'Tests & Playwright', 'Conventions',
-]
+# One entry per project-context skill whose log this script maintains. `--project`
+# is REQUIRED rather than defaulting to ripley: a caller who forgets it would
+# otherwise silently append a fio finding to ripley's log, which is exactly the
+# cross-contamination two separate logs exist to prevent. Failing loudly costs one
+# retry; guessing costs a corrupted log nobody notices.
+#
+# `areas` is per-project because areas track that project's own cheat-sheet
+# headings (PCS-6) — not a shared vocabulary. Ripley has a viewer; fio has an API.
+PROJECTS = {
+    'ripley': {
+        'log': os.path.join('foleon', 'foleon-ripley', 'references', 'knowledge.md'),
+        'areas': [
+            'Editor', 'Viewer', 'Core / rendering',
+            'Build & tooling', 'Tests & Playwright', 'Conventions',
+        ],
+    },
+    'fio': {
+        'log': os.path.join('foleon', 'foleon-fio', 'references', 'knowledge.md'),
+        'areas': [
+            'Editor', 'API', 'Packages', 'Build & tooling',
+            'Tests & E2E', 'Conventions', 'Environment',
+        ],
+    },
+}
 
-LOG_RELPATH = os.path.join(
-    'foleon', 'foleon-ripley', 'references', 'knowledge.md')
+
+def project_config(name):
+    if name not in PROJECTS:
+        known = ', '.join(sorted(PROJECTS))
+        raise SystemExit(f'log.py: unknown project {name!r} (known: {known})')
+    return PROJECTS[name]
+
 
 ENTRY_RE = re.compile(
     r'^- (?P<date>\d{4}-\d{2}-\d{2}) · (?P<area>[^·]+?) · (?P<symptom>.+?) — ',
@@ -60,8 +85,8 @@ def repo_root(start):
     raise SystemExit('log.py: could not locate the skills-tinky root')
 
 
-def log_path():
-    return os.path.join(repo_root(__file__), LOG_RELPATH)
+def log_path(project):
+    return os.path.join(repo_root(__file__), project_config(project)['log'])
 
 
 def read_entries(path):
@@ -117,8 +142,8 @@ def similarity(a, b):
     return len(shared) / min(len(ta), len(tb))
 
 
-def check(area, symptom, quiet=False):
-    path = log_path()
+def check(project, area, symptom, quiet=False):
+    path = log_path(project)
     hits = []
     for line_no, e_area, e_symptom, raw in read_entries(path):
         if e_area != area:
@@ -144,8 +169,8 @@ def check(area, symptom, quiet=False):
     return 0
 
 
-def lint():
-    path = log_path()
+def lint(project):
+    path = log_path(project)
     with open(path, encoding='utf-8') as fh:
         content = fh.read()
     starts = [i for i, ln in enumerate(content.splitlines(), start=1)
@@ -157,8 +182,9 @@ def lint():
         if line_no not in found_lines:
             problems.append(f'line {line_no}: does not match the PCS-6 schema')
     for line_no, area, symptom, _ in entries:
-        if area not in AREAS:
-            problems.append(f'line {line_no}: area {area!r} is not one of the six')
+        if area not in project_config(project)['areas']:
+            problems.append(
+                f"line {line_no}: area {area!r} is not one of {project}'s areas")
     # every entry needs refs: and sheet:
     blocks = re.split(r'\n(?=- 20\d\d-)', content)
     for b in blocks:
@@ -181,18 +207,18 @@ def lint():
 
 
 def append(args):
-    if args.area not in AREAS:
+    if args.area not in project_config(args.project)['areas']:
         raise SystemExit(f'unknown area {args.area!r}')
-    if check(args.area, args.symptom) != 0:
+    if check(args.project, args.area, args.symptom) != 0:
         print('\nrefusing to append (see above)')
         return 1
     sheet = args.sheet or 'none'
     refs = args.refs or '—'
     entry = (f'- {args.date} · {args.area} · {args.symptom} — {args.finding}'
              f' · refs: {refs} · sheet: {sheet}\n')
-    with open(log_path(), 'a', encoding='utf-8') as fh:
+    with open(log_path(args.project), 'a', encoding='utf-8') as fh:
         fh.write(entry)
-    print(f'appended to {LOG_RELPATH}')
+    print(f"appended to {project_config(args.project)['log']}")
     return 0
 
 
@@ -200,11 +226,16 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest='cmd', required=True)
 
+    # --project on every subcommand and never defaulted: see PROJECTS above.
+    known = sorted(PROJECTS)
+
     c = sub.add_parser('check', help='look for an existing similar entry')
+    c.add_argument('--project', required=True, choices=known)
     c.add_argument('--area', required=True)
     c.add_argument('--symptom', required=True)
 
     a = sub.add_parser('append', help='dedupe-checked append')
+    a.add_argument('--project', required=True, choices=known)
     a.add_argument('--date', required=True)
     a.add_argument('--area', required=True)
     a.add_argument('--symptom', required=True)
@@ -212,14 +243,15 @@ def main():
     a.add_argument('--refs', default='')
     a.add_argument('--sheet', default='none')
 
-    sub.add_parser('lint', help='verify the whole log against the schema')
+    li = sub.add_parser('lint', help='verify the whole log against the schema')
+    li.add_argument('--project', required=True, choices=known)
 
     args = p.parse_args()
     if args.cmd == 'check':
-        return check(args.area, args.symptom)
+        return check(args.project, args.area, args.symptom)
     if args.cmd == 'append':
         return append(args)
-    return lint()
+    return lint(args.project)
 
 
 if __name__ == '__main__':

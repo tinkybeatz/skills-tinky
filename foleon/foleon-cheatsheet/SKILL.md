@@ -1,26 +1,27 @@
 ---
 name: foleon-cheatsheet
 description: >-
-  Moves genuinely useful Foleon / ripley findings from Claude's discoveries log
-  onto the maintainer's own Notion cheat sheet — a hub page linking to a small,
-  fixed set of category pages nested under a project page (Ripley -
-  Commands, Ripley - Gotchas, ...), each fact
+  Moves genuinely useful Foleon findings from a project-context skill's
+  discoveries log onto the maintainer's own Notion cheat sheet — a bare hub page
+  linking to one page per project, with a small fixed set of category pages
+  nested under each (Ripley - Commands, Fio - Gotchas, ...), each fact
   its own heading — proposed in conversation and written only after an
   explicit yes. Never a database, never a new page per finding: category
   pages are a small fixed set the maintainer chose, not one per fact. Use
-  whenever: a finding was just appended to `foleon-ripley`'s `knowledge.md`; a
-  hook reports pending findings at session start or as a turn ends; the queue
-  needs draining. Trigger phrases: "sync the Foleon cheat sheet", "update the
+  whenever: a finding was just appended to any project log
+  (`foleon-ripley`'s or `foleon-fio`'s `knowledge.md`); a hook reports pending
+  findings at session start or as a turn ends; the queue needs draining. Trigger phrases: "sync the Foleon cheat sheet", "update the
   Foleon cheat sheet", "add this to the Foleon cheat sheet", "my Foleon cheat
   sheet", "drain the cheatsheet queue", or explicit `/foleon-cheatsheet`.
-  Requires the Notion MCP. Enforces `docs/stds/CHEAT_SHEET.md` v2.3.0: most
+  Requires the Notion MCP. Enforces `docs/stds/CHEAT_SHEET.md` v2.4.0: most
   findings are correctly REJECTED, an entry is rewritten never copied, nothing
   is written to Notion without the maintainer's explicit go-ahead in that same
   conversation, and it never creates a new page or database row per finding.
   Do NOT use it for the skills-tinky README skills cheat-sheet — that is
   `./generate-catalog.sh`. Do NOT use it to capture a conversation into an
   arbitrary Notion page — that is `notion-knowledge-capture`. Do NOT use it to
-  record project facts or conventions — that is `foleon-ripley`.
+  record project facts or conventions — that is the project's own context
+  skill (`foleon-ripley`, `foleon-fio`).
 user-invokable: true
 ---
 
@@ -63,16 +64,22 @@ with this file.
 > projects are added; the title prefix keeps pages unambiguous in Notion's search, which shows titles
 > but not nesting. Never add a project's categories as siblings at the hub level.
 
+> **v2.4.0:** `Fio` is the second project. The queue now records **which project** each finding
+> came from, and every `scripts/log.py` call takes a required `--project`. A fact true of *both*
+> projects is written **once** — under the project that surfaced it, or on a single `Foleon - Shared`
+> page when it would outlive that project (CHS-9b). Never duplicate a fact across project pages.
+
 ## Target
 
 | Thing | Value |
 |---|---|
 | Hub page | `Foleon - Cheat Sheet` — `https://app.notion.com/p/3aae7f9407e780df888df6c667a4f4e1` — a **bare index**, one line per project (CHS-9a) |
-| Project page (today) | `Ripley` — the only project so far; a child of the hub |
-| Category pages (today) | `Ripley - Commands` · `Ripley - Packages` · `Ripley - Conventions` · `Ripley - Gotchas` · `Ripley - Debugging` — each a child of `Ripley`, linked from it |
-| Queue | `hooks/state/cheatsheet-queue.jsonl` (repo-relative) |
-| Log | `foleon/foleon-ripley/references/knowledge.md` |
-| Local mirror | `foleon/foleon-ripley/references/cheatsheet-approved.md` (generated, concatenates all of `Ripley`'s category pages) |
+| Project pages | `Ripley` · `Fio` — each a child of the hub. `Fio` does **not exist yet**: create it with the first Fio fact that clears the gates, never in advance (CHS-8) |
+| Category pages | `Ripley - Commands` · `Ripley - Packages` · `Ripley - Conventions` · `Ripley - Gotchas` · `Ripley - Debugging`, children of `Ripley`. Fio's (`Fio - <Category>`) are created lazily, one at a time |
+| Shared page (optional, max 1) | `Foleon - Shared` — for facts true of several projects, e.g. `@foleon/*` registry auth. Not created yet (CHS-9b) |
+| Queue | `hooks/state/cheatsheet-queue.jsonl` (repo-relative); each entry carries a `project` field |
+| Logs | `foleon/foleon-ripley/references/knowledge.md` · `foleon/foleon-fio/references/knowledge.md` |
+| Local mirrors | `foleon/<skill>/references/cheatsheet-approved.md` — one per project, holding **only that project's** pages (PCS-11) |
 
 Requires the **Notion MCP**. If a call fails because it is not connected, stop and say so — do not
 fall back to writing anywhere else. The project and category lists drift as they're added — **fetch
@@ -90,8 +97,11 @@ An empty or missing queue is a normal outcome: say "nothing pending" and stop. `
 truncating, so a crash between the two loses nothing.
 
 **2. Fetch the hub, then the project page, then the target category page — every time, fresh.**
-Fetch the hub for the current project list (today: just `Ripley` — everything in `foleon-ripley`'s
-log is Ripley's, so this step is a formality until a second project exists). Fetch that project page
+Fetch the hub for the current project list. **Which project a finding belongs to comes from the
+queue entry's `project` field** (or, for a hand-fed finding, from which log it was written to) — do
+not infer it from the content. If the fact is true of more than one project, apply CHS-9b: write it
+once, under the surfacing project, or on `Foleon - Shared` if it would outlive that project. Fetch
+that project page
 for its current category-page list and pick the one the finding belongs to (or note if none fits —
 seeing the live list is also what tells you whether a new category is truly warranted). Then fetch
 that one category page. Never reuse a fetch from earlier in the conversation; something may have
@@ -154,8 +164,8 @@ and where. Then the queue is empty.
 
 Unrelated to the mirror, but the same PCS-6 requirement — search before appending to `knowledge.md`:
 ```bash
-python3 scripts/log.py check --area "Tests & Playwright" --symptom "..."
-python3 scripts/log.py lint     # verify the whole log against the schema
+python3 scripts/log.py check --project ripley --area "Tests & Playwright" --symptom "..."
+python3 scripts/log.py lint --project fio     # verify one project's whole log against the schema
 ```
 
 ## Boundaries

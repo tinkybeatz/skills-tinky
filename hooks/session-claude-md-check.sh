@@ -2,7 +2,9 @@
 # SessionStart hook — project-awareness router.
 # On session start, look at the current repo and do ONE of:
 #   - not a git repo ...................... nothing (silent)
-#   - opted out + mapped to a skill ....... tell Claude to load that skill for context
+#   - mapped, skill is silo-only .......... tell Claude the context lives ONLY in that skill
+#   - mapped, skill is dual-home .......... tell Claude to read the checkout's own context
+#                                           AND the skill, and to write only to the skill
 #   - opted out, no mapping ............... nothing (silent)
 #   - no CLAUDE.md ........................ nudge to create one
 #   - has CLAUDE.md ....................... nothing (auto-loads natively)
@@ -22,6 +24,7 @@
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ignore_file="$script_dir/awareness-ignore.txt"
 add_helper="$script_dir/awareness-ignore-add.sh"
+skill_dir="$(cd "$script_dir/.." && pwd)"            # skills-tinky root; skills live at <root>/<category>/<skill>/
 
 trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]]}"}"; printf '%s' "$s"; }
 emit() { printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$1"; }
@@ -42,7 +45,18 @@ if [ -f "$ignore_file" ]; then
     [ -z "$repo_part" ] && continue
     if [ "$repo_part" = "$root" ] || [ "$repo_part" = "$name" ]; then
       if [ -n "$skill_part" ]; then
-        emit "You are in the '$name' repo. Its project/AI context intentionally lives OUTSIDE this checkout (nothing Claude-specific belongs in this repo). All context for this project is in the \`$skill_part\` skill — load it (invoke the $skill_part skill) before doing engineering work here."
+        # Branch on the skill's declared repo class (PCS-9a). The silo-only wording
+        # asserts that nothing Claude-specific belongs in the checkout — true for
+        # ripley, flatly false for a dual-home repo like fio, whose CLAUDE.md,
+        # AGENTS.md and docs/ ARE its context. Emitting it there would tell Claude
+        # to ignore the repo's own docs at every single session start.
+        mode="$(sed -n 's/^\*\*Repo mode:\*\*[[:space:]]*\([a-z-]*\).*/\1/p' \
+                 "$skill_dir"/*/"$skill_part"/SKILL.md 2>/dev/null | head -1)"
+        if [ "$mode" = "dual-home" ]; then
+          emit "You are in the '$name' repo. Its context lives in TWO places and BOTH are sources of truth: (1) this checkout's own committed, team-owned context — read \`CLAUDE.md\` and any \`AGENTS.md\`, \`CONTEXT.md\`, \`docs/\` or \`<app>/ARCHITECTURE.md\` it points at; and (2) the \`$skill_part\` skill, which holds the maintainer's private findings and gotchas — load it (invoke the $skill_part skill). Read both before doing engineering work here. Write findings ONLY to the skill: never edit this repo's context files to record a discovery — that is a pull request the user opens deliberately."
+        else
+          emit "You are in the '$name' repo. Its project/AI context intentionally lives OUTSIDE this checkout (nothing Claude-specific belongs in this repo). All context for this project is in the \`$skill_part\` skill — load it (invoke the $skill_part skill) before doing engineering work here."
+        fi
       fi
       exit 0                                         # opted out → done (silent unless mapped)
     fi

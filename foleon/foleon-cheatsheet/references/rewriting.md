@@ -103,10 +103,13 @@ maintainer.
 
 Three decisions, in order:
 
-1. **Which project?** Today there's only `Ripley` — everything in `foleon-ripley`'s log belongs
-   there. This step becomes real the moment a second Foleon project gets its own project-context
-   skill; fetch the hub for the current, real project list rather than assuming.
-2. **Which category page?** Fetch the project page for its real, current list — today, under
+1. **Which project?** Take it from the queue entry's `project` field, or from which log the finding
+   was written to — never infer it from the content. `Ripley` and `Fio` are separate projects with
+   separate pages. If the fact is true of both (e.g. anything about the shared `@foleon/*` registry),
+   CHS-9b applies: write it once, under the project that surfaced it, or on the single
+   `Foleon - Shared` page if it would still be true were that project deleted. Fetch the hub for the
+   current, real project list rather than assuming.
+2. **Which category page?** Fetch the project page for its real, current list — under
    `Ripley`: `Commands` · `Packages` · `Conventions` · `Gotchas` · `Debugging`. Pick the one you'd
    actually look under, not the one that matches where the code lives. A rendering gotcha you'd hit
    while debugging generally goes on `Gotchas`; a reusable console technique goes on `Debugging`.
