@@ -356,7 +356,7 @@ facts up into `project-facts.md` and prune here.
   from that boolean alone. Note the PROD-3457 fix's `!hasRoomForOptionsButtonsInside ||` sits outside that
   parenthesised group, so it does override the card branch for short texts — a card path that was never
   verified in a browser.
-  · refs: `@entities/text/options-buttons/use-options-buttons-placement.tsx`, `@shared/options-buttons-new/use-options-buttons.tsx`, PROD-3457 · sheet: none
+  · refs: `@entities/text/options-buttons/use-options-buttons-placement.tsx`, `@shared/options-buttons-new/use-options-buttons.tsx`, PROD-3457 · sheet: no
 - 2026-08-11 · Core / rendering · Swapping a `div` for a `button` in a `@foleon/core` entity looks fine in the
   editor but breaks layout in the viewer — the two hosts ship DIFFERENT global resets. Editor imports Tailwind
   preflight (`foleon-core-editor/src/tailwind.css:1` → zeroes border/padding/margin, `font: inherit`); viewer
@@ -369,11 +369,11 @@ facts up into `project-facts.md` and prune here.
   text-align: inherit; appearance: none;` — placed BEFORE the `${({ styles }) => styles}` interpolation so
   document theme styles still win. Verified: div and reset-button both compute 40×47 block stacked; unreset
   button computes inline-block/2px/6px. · refs: `column-scroll/viewer/common/column-scroll.buttons.tsx`,
-  PROD-3885 · sheet: none
+  PROD-3885 · sheet: no
 - 2026-08-11 · Tests & Playwright · Editor Playwright suite passes while the viewer is visually broken — the
   column-scroll spec `editor-doc/@entities/column/column.settings-panel-navigation.test.ts` asserts only
   background-color, color, border-radius, visibility and role+name. It asserts NOTHING about box geometry, so a
   `div`→`button` regression that reflows the buttons side by side and adds a UA border sails through green.
   Geometry assertions (relative y of up vs down, `border-width`) are the missing coverage. Also: there is no
   viewer-side test for these buttons at all. · refs: `column.settings-panel-navigation.test.ts`, PROD-3885 ·
-  sheet: none
+  sheet: no
