@@ -7,21 +7,37 @@ The failure this exists to prevent has a name in Shape Up: the "2.0" grab-bag �
 out to be a mess because we didn't know what 'done' looked like."* Every question below is aimed at
 that.
 
-## Phase 0 — parse, then confirm
+## Phase 0 — one raw dump, then only the gaps
 
-Read the pasted cycle description and extract candidate topics with their estimates. **Show the parse
-and stop.** No questions yet.
+**Ask for everything in one go.** The maintainer should be able to paste the team's message verbatim
+and have it work. Do not open with a numbered list of requirements — a form that demands three things
+before it does anything is the version they rejected.
+
+Then extract, and report what is present versus missing:
+
+| Needed | Where it usually hides |
+|---|---|
+| Cycle id | "Cycle 4", "C4", "sprint 12" — whatever the team calls it, kept verbatim |
+| Start / end dates | often absent from the brief; ask if so |
+| Topics | headings, bullets, or a sentence per topic |
+| Estimated time per topic | "2 weeks", "3d", "half a sprint" |
+
+Show the parse and stop:
 
 ```
-I read 3 topics:
-  1. PDF export — 2w — [fio?]
-  2. Search relevance — 3d — [ripley?]
-  3. "Editor polish" — 1w — [?]  ← this reads like a grab-bag, not a topic
+Cycle id:  2026-C4          ✓ from "Cycle 4"
+Dates:     —                 missing
+Topics:    PDF export        2w
+           Search relevance  3d
+           Editor polish     1w   ← reads like a grab-bag, not a topic
 Right? Anything mis-split, or an estimate I got wrong?
 ```
 
-Flag a grab-bag when you see one (a "2.0", a "polish", an "improve X"). It is not a topic yet, and
-the honest move is to say so at parse time rather than to interview it as if it were one.
+**Ask only for the gaps**, batched. Re-asking something the brief already said is the fastest way to
+make this feel like paperwork.
+
+Flag a grab-bag when you see one (a "2.0", a "polish", an "improve X"). It is not a topic yet, and the
+honest move is to say so at parse time rather than interviewing it as if it were one.
 
 ## Phase 1 — the interview
 

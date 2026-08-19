@@ -29,6 +29,10 @@ developer's job. This skill is that job, done in one file per cycle.
 Governed by [`docs/stds/CYCLE_DOC.md`](../../docs/stds/CYCLE_DOC.md) (CYC-1…CYC-13). The standard wins
 any disagreement with this file.
 
+A cycle is **8 weeks: 6 of dev, then 2 of cooldown**. The doc covers the **dev window only** —
+cooldown is bug-fixing and research, which has no appetite and nothing to put on a hill, so it stays
+off-book (CYC-2). Appetites are validated against the 6 weeks, not the 8.
+
 **The doc answers four questions at a glance:** what am I building, how much time is it worth, where
 are the unknowns, and what gets cut first. Task state is the *least* valuable thing in it — Shape Up
 is explicit that counting to-dos cannot tell you a project's status, because there is no way to know
@@ -41,7 +45,7 @@ whether the number of outstanding tasks will go down or up.
 | Cycle docs | `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES/<cycle-id>.md` — one per cycle, **local file is the source of truth**. Overridable with `FOLEON_CYCLE_HOME` (CYC-1) |
 | Never | inside any repo — not `ripley`, not `fio`, and **not `skills-tinky`**, which is a skills repo, shared pro/perso and pushed to GitHub (CYC-1 v1.1.0) |
 | Repos covered | whatever is registered in `hooks/awareness-ignore.txt` (`ripley`, `fio`, …). One cycle doc spans all of them |
-| Notion mirror | one **page** per cycle, nested by project like the cheat sheet's CHS-9a — never a database (CYC-10) |
+| Notion mirror | the **`🔁 Cycles` database** — one row per cycle, sectioned by repo inside the page. Topics/scopes/tasks are page content, never rows or properties (CYC-10 v1.4.0) |
 | Queue | `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES/.state/cycle-queue.jsonl` — dates on which a Foleon repo was edited. Evidence work happened, not log lines |
 | History | local-only git in the cycle directory — **no remote, never pushed**. `new`, `log` and `close` commit on their own; `snapshot --why "..."` records a hand-edit (CYC-1 v1.2.0) |
 | Mechanics | `scripts/cycle.py` (skeleton, hill, tasks, log patterns, close preflight), `scripts/queue.sh` |
@@ -49,33 +53,60 @@ whether the number of outstanding tasks will go down or up.
 The Notion mirror requires the **Notion MCP**. If a call fails because it is not connected, say so and
 stop — the local doc is already authoritative, so there is nothing to fall back to and nothing lost.
 
-## What this skill is asked to do
+## Arguments
 
-Six things. Ask which one if it isn't obvious; don't assume "new cycle" because a cycle is mentioned.
+`/foleon-cycle <verb>` — the verb picks the flow, so nothing has to be guessed:
 
-| Ask | Flow |
+| Invocation | Flow |
 |---|---|
-| A cycle just started, here's the description | **1. Open + intake** |
-| Plan this topic / break it down | **2. Scopes and tasks** |
-| Where am I / what's the state | **3. Status** |
-| Log what happened | **4. Log** |
-| Push it to Notion | **5. Mirror** |
-| The cycle is over | **6. Close** |
+| `/foleon-cycle new` | **1. Open a cycle** — guided intake from a raw brief |
+| `/foleon-cycle plan` | **2. Scopes and tasks** for a topic already shaped |
+| `/foleon-cycle tickets` | **3. Work list** — prioritised tickets for Jira + personal tasks |
+| `/foleon-cycle status` | **4. Status** — where every scope sits |
+| `/foleon-cycle log` | **5. Log** what happened |
+| `/foleon-cycle mirror` | **6. Mirror** to Notion |
+| `/foleon-cycle close` | **7. Close** the cycle |
+| `/foleon-cycle` (bare) | Say which of the above, in one short line. Do **not** default to `new` — and if there is no cycle doc yet, say so and offer `new` rather than listing every flow. |
+
+Anything after the verb is treated as input for that flow — `/foleon-cycle new <pasted brief>` skips
+straight to parsing that brief. An unrecognised verb is a request in prose, not an error: read it and
+pick the flow it describes.
 
 ---
 
-### 1. Open the cycle and shape the topics
+### 1. Open the cycle — guided, not a questionnaire
 
+**Step 1 — ask for everything at once, raw.** One short prompt, not a list of demands:
+
+> Paste whatever you've got for this cycle — the brief as your team handed it over, topics with their
+> estimated time, dates, whatever's in the message. Raw is fine; I'll pull it apart and only ask about
+> what's missing.
+
+**Step 2 — parse it and show what you found**, as a table of what's present and what's missing:
+
+```
+Cycle id:  2026-C4          ✓ from "Cycle 4"
+Dates:     —                 missing
+Topics:    PDF export        2w
+           Search relevance  3d
+           Editor polish     1w   ← reads like a grab-bag, not a topic
+```
+
+**Step 3 — ask only for the gaps**, batched with `AskUserQuestion`. Never re-ask what the brief already
+answered; that is what makes a form feel like an interrogation. If the brief has no dates, ask for
+dates — not for the topics you can already see.
+
+**Step 4 — confirm the parse, then create:**
 ```bash
 python3 scripts/cycle.py new --id <cycle-id> --start <date> --end <date>
 ```
 The cycle id is whatever the team calls it — this skill invents no naming scheme. One active cycle at
 a time; `new` refuses while another is active.
 
-**Then parse the pasted description into candidate topics with their estimates, and show that parse
-back before asking anything.** A wrong parse makes every later question wrong. Do not interview yet.
+A wrong parse poisons every question after it, which is why step 2 stops for confirmation and the
+topic interview only starts once the shape is agreed.
 
-**Then interview each topic** until it has all six CYC-3 fields: outcome, appetite, first cut, no-gos,
+**Step 5 — interview each topic** until it has all six CYC-3 fields: outcome, appetite, first cut, no-gos,
 done signal, repo tag. Batch the questions with `AskUserQuestion` — four at a time turns an
 interrogation into a conversation. Depth scales to appetite: a two-day topic needs outcome, no-gos and
 done signal, nothing more. The question bank, the depth ladder and worked examples are in
@@ -107,8 +138,20 @@ Ask for the starting hill position per scope; default to `uphill` only if they d
 values are `uphill` (figuring it out), `top` (approach known, nothing built), `downhill` (executing),
 `done`. **Never infer a position** — not from files touched, not from tasks closed (CYC-6).
 
+**Read the code before proposing tasks.** A task list derived from a topic title is invention (CYC-14).
+Load the target repo's context skill — `foleon-fio` or `foleon-ripley`, per the topic's repo tag — and
+look at the actual source for the area in question; use `Explore` for a wider sweep, or `senior-dev`
+when the rabbit hole is architectural. What you learn changes the task breakdown, the sizing, and the
+acceptance criteria. This is the step that makes the difference between a plausible list and a usable one.
+
 **Then tasks, once scopes are accepted.** Half a day to two days each, under exactly one scope.
 Must-have by default; a nice-to-have is written `- [ ] ~ …` and never blocks a scope reaching `done`.
+
+**Two kinds of task** (CYC-7), because only one belongs in Jira:
+- **Unmarked** — implementation work, becomes a Jira ticket.
+- **`self: …`** — yours alone: research, conceptualising, deciding an approach. Its outcome is usually
+  *producing the tickets*, e.g. `- [ ] self: research how nested tables paginate → produces the tickets`.
+  When it closes and adds three new tasks to its scope, that is the system working, not scope creep.
 Marking a task `~` **is** the scope-hammering action — so it earns a dev-log line as a decision.
 
 Edit the markdown directly, then always:
@@ -119,7 +162,24 @@ python3 scripts/cycle.py snapshot --why "PDF export shaped, 3 scopes"
 `snapshot` refuses to commit a non-conforming doc, so validate-then-snapshot is one habit, not two.
 Format details, the exact skeleton and every mechanical rule: [`references/doc-format.md`](references/doc-format.md).
 
-### 3. Status
+### 3. The work list
+
+```bash
+python3 scripts/cycle.py tickets          # prioritised; personal tasks first, then Jira tickets
+python3 scripts/cycle.py tickets --json    # machine-readable
+```
+
+**Unknowns first** — a task under an `uphill`/`top` scope outranks a must-have under a `downhill` one,
+because attacking the unresolved part early leaves time to react to what it reveals. `~` nice-to-haves
+come last. Each item carries `P1`/`P2`/`P3` for Jira's own field; where order and P-level disagree for
+a given cycle, the order is advice and the maintainer's judgement wins.
+
+**The script emits acceptance criteria as a TODO placeholder on purpose.** Your job is to fill them in
+after reading the code — one or two testable statements about *that* change. Never restate the topic
+outcome: it reads like a criterion and tests nothing, which is worse than a blank because it looks
+finished (CYC-14). Full contract: [`references/tickets.md`](references/tickets.md).
+
+### 4. Status
 
 ```bash
 python3 scripts/cycle.py status
@@ -128,7 +188,7 @@ Prints each topic, its appetite, every scope with its hill position and must-hav
 questions, and — last — every scope not yet downhill, because that list *is* the risk register. Report
 it as-is; resist adding a percentage or a "roughly N% done" gloss (CYC-6).
 
-### 4. Log what happened
+### 5. Log what happened
 
 ```bash
 bash scripts/queue.sh peek          # what the hook noticed: dates + repos
@@ -152,7 +212,7 @@ gate judgement is yours: the test is whether a line would still be worth reading
 afternoon was execution or discovering the approach was wrong. Propose the lines, show them, write only
 what's approved.
 
-### 5. Mirror to Notion
+### 6. Mirror to Notion
 
 The mirror is **derived and one-way**: regenerated whole from the local file, never patched, never read
 back as an update path. Local wins on any divergence — surface it, don't overwrite silently.
@@ -161,7 +221,7 @@ back as an update path. Local wins on any divergence — surface it, don't overw
 and the target page first. A "looks good" is a yes; silence is not. Full call sequence and page shape:
 [`references/mirror.md`](references/mirror.md).
 
-### 6. Close the cycle
+### 7. Close the cycle
 
 ```bash
 python3 scripts/cycle.py close
@@ -199,6 +259,7 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | [`references/intake.md`](references/intake.md) | Interviewing a topic into shape — question bank, depth ladder, worked example |
 | [`references/doc-format.md`](references/doc-format.md) | Writing or fixing the markdown — exact skeleton, hill semantics, task rules |
 | [`references/mirror.md`](references/mirror.md) | Pushing to Notion — page shape, call sequence, consent gate |
+| [`references/tickets.md`](references/tickets.md) | Producing the work list — ticket shape, ordering, code-grounding |
 | [`references/close.md`](references/close.md) | Closing a cycle and handing off to `sprint-review` |
 
 ## Failure modes
@@ -216,5 +277,8 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | Queue drained but nothing logged | Queue empty, no new log lines, work unaccounted for | `bash scripts/queue.sh restore` before the turn ends. |
 | Two active cycles | `cycle.py active` prints more than one | Close the stale one (CYC-1). One active cycle is what makes "the doc" unambiguous. |
 | Git commit failed (no identity, locked index) | `cycle.py` prints a note but the file saved | Nothing to recover — the markdown is the artifact. Fix `user.email`/`user.name` if they want history working again. |
+| Proposed tasks without reading the code | A breakdown that could have been written from the topic title alone | Stop and read the source (CYC-14). Plausible-but-wrong task lists are the most expensive output this skill can produce. |
+| Acceptance criteria restate the outcome | Every ticket's criteria say the same thing | Replace with testable statements about that change, or leave the placeholder. Filler that looks finished is worse than an admitted blank. |
+| Cooldown work pushed through intake | A "topic" with no real appetite, e.g. "bug fixing" | Cooldown is off-book (CYC-2). Don't shape it; it doesn't belong in the doc. |
 | Notion MCP unavailable | An MCP call errors on connection | Report and stop. The local doc is authoritative — no fallback surface, nothing lost. |
 | Tempted to add a Notion database, status property or approval workflow | Any urge to give topics/scopes/tasks Notion properties | Don't (CYC-10/CYC-11). The cheat sheet already cost a full architecture reversal to learn this once. |

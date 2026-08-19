@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 1.3.0 |
+| **Version** | 1.5.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
 | **Effective date** | 2026-08-19 |
@@ -35,7 +35,9 @@ Two failure modes bound this standard, and they pull in opposite directions:
    infos"* `[SRC-007]` — arriving by a different route.
 
 The doc exists to answer four questions at a glance, at any point in the cycle: **what am I building,
-how much time is it worth, where are the unknowns, and what gets cut first.** Task state is the least
+how much time is it worth, where are the unknowns, and what gets cut first.** From those answers it
+produces the thing the maintainer actually works from: a **prioritised list of tickets and tasks**
+(CYC-14) — tickets to paste into Jira, and personal tasks for the work Jira handles badly. Task state is the least
 valuable thing in it — Shape Up is explicit that counting to-dos cannot tell you a project's status,
 because *"there's no way to know whether the number of outstanding tasks will go down or up"*
 `[SRC-003]`.
@@ -118,6 +120,12 @@ One-file-per-cycle is visible in the directory listing.
 
 - A cycle doc **MUST** contain, in order: a **header** (cycle id, dates, status), one **topic
   section** per topic, and one **dev log** section. Nothing else. `[SRC-009]`
+- A cycle is **8 weeks: a 6-week dev window followed by 2 weeks of cooldown** (bug-fixing, research).
+  The header's `Dates:` range **MUST** be the **dev window**, with the cooldown end recorded after it:
+  `Dates: 2026-08-18 → 2026-09-29 · Cooldown: → 2026-10-13`. `[SRC-013]`
+- **Cooldown work MUST NOT be tracked in the doc.** It has no appetite, no no-gos and nothing to place
+  on a hill, so putting it through intake would force shaping onto work that is unshaped by
+  definition. The doc covers the dev window; cooldown is off-book. `[SRC-013]`
 - A topic section **MUST** carry the shaped fields of CYC-3, then its scope subsections.
 - A scope subsection **MUST** carry a hill position drawn from exactly these four values:
 
@@ -192,6 +200,8 @@ missing field is named back to the maintainer.
 - The appetite **MUST NOT** be revised upward mid-cycle. When work exceeds it, the response **MUST**
   be scope hammering (CYC-7) or an explicit re-bet — and a re-bet **MUST** be recorded as a dev-log
   line stating what changed and who decided. `[SRC-001]` `[SRC-004]`
+- An appetite **MUST** fit inside the **6-week dev window** (CYC-2). An appetite of 7 weeks or more, or
+  over 30 working days, **MUST** be refused at intake — hammer the scope or split the topic. `[SRC-013]`
 - The **first cut MUST** be recorded at intake: the first thing to go when time runs short. It
   **MUST** be a named piece of the topic, not "polish" or "tests".
 
@@ -258,6 +268,13 @@ inference path to disable.
   (CYC-5).
 - A task is a **must-have** by default. A **nice-to-have MUST** be written with a leading `~` and
   **MUST NOT** block a scope reaching `done`. `[SRC-004]`
+- A task is one of **two kinds**, because only one belongs in a tracker: `[SRC-013]`
+  - **Jira-bound** (the default, unmarked) — implementation work that becomes a ticket (CYC-14).
+  - **Personal**, written `self: <text>` — work the maintainer does that is not a ticket: research,
+    conceptualising, deciding an approach. Its outcome is typically *producing the tickets*.
+- A personal task completing and **adding new tasks to its scope is expected**, not scope creep — that
+  is what resolving an unknown does, and CYC-5 already allows a scope to exist before its tasks are
+  known. `[SRC-013]`
 - Marking a task `~` **IS** the scope-hammering action and **MUST** be recorded as such — it is a
   decision, not bookkeeping, and therefore earns a dev-log line under CYC-8 gate 2. `[SRC-004]`
 - A scope reaches `done` when every must-have under it is complete; outstanding `~` tasks **MAY**
@@ -322,8 +339,17 @@ sections; reviewed at mirror time (CYC-11).
 
 ### CYC-10 Local-vs-mirror boundary
 
-- The mirror **MUST** be a Notion **page** per cycle. It **MUST NOT** be a database, and topics,
-  scopes and tasks **MUST NOT** become database rows or carry Notion properties. `[SRC-007]`
+- The mirror **MUST** be one Notion **page** per cycle. That page **MAY** be a row in a dedicated
+  **`Cycles` database** — a cycle is a bounded unit of a few per year, so a row per cycle is a real
+  index, not the unbounded row-per-atom shape `CHEAT_SHEET.md` v2.0.0 removed. `[SRC-012]`
+- **Topics, scopes and tasks MUST remain page content.** They **MUST NOT** become database rows and
+  **MUST NOT** carry Notion properties. This is the line that matters: the cycle is the unit a row may
+  represent, and nothing inside it is. `[SRC-007]` `[SRC-012]`
+- The cycle row **MAY** carry properties, and each one **MUST** be **derived** from the local file and
+  regenerated on every mirror — never authoritative, never hand-edited as input. The reference set:
+  `Name` (cycle id), `Status` (`active` → In progress, `closed` → Done), `Dates` (start → end), and
+  `Repos` (multi-select from the topics' repo tags). A property that cannot be regenerated from the
+  local file **MUST NOT** be added. `[SRC-012]`
 - The mirror **MUST** carry: the header, every topic with its full shaped fields, every scope with its
   hill position and its **must-have completion state**, open questions, and the dev log.
 - The mirror **SHOULD NOT** carry individual task checkboxes where a scope has more than a handful —
@@ -334,7 +360,17 @@ sections; reviewed at mirror time (CYC-11).
 - The mirror **MUST** be regenerated whole from the local file, never patched line by line from a
   diff.
 
-**Rationale:** the mirror exists so the plan is readable and shareable without opening a terminal —
+**Rationale (revised 2026-08-19, v1.4.0):** v1.0.0 banned a database outright, importing
+`CHEAT_SHEET.md` v2.0.0's finding wholesale. That was over-broad. The cheat-sheet defect was one page
+per *fact* — unbounded growth, one row per atom, properties standing in for content. A cycle is
+categorically different: bounded (a few a year), substantial (a document in its own right), and
+already the unit the maintainer's workspace files under `Docs`-style databases `[SRC-012]`. What
+carried over correctly is the inner boundary: the moment a *topic* or *scope* becomes a row, the
+mirror stops being a readable page and becomes the tracker this whole standard exists to avoid.
+Derived-only properties keep the local file authoritative — a property a human can edit is a second
+source of truth, which CYC-10's one-way rule forbids.
+
+The mirror exists so the plan is readable and shareable without opening a terminal —
 that is a reporting surface, and Shape Up is explicit that reporting happens at scope level, where
 *"it's more satisfying to have the conversation at a high level and point to finished pieces of
 software, instead of going down into the weeds"* `[SRC-002]`. One-way derivation is what keeps two
@@ -407,6 +443,36 @@ that already exists.
 **Enforcement:** `foleon-cycle` refuses writes to a `closed` doc; the close routine requires the
 per-topic shipped/cut record before flipping status.
 
+### CYC-14 The proposed work list
+
+- `foleon-cycle` **MUST** be able to produce, from the doc alone, a **prioritised work list** split into
+  **Jira tickets** (one per Jira-bound task, CYC-7) and **personal tasks**. `[SRC-013]`
+- A ticket **MUST** carry: an imperative **summary**, its **epic** (the topic) and **scope**, the
+  topic's **outcome** as the why, the topic's **done signal**, and **acceptance criteria**.
+- **Acceptance criteria MUST be specific to that ticket, and MUST NOT restate the topic outcome.** A
+  criterion copied from the outcome reads like a test and tests nothing, which is worse than an
+  admitted blank because it looks finished. Where they cannot yet be written, the list **MUST** emit an
+  explicit placeholder rather than filler.
+- A ticket proposal **MUST** be grounded in the **actual code** of the repo it targets — read the
+  relevant source (via that repo's project-context skill) before proposing tasks or writing criteria.
+  A task list derived from a topic title alone is invention. `[SRC-013]`
+- Ordering **MUST** put unknowns first: a task under an `uphill` or `top` scope outranks a must-have
+  under a `downhill` one, and `~` nice-to-haves come last. Each item also carries a **priority level**
+  (`P1`/`P2`/`P3`) so Jira's own field can be set. Where the two disagree for a given cycle, the
+  running order is advice and the maintainer's judgement wins. `[SRC-013]`
+- The work list is **derived and disposable**: it is regenerated from the doc, never stored as a second
+  source of truth, and never mirrored to Notion as a task database (CYC-10).
+
+**Rationale:** the doc's purpose is not record-keeping — it is to produce the next action. Shape Up
+stops at scopes and to-dos because a Basecamp team works directly from them; this maintainer's
+implementation work has to land in Jira by hand, so the list is the hand-off artifact. The two kinds
+exist because a research task in a ticket tracker is a ticket nobody can close: its output is more
+tickets. The code-grounding rule exists because a plausible task list is the easiest thing in this
+system to generate and the most expensive to act on when wrong.
+
+**Enforcement:** `scripts/cycle.py tickets` produces the list and refuses filler criteria by emitting a
+placeholder; code-grounding is a review judgement at proposal time.
+
 ---
 
 ## Documented overrides
@@ -415,7 +481,7 @@ per-topic shipped/cut record before flipping status.
 |---|---|---|---|
 | 1 | Shape Up: a team of two or three **discovers** its own scopes `[SRC-002]` | An agent **proposes** scopes; only maintainer-accepted names are written (CYC-5) | The team is one developer plus an assistant. A proposal is a draft, not an authority — and the naming requirement (maintainer's own words) preserves what the original rule protects. |
 | 2 | Shape Up: shaping produces no task list; tasks are discovered while building `[SRC-002]` | Intake produces a first task list per accepted scope (CYC-7) | The maintainer's stated need is to plan the development up front `[SRC-009]`. Mitigated: tasks require accepted scopes first, scopes may hold no tasks (CYC-5), and tasks are never a status measure (CYC-6). |
-| 3 | Shape Up: six-week cycles plus two-week cool-down `[SRC-001]` | Cycle length unspecified; dates recorded per cycle (CYC-2) | Cycles are set by the maintainer's team in a ShapeUp/Scrum hybrid. Hard-coding six weeks would make the standard wrong on contact. |
+| 3 | Shape Up: six-week cycles plus two-week cool-down `[SRC-001]` | **8 weeks: a 6-week dev window + 2 weeks cooldown**, cooldown untracked (CYC-2, v1.5.0) | Not an override at all, as it turns out — the maintainer's team runs almost exactly Shape Up's shape. v1.0.0 left length unspecified for fear of hard-coding the wrong number; once the real shape was stated `[SRC-013]`, encoding it bought appetite validation against the window and a "week 4 of 6" status reading. |
 | 4 | Scrum: the Daily Scrum is a synchronous 15-minute team event `[SRC-006]` | An asynchronous dev-log line, written when something changes (CYC-8) | A solo developer has no team to synchronise with; the *purpose* the Scrum Guide states — inspect progress, adapt the plan — is preserved, only the ceremony is dropped. |
 | 5 | Shape Up: the hill chart is a continuous position on a curve `[SRC-003]` | Four discrete values: `uphill`, `top`, `downhill`, `done` (CYC-2) | A markdown file needs a token a checker can validate. The four values keep the only distinction the metaphor is *for* — unknowns versus execution — and the `top` value preserves the pivot point where estimation first becomes meaningful `[SRC-003]`. |
 
@@ -433,9 +499,15 @@ A cycle doc is conforming when **all** are true:
 - [ ] Scopes are independently finishable slices, named in the maintainer's words, integrated unless a stated iceberg (CYC-5)
 - [ ] Every hill position traceable to a maintainer statement; no percentages anywhere (CYC-6)
 - [ ] Every task under exactly one scope; nice-to-haves prefixed `~`; scope `done` ignores outstanding `~` (CYC-7)
+- [ ] Personal tasks marked `self:`; unmarked tasks are Jira-bound (CYC-7)
+- [ ] Header dates are the 6-week dev window with the cooldown end recorded; no cooldown work in the doc (CYC-2)
+- [ ] Every appetite fits inside the 6-week dev window (CYC-4)
+- [ ] The work list orders unknowns first, carries a P-level, and its acceptance criteria are ticket-specific and code-grounded — never a restatement of the outcome (CYC-14)
 - [ ] Every dev-log line passes a state-change / decision / surprise gate; nothing restates git; append-only (CYC-8)
 - [ ] Topics repo-tagged; cross-repo topics written once; mirror nested by project (CYC-9)
-- [ ] Mirror is one page, regenerated whole from local, never read back as an update path, no database (CYC-10)
+- [ ] Mirror is one page per cycle, regenerated whole from local, never read back as an update path (CYC-10)
+- [ ] The cycle may be a row in the `Cycles` database; no topic, scope or task is a row or a property (CYC-10)
+- [ ] Every cycle-row property is derived from the local file and regenerated on each mirror (CYC-10)
 - [ ] Nothing written to Notion without an explicit yes in that conversation; hooks queue only; skill is explicit-invocation only (CYC-11)
 - [ ] Durable facts routed to the project-context skill's `knowledge.md`, not parked in the cycle doc (CYC-12)
 - [ ] At close: shipped/cut recorded per topic, residual `uphill` flagged as a shaping signal, status `closed`, retro delegated to `sprint-review` (CYC-13)
@@ -485,6 +557,8 @@ None standing.
 - `[SRC-006]` Schwaber, K. & Sutherland, J. — *The Scrum Guide* (2020). https://scrumguides.org/scrum-guide.html — *"The purpose of the Daily Scrum is to inspect progress toward the Sprint Goal and adapt the Sprint Backlog as necessary"*; basis for the dev-log cadence in the hybrid.
 - `[SRC-007]` Internal — [`CHEAT_SHEET.md`](CHEAT_SHEET.md) (CHS 2.4.0). Page-not-database (v2.0.0 reversal), CHS-9a project nesting, CHS-9b write-once for cross-project facts, CHS-9 conversational review gate. Reused rather than re-derived.
 - `[SRC-008]` Internal — [`PROJECT_CONTEXT_SKILL.md`](PROJECT_CONTEXT_SKILL.md) (PCS). PCS-6 discoveries log as the home of durable facts; PCS-9a silo-versus-checkout boundary; PCS-11 single external mirror.
+- `[SRC-013]` Internal — the maintainer's clarifications, 2026-08-19: *"a cycle is always 8 weeks, but the first 6 weeks are the dev session. the 2 last weeks are just 'cooldown' in which we do bug-fixing/research etc"*; that the point of the system is *"a list of priorised tickets generated for me (or at least a proposition) that i could then add into Jira (by-hand for now)"*; that not everything is a ticket — *"if i add a brand new feature i need to conceptualize... this won't be a ticket in JIRA, this will be a task for me -> the task could be 'research on how to implement, expected outcome of the task : make tickets to implement after research'"*; and that proposals should be code-grounded — *"it could be worth it having a technical skill read through the code of the mentionned repos"*.
+- `[SRC-012]` Internal — the maintainer's decision, 2026-08-19: *"i would like the cycles to be in the database 'Cycles' i just created (same location as Docs, in Foleon)"*, and on properties: *"i don't mind properties!! if they make sense obvs."* Their workspace files documents as rows in a `Docs` database (the cheat-sheet hub is one), so a `Cycles` database is the native shape there.
 - `[SRC-011]` Internal — the maintainer's authorisation, 2026-08-19, verbatim: *"SHAPEUP-CYCLES may auto-commit"*, given after asking for a system that needs no repo handling: *"i am just scared of the handling of the repo. how often do we push? can you make a system that is 100% independant?"* The answer that satisfied it — no remote, so no pushing is possible, and commits made by the tool rather than by hand — is what CYC-1 now requires.
 - `[SRC-010]` Internal — the maintainer's correction, 2026-08-19: *"we are completely going out of scope on skills-tinky repo! it's supposed to be a repo for skills and things that revolve around that, not to keep track of my cycles. this repo is used by me for both pro and perso."* The v1.0.0 placement (the skill's own `state/` directory) was wrong on both counts — off-topic for that repo, and pushed to GitHub.
 - `[SRC-009]` Internal — the maintainer's stated requirements, session of 2026-08-17/18: local-first with a Notion mirror; scopes and tasks with a hill chart; hook proposes and the maintainer approves; Foleon-only across `ripley`, `fio` and future repos; `/foleon-cycle` explicit invocation with no phrase triggers.
@@ -493,6 +567,8 @@ None standing.
 
 | Version | Date | Change |
 |---|---|---|
+| **1.5.0** | 2026-08-19 | **The real cycle shape, and the output the system exists for.** Three things the maintainer clarified `[SRC-013]`. (1) A cycle is **8 weeks — 6 dev + 2 cooldown**; the header's dates are now the dev window with the cooldown end recorded after it, appetites are validated against the 6 weeks rather than the 8, and cooldown work is deliberately **not** tracked (it has no appetite, no no-gos, nothing to put on a hill). Override #3 is rewritten: it was never an override, the team runs almost exactly Shape Up's shape. (2) Tasks come in **two kinds** (CYC-7): Jira-bound by default, or `self:` for research and conceptualising, whose outcome is usually *producing the tickets* — and such a task adding new tasks when it closes is expected, not scope creep. (3) New rule **CYC-14**: the doc must produce a **prioritised work list** — tickets for Jira plus personal tasks — ordered unknowns-first with a P-level, where acceptance criteria must be ticket-specific and **grounded in the actual code**, never a restatement of the topic outcome, with an explicit placeholder rather than filler when they cannot yet be written. |
+| **1.4.0** | 2026-08-19 | **The cycle mirror may be a row in a `Cycles` database.** v1.0.0's blanket "MUST NOT be a database" imported `CHEAT_SHEET.md` v2.0.0's finding too broadly: that defect was one page per *fact*, unbounded and property-driven, whereas a cycle is bounded and substantial, and the maintainer's workspace already files documents as database rows `[SRC-012]`. CYC-10 now permits the per-cycle page to be a row in a dedicated `Cycles` database, and states the inner boundary explicitly — topics, scopes and tasks stay page content, never rows, never properties, because that is the line whose crossing turns the mirror into a tracker. Cycle rows **may** carry properties provided each is **derived** from the local file and regenerated on every mirror (reference set: `Name`, `Status`, `Dates`, `Repos`); a property that cannot be regenerated is forbidden, since a hand-editable property is a second source of truth. |
 | **1.3.0** | 2026-08-19 | **Commits in the cycle history carry a `Co-Authored-By: Claude` trailer**, at the maintainer's request and scoped to this history alone — not a global git convention. The cycle doc's plans and log lines are written collaboratively, so the history says so. |
 | **1.2.0** | 2026-08-19 | **Local-only git history in the cycle directory, authorised as a named carve-out.** The maintainer wanted history without repo maintenance — *"how often do we push? can you make a system that is 100% independant?"* — and authorised auto-commit for this directory alone `[SRC-011]`. CYC-1 gains four bullets: the directory MAY keep git history; `foleon-cycle` MAY commit at open / approved log line / close / explicit `snapshot`; the history MUST NOT have a remote and MUST NOT be pushed (the skill refuses to commit if one exists), and `.state/` MUST NOT be versioned; a failed commit MUST NOT fail the write. Recorded here rather than left as folklore precisely because it is an exception to a standing rule — the exception is auditable, scoped to one directory, and cannot become a habit that spreads. |
 | **1.1.0** | 2026-08-19 | **Storage moved out of `skills-tinky`.** v1.0.0's CYC-1 put cycle docs in the skill's own `state/` directory, reasoning from PCS-9a's silo principle. The maintainer corrected it before any doc existed: `skills-tinky` is a repo for skills, used for both professional and personal work, and pushed to GitHub — so cycle docs there are both out of scope and published `[SRC-010]`. CYC-1 now requires a dedicated maintainer-owned cycle directory outside every code repository (default `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES`, overridable via `FOLEON_CYCLE_HOME`), and puts the unlogged-work queue in that same directory under `.state/` so the system has one location rather than two. Enforcement changed from "not inside a known repo checkout" to "resolved from the configured cycle directory, never the cwd". No other rule is affected: local-first, one-way mirroring and the consent gate are unchanged. |

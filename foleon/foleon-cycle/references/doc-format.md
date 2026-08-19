@@ -41,11 +41,11 @@ Done when: merged
 
 | Element | Exact form |
 |---|---|
-| Header | `# Cycle <id>` on line 1; `Dates: <start> → <end> · Status: active\|closed` on line 2 |
+| Header | `# Cycle <id>` on line 1; `Dates: <dev start> → <dev end> · Cooldown: → <cycle end> · Status: active\|closed` on line 2. The range is the **6-week dev window**; cooldown is recorded but never tracked (CYC-2) |
 | Topic | `## [<repo>] <name>` — two tags for a cross-repo topic: `## [fio][ripley] <name>` |
 | Fields | `Outcome:` `Appetite:` `No-gos:` `Done when:` — all four required; `Open questions:` when there are any; `Shipped:` / `Cut:` added at close |
 | Scope | `### scope: <name> — <hill>` (em dash or hyphen both parse) |
-| Task | `- [ ] <text>` / `- [x] <text>`; nice-to-have: `- [ ] ~ <text>` |
+| Task | `- [ ] <text>` / `- [x] <text>`; nice-to-have: `- [ ] ~ <text>`; personal (not Jira): `- [ ] self: <text>` |
 | Log line | `- <YYYY-MM-DD> [<repo>] <scope> → <what changed>` |
 
 Order is fixed: header, then topics, then exactly one `## Dev log` — **nothing after the log.**
@@ -70,6 +70,8 @@ task-count and percentage status can't show uncertainty.
 
 - Exactly one scope per task. A task at topic level is a validation error.
 - Half a day to two days. Bigger is a scope; smaller isn't worth tracking.
+- **Two kinds.** Unmarked = implementation, becomes a Jira ticket. `self:` = yours alone (research,
+  conceptualising) and never a ticket — its outcome is usually *producing* the tickets (CYC-7).
 - **Must-have by default.** `~` marks a nice-to-have: it never blocks `done`, and marking it **is**
   the scope-hammering action — so it earns a dev-log line as a *decision*.
 - A scope may legitimately have **no tasks** — it marks work known to be needed whose steps aren't

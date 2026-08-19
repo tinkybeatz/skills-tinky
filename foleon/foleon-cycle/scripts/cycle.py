@@ -18,6 +18,8 @@ Usage:
   cycle.py validate [--id ID]
   cycle.py status [--id ID]
   cycle.py log --repo R --scope S --text "..." --gate state|decision|surprise [--date D]
+  cycle.py render [--json] [--id ID]
+  cycle.py tickets [--json] [--id ID]
   cycle.py snapshot --why "..." [--id ID]
   cycle.py close [--id ID]
 
@@ -34,6 +36,9 @@ import re
 import sys
 
 HILLS = ('uphill', 'top', 'downhill', 'done')
+DEV_WEEKS = 6          # the bet window: everything shaped must fit here
+COOLDOWN_WEEKS = 2     # bug-fixing / research, deliberately NOT tracked in the doc
+SELF_RE = re.compile(r'^self\s*:\s*(.+)$', re.I)   # a task for the maintainer, never a Jira ticket
 GATES = ('state', 'decision', 'surprise')
 
 # CYC-8: a log line states an outcome, not an activity. These openers describe
@@ -251,9 +256,12 @@ class Doc:
                     self.problems.append(
                         f'line {i}: CYC-7 — a task must sit under a scope, not directly under a topic')
                     continue
+                text = k.group(3)
+                m_self = SELF_RE.match(text)
                 scope['tasks'].append({
                     'done': k.group(1).lower() == 'x', 'nice': bool(k.group(2)),
-                    'text': k.group(3), 'line': i,
+                    'text': m_self.group(1) if m_self else text,
+                    'kind': 'self' if m_self else 'jira', 'line': i,
                 })
                 continue
 
@@ -288,6 +296,15 @@ class Doc:
             ap = t['fields'].get('Appetite:', '')
             if ap and '(fixed)' not in ap:
                 p.append(f'{where}: CYC-4 — appetite must be marked "(fixed)"')
+            if ap:
+                weeks = re.search(r'(\d+(?:\.\d+)?)\s*w', ap, re.I)
+                days = re.search(r'(\d+(?:\.\d+)?)\s*d', ap, re.I)
+                if weeks and float(weeks.group(1)) > DEV_WEEKS:
+                    p.append(f'{where}: CYC-4 — appetite {weeks.group(1)}w exceeds the '
+                             f'{DEV_WEEKS}-week dev window; hammer the scope or split the topic')
+                elif days and float(days.group(1)) > DEV_WEEKS * 5:
+                    p.append(f'{where}: CYC-4 — appetite {days.group(1)}d exceeds the '
+                             f'{DEV_WEEKS}-week dev window ({DEV_WEEKS * 5} working days)')
             if ap and 'first cut' not in ap.lower():
                 p.append(f'{where}: CYC-4 — no first cut named; add "· First cut: <what goes first>"')
             for s in t['scopes']:
@@ -325,8 +342,21 @@ def cmd_new(a):
         die(f'{os.path.basename(other)} is still active. Close it first '
             f'(cycle.py close) — CYC-1 allows one active cycle.')
     start = a.start or datetime.date.today().isoformat()
-    end = a.end or ''
-    dates = f'Dates: {start} → {end}' if end else f'Dates: {start} → ?'
+    # An 8-week cycle: 6 weeks of dev, then 2 of cooldown. The doc covers the dev
+    # window only — cooldown is bug-fixing and research, which has no appetite, no
+    # no-gos and nothing to put on a hill, so forcing it through intake would be
+    # wrong (maintainer's call, 2026-08-19).
+    try:
+        d0 = datetime.date.fromisoformat(start)
+        dev_end = (d0 + datetime.timedelta(weeks=DEV_WEEKS)).isoformat()
+        cool_end = (d0 + datetime.timedelta(weeks=DEV_WEEKS + COOLDOWN_WEEKS)).isoformat()
+    except ValueError:
+        die(f'--start must be YYYY-MM-DD, got {start!r}')
+    end = a.end or dev_end
+    if a.end and a.end != dev_end:
+        print(f'cycle.py: note — dev window from {start} is {DEV_WEEKS} weeks, ending {dev_end}; '
+              f'using your {a.end}', file=sys.stderr)
+    dates = f'Dates: {start} → {end} · Cooldown: → {cool_end}'
     with open(path, 'w', encoding='utf-8') as fh:
         fh.write(f'# Cycle {a.id}\n{dates} · Status: active\n\n## Dev log\n')
     snapshot(state_dir(), '%s: cycle opened' % a.id)
@@ -358,9 +388,30 @@ def cmd_validate(a):
     return 1
 
 
+def week_of(d):
+    """Which week of the dev window today falls in, or the cooldown."""
+    m = re.search(r'Dates:\s*(\d{4}-\d{2}-\d{2})', '\n'.join(d.lines[:3]))
+    if not m:
+        return ''
+    try:
+        start = datetime.date.fromisoformat(m.group(1))
+    except ValueError:
+        return ''
+    days = (datetime.date.today() - start).days
+    if days < 0:
+        return 'not started yet'
+    wk = days // 7 + 1
+    if wk <= DEV_WEEKS:
+        return f'week {wk} of {DEV_WEEKS}, dev'
+    if wk <= DEV_WEEKS + COOLDOWN_WEEKS:
+        return f'cooldown, week {wk - DEV_WEEKS} of {COOLDOWN_WEEKS} (not tracked here)'
+    return 'past the cycle end'
+
+
 def cmd_status(a):
     d = Doc(resolve(a.id))
-    print(f'# Cycle {d.cycle_id} ({d.status})')
+    where = week_of(d)
+    print(f'# Cycle {d.cycle_id} ({d.status})' + (f' — {where}' if where else ''))
     for t in d.topics:
         tags = ''.join(f'[{r}]' for r in t['repos'])
         print(f'\n{tags} {t["name"]}')
@@ -466,6 +517,162 @@ def cmd_snapshot(a):
     return 0
 
 
+def cmd_render(a):
+    """Render the Notion mirror: body markdown + the derived properties (CYC-10).
+
+    Deterministic on purpose. The model rendering this by hand each time is how
+    the body drifts — the first hand-render duplicated Dates/Status in the body
+    when the row's properties already carry them.
+    """
+    d = Doc(resolve(a.id))
+    probs = d.check()
+    if probs:
+        print('not rendering a non-conforming doc - fix these first:')
+        for x in probs:
+            print('  - %s' % x)
+        return 1
+
+    repos = []
+    for t in d.topics:
+        for r in t['repos']:
+            if r not in repos:
+                repos.append(r)
+    repos.sort()
+
+    out = []
+    for repo in repos:
+        out.append('## %s' % repo)
+        out.append('')
+        for t in d.topics:
+            if repo not in t['repos']:
+                continue
+            out.append('### %s' % t['name'])
+            out.append('')
+            for f in FIELDS + ('Open questions:', 'Shipped:', 'Cut:'):
+                if t['fields'].get(f):
+                    out.append('%s %s' % (f, t['fields'][f]))
+            out.append('')
+            for sc in t['scopes']:
+                must = [k for k in sc['tasks'] if not k['nice']]
+                done = [k for k in must if k['done']]
+                nice = [k for k in sc['tasks'] if k['nice'] and not k['done']]
+                bits = '%d/%d must-have' % (len(done), len(must)) if must else 'no tasks yet'
+                if nice:
+                    bits += ', %d nice-to-have open' % len(nice)
+                out.append('- **%s** — `%s` (%s)' % (sc['name'], sc['hill'], bits))
+            out.append('')
+    out.append('## Dev log')
+    out.append('')
+    out += [raw for _, raw, _ in d.log]
+    body = '\n'.join(out).rstrip() + '\n'
+
+    # The header line is deliberately NOT in the body: Dates and Status are row
+    # properties, and writing them twice creates two truths in one page (CYC-10).
+    dates = re.search(r'Dates:\s*(\S+)\s*(?:→|->)\s*(\S+)', '\n'.join(d.lines[:3]))
+    props = {'Name': d.cycle_id,
+             'Status': 'In progress' if d.status == 'active' else 'Done'}
+    if dates and dates.group(1) not in ('?', ''):
+        props['date:Dates:start'] = dates.group(1)
+        if dates.group(2) not in ('?', ''):
+            props['date:Dates:end'] = dates.group(2)
+    props['Repos'] = repos
+
+    if a.json:
+        import json as _json
+        print(_json.dumps({'properties': props, 'body': body}, ensure_ascii=False, indent=2))
+    else:
+        print(body)
+        print('--- properties (derived, regenerated every mirror) ---')
+        for k, v in props.items():
+            print('%s: %s' % (k, ', '.join(v) if isinstance(v, list) else v))
+        print('\nRepos options must already exist in the database, or Notion rejects the value.')
+        print('If it is rejected: skip Repos, tell the maintainer which option to add, mirror the rest.')
+    return 0
+
+
+def cmd_tickets(a):
+    """Propose a prioritised work list: Jira-bound tickets and personal tasks.
+
+    Two kinds, because only one belongs in a tracker (maintainer's distinction,
+    2026-08-19): implementation work becomes a Jira ticket, while "I need to
+    figure this out first" is a task for the maintainer whose outcome is usually
+    *producing* the tickets. A research task closing and adding new tasks to its
+    scope is normal, not scope creep.
+
+    Ordering is unknowns-first: a task under an `uphill` scope outranks a
+    must-have under a `downhill` one, because attacking the unresolved part early
+    is what leaves time to react to what it reveals. Nice-to-haves come last.
+
+    The acceptance criteria emitted here are a SCAFFOLD from the topic's outcome
+    and done signal. They are meant to be sharpened against the actual code —
+    a criterion invented from a topic title is fiction (see SKILL.md, plan flow).
+    """
+    d = Doc(resolve(a.id))
+    rank = {'uphill': 0, 'top': 1, 'downhill': 2, 'done': 3}
+    rows = []
+    for t in d.topics:
+        for sc in t['scopes']:
+            for k in sc['tasks']:
+                if k['done']:
+                    continue
+                rows.append({
+                    'kind': k['kind'], 'summary': k['text'], 'nice': k['nice'],
+                    'topic': t['name'], 'repos': t['repos'], 'scope': sc['name'],
+                    'hill': sc['hill'],
+                    'outcome': t['fields'].get('Outcome:', ''),
+                    'done_when': t['fields'].get('Done when:', ''),
+                    'sort': (1 if k['nice'] else 0, rank.get(sc['hill'], 9)),
+                })
+    rows.sort(key=lambda r: r['sort'])
+    for i, r in enumerate(rows, start=1):
+        r['priority'] = ('P3' if r['nice'] else
+                         'P1' if r['hill'] in ('uphill', 'top') else 'P2')
+        r['order'] = i
+
+    if a.json:
+        import json as _json
+        print(_json.dumps(rows, ensure_ascii=False, indent=2))
+        return 0
+
+    jira = [r for r in rows if r['kind'] == 'jira']
+    mine = [r for r in rows if r['kind'] == 'self']
+
+    if mine:
+        print('## Your tasks — not Jira\n')
+        for r in mine:
+            tags = ''.join('[%s]' % x for x in r['repos'])
+            print('%d. %s %s  (%s · scope: %s · %s)' %
+                  (r['order'], tags, r['summary'], r['priority'], r['scope'], r['hill']))
+            if r['hill'] in ('uphill', 'top'):
+                print('   outcome: resolve the unknown, then add the tickets it reveals')
+        print()
+
+    print('## Jira tickets — proposed, in this order\n')
+    for r in jira:
+        tags = ' '.join('[%s]' % x for x in r['repos'])
+        print('### %d. %s %s' % (r['order'], tags, r['summary']))
+        print('Epic: %s · scope: %s (%s) · %s%s'
+              % (r['topic'], r['scope'], r['hill'], r['priority'],
+                 ' · nice-to-have' if r['nice'] else ''))
+        if r['outcome']:
+            print('Why: %s' % r['outcome'])
+        if r['done_when']:
+            print('Topic done signal: %s' % r['done_when'])
+        # Deliberately a placeholder, not a generated criterion. Pasting the topic
+        # outcome into every ticket produces text that reads like acceptance
+        # criteria and tests nothing — worse than an honest blank, because it
+        # looks finished. The model fills these in after reading the code.
+        print('Acceptance criteria: TODO — one or two testable statements about THIS change,')
+        print('  written after looking at the code. Do not restate the topic outcome.')
+        print()
+
+    print('--- %d Jira ticket(s), %d personal task(s). Unknowns first: a task under an uphill scope '
+          'outranks a must-have under a downhill one. ---' % (len(jira), len(mine)))
+    if not rows:
+        print('Nothing open — every task is done, or no tasks exist yet.')
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(prog='cycle.py', description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -502,6 +709,16 @@ def main():
     n2.add_argument('--why', required=True, help='short reason, becomes the commit message')
     n2.add_argument('--id')
     n2.set_defaults(fn=cmd_snapshot)
+
+    r = sub.add_parser('render', help='render the Notion mirror body + derived properties')
+    r.add_argument('--json', action='store_true', help='machine-readable output')
+    r.add_argument('--id')
+    r.set_defaults(fn=cmd_render)
+
+    k = sub.add_parser('tickets', help='propose a prioritised ticket + task list')
+    k.add_argument('--json', action='store_true')
+    k.add_argument('--id')
+    k.set_defaults(fn=cmd_tickets)
 
     z = sub.add_parser('close', help='close preflight, then flip status')
     z.add_argument('--id')
