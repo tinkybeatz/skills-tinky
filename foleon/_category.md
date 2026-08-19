@@ -30,3 +30,8 @@ that do work; they follow the normal skill conventions, not PCS.
 - `foleon-ripley` — project-context skill for the `ripley` monorepo (PCS reference implementation)
 - `foleon-cheatsheet` — capability skill: mirrors admitted findings from the discoveries log into the
   Notion cheat sheet, per [`docs/stds/CHEAT_SHEET.md`](../docs/stds/CHEAT_SHEET.md)
+- `foleon-cycle` — capability skill: runs a cycle end to end (intake → scopes → tasks → dev log →
+  Notion mirror → close), per [`docs/stds/CYCLE_DOC.md`](../docs/stds/CYCLE_DOC.md). Local markdown in
+  `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES/` (outside this repo — CYC-1 v1.1.0) is the source of
+  truth; **explicit invocation only** (CYC-11), so it carries no
+  trigger phrases

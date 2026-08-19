@@ -12,9 +12,14 @@ change log. Authored and amended with the `standard-maker` skill.
 |---|---|---|
 | [`PROJECT_CONTEXT_SKILL.md`](PROJECT_CONTEXT_SKILL.md) | `PCS-1`…`PCS-11` (incl. `PCS-9a`) | Skills that carry one project's context for the awareness router: placement, naming, required files, the self-enrich boundary, registration, and the optional external mirror. Governs **two repo classes** — silo-only (checkout stays AI-config-free) and dual-home (team owns the checkout; `PCS-9a` sets the boundary between committed context and the private silo). Reference implementation: `foleon/foleon-ripley` (silo-only). No dual-home skill exists yet — `foleon/foleon-fio` is the intended first one; PCS-9a was written ahead of it. |
 | [`CHEAT_SHEET.md`](CHEAT_SHEET.md) | `CHS-1`…`CHS-11` (incl. `CHS-9a`, `CHS-9b`) | What may be written to a human-facing cheat-sheet **page** and how: five admission gates (including "not already said"), one bullet per fact under an existing heading, length judged by the fact not a word count, voice, and a conversational review gate before any write. Multi-project hubs nest by project (`CHS-9a`) and write cross-project facts once (`CHS-9b`). No database. Reference implementation: the `Foleon - Cheat Sheet` Notion page, written by `foleon/foleon-cheatsheet`. |
+| [`CYCLE_DOC.md`](CYCLE_DOC.md) | `CYC-1`…`CYC-13` | The per-cycle work doc for the maintainer's ShapeUp/Scrum hybrid: one local-authoritative markdown file per cycle stored in the maintainer's own cycle directory (outside every code repo, `skills-tinky` included — v1.1.0), a six-field intake gate (outcome, appetite, first cut, no-gos, done signal, repo tag) that records unanswered questions rather than inferring them, maintainer-named integrated scopes tracked on a four-value hill, tasks carrying Shape Up's `~` nice-to-have marker, a three-gate dev log that never restates git, and a one-way whole-page Notion mirror behind a conversational consent gate. Multi-repo cycles reuse `CHEAT_SHEET.md`'s CHS-9a/9b nesting. Reference implementation: `foleon/foleon-cycle`. |
 
-The two compose: PCS-11 permits a project-context skill to mirror findings to one external
-surface, and `CHEAT_SHEET.md` governs what that surface may contain.
+The three compose. PCS-11 permits a project-context skill to mirror findings to one external
+surface, and `CHEAT_SHEET.md` governs what that surface may contain. `CYCLE_DOC.md` sits beside them
+on the time axis: it governs the **time-bound** record of a cycle's work, and CYC-12 routes anything
+**durable** it surfaces back out to PCS-6's discoveries log — so a fact reaches the cheat sheet by the
+existing path rather than a second one. CYC-9 reuses CHS-9a/9b's project nesting outright, and CYC-11
+reuses CHS-9's conversational consent gate, so one Notion workspace carries one set of conventions.
 
 Note the `<rule>a` suffix convention (`PCS-9a`, `CHS-9a`, `CHS-9b`): when a new rule belongs
 *beside* an existing one, it takes a suffixed ID rather than the next free number. IDs are stable and
@@ -26,6 +31,7 @@ across the document. Suffixed IDs keep related rules adjacent without ever reusi
 - [`README.md`](../../README.md) → "Project awareness"
 - [`foleon/_category.md`](../../foleon/_category.md) → architecture standard + mirror
 - [`meta/skill-creator/references/taxonomy-and-placement.md`](../../meta/skill-creator/references/taxonomy-and-placement.md) → project-context skills
+- [`docs/stds/CYCLE_DOC.md`](CYCLE_DOC.md) → CYC-7/CYC-9/CYC-12 build on CHS/PCS rules rather than re-deriving them
 - [`meta/concierge/scripts/audit.sh`](../../meta/concierge/scripts/audit.sh) → checks PCS-2, PCS-3, PCS-9
   (check #10 implements PCS-9 exclusivity; as of PCS 3.0.0 it **must** read the mapped skill's
   `Repo mode:` line and skip declared dual-home repos, and should gain a check that every

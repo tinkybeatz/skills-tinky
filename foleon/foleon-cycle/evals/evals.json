@@ -1,0 +1,23 @@
+{
+  "skill_name": "foleon-cycle",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "/foleon-cycle A new cycle started (2026-C5, 18 Aug to 26 Sep). Topics: PDF export, 2 weeks. Search relevance in ripley, 3 days. Editor polish, 1 week.",
+      "expected_output": "Parses the three topics and shows the parse back BEFORE asking anything. Flags 'Editor polish' as a grab-bag rather than interviewing it as a topic. Then batches intake questions (AskUserQuestion, ~4 at a time), scaled to appetite — the 3-day ripley topic gets fewer questions than PDF export. Creates the doc via cycle.py new. Does not create scopes or tasks for any topic missing a CYC-3 field.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "/foleon-cycle log yesterday: I touched about 8 files in fio, mostly the PDF extractor, and I decided to drop the nested-table support to a nice-to-have.",
+      "expected_output": "Logs the nested-table drop as a DECISION gate line (it is scope hammering) and marks that task with a leading ~. Does NOT log 'touched 8 files in fio' — that fails CYC-8 and is what git already records. Asks which scopes moved on the hill rather than inferring from the files. Writes only after showing the proposed line.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "/foleon-cycle I found out that fio's vite config needs the fio-local host alias or the editor won't boot. Add that to the cycle doc.",
+      "expected_output": "Declines to put it in the dev log: it is a durable project fact, so CYC-12 routes it to foleon-fio's references/knowledge.md, naming that skill. May note the discovery as a surprise-gate log line if it changed the cycle's work, but the fact itself does not live in the cycle doc.",
+      "files": []
+    }
+  ]
+}
