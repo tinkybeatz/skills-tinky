@@ -64,6 +64,7 @@ stop — the local doc is already authoritative, so there is nothing to fall bac
 | `/foleon-cycle new` | **1. Open a cycle** — guided intake from a raw brief |
 | `/foleon-cycle shape` | **1b. Shape a topic** — the answers arrived, fill the fields, flip the state |
 | `/foleon-cycle plan` | **2. Scopes and tasks** for a topic already shaped |
+| `/foleon-cycle questions` | **1c. Open questions**, numbered — what is still unanswered |
 | `/foleon-cycle tickets` | **3. Work list** — prioritised tickets for Jira + personal tasks |
 | `/foleon-cycle status` | **4. Status** — where every scope sits |
 | `/foleon-cycle log` | **5. Log** what happened |
@@ -138,22 +139,41 @@ Two rules that matter more than the rest:
 
 `cycle.py validate` checks each topic against its declared state and names what's missing.
 
-### 1b. Shape a topic — when the answers arrive
+### 1b. Shape — re-evaluate when answers arrive
 
-The step the maintainer described as *"once I have more info I give everything to the skill"*.
+This is a **decision** flow, not a form, and it is the most-used flow in the first weeks. Full
+procedure: [`references/shaping.md`](references/shaping.md).
 
-1. **Take the dump** — call notes, a decision, a Slack reply, however rough.
-2. **Close the research tasks it answered**, and log the answers under the `surprise` gate: an open
-   question closing is exactly that.
-3. **Fill the six fields** from what was actually said. Anything still open stays an open question — a
-   partial answer is not permission to invent the rest.
-4. **Flip the heading** to `— shaped`. Never on your own inference (CYC-3): the answers come from
-   people, not from you.
-5. **Then run flow 2** — factor scopes, read the code, propose tasks. The research task that produced
-   this normally spawns several new ones; that is the unknown resolving, not scope creep.
+**1. Take the dump and re-anchor it.**
+```bash
+python3 scripts/cycle.py questions     # numbered, per topic
+```
+Ask for whatever came out of the call, then map answers onto the numbers — they should be able to say
+*"1, 4 and 7 are settled"* rather than re-pasting nine questions.
 
-If the answers only partly landed, the topic **stays shaping** with fewer open questions. That is
-progress, and it is honest.
+**2. Classify what's left.** One test only: *could you write the outcome, or name the done event,
+without this answer?* No → **blocking**. Yes → **non-blocking**. Be strict; "it'd be nice to know" is
+not blocking, and a topic held hostage to a non-blocking question is a topic nobody is working on for
+no reason.
+
+**3. Propose one of three moves — with the reasoning — and wait for agreement:**
+
+- **Hold** — something blocking is still open. Name who can answer and how it gets asked (a `self:`
+  task, not a hope), and say where the topic stands against its shaping budget. Past roughly a quarter
+  of the appetite, the honest recommendation is *escalate*, not *research more*.
+- **Split** — enough is known for *part* of it. Make it two topics: a **shaped** half that is
+  independently shippable, and a **shaping** half carrying the unanswered questions. Divide the
+  appetite rather than duplicating it. This is Shape Up's own move — hammer a vague topic into a real
+  bet — and it is usually the right answer after a partial call.
+- **Shape** — everything blocking is answered. Run the full interview, flip to `— shaped`, then go to
+  flow 2.
+
+**4. Execute what was agreed:** drop the answered questions, log each answer that changed something
+(`--gate surprise`), tick the research tasks it completed, apply the move, then `validate`,
+`snapshot`, re-mirror.
+
+Never flip to `shaped` on your own inference, never treat a partial answer as permission to invent the
+rest, and never quietly downgrade a blocking question to get a topic moving.
 
 ### 2. Factor into scopes, then tasks
 
@@ -315,6 +335,7 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | [`references/intake.md`](references/intake.md) | Interviewing a topic into shape — question bank, depth ladder, worked example |
 | [`references/doc-format.md`](references/doc-format.md) | Writing or fixing the markdown — exact skeleton, hill semantics, task rules |
 | [`references/mirror.md`](references/mirror.md) | Pushing to Notion — page shape, call sequence, consent gate |
+| [`references/shaping.md`](references/shaping.md) | Re-evaluating a shaping topic — the blocking test, and the hold/split/shape decision |
 | [`references/tickets.md`](references/tickets.md) | Producing the work list — ticket shape, ordering, code-grounding |
 | [`references/close.md`](references/close.md) | Closing a cycle and handing off to `sprint-review` |
 
@@ -338,6 +359,8 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | Git commit failed (no identity, locked index) | `cycle.py` prints a note but the file saved | Nothing to recover — the markdown is the artifact. Fix `user.email`/`user.name` if they want history working again. |
 | Proposed tasks without reading the code | A breakdown that could have been written from the topic title alone | Stop and read the source (CYC-14). Plausible-but-wrong task lists are the most expensive output this skill can produce. |
 | Acceptance criteria restate the outcome | Every ticket's criteria say the same thing | Replace with testable statements about that change, or leave the placeholder. Filler that looks finished is worse than an admitted blank. |
+| Held a topic on a non-blocking question | A topic sat shaping for a week over something discoverable later | Apply the blocking test (`references/shaping.md`). Split it and start the shapeable half. |
+| Split into halves that aren't independent | The "shaped" half only makes sense once the other lands | Then it is not a split — it is one topic still shaping. Revert it. |
 | Cooldown work pushed through intake | A "topic" with no real appetite, e.g. "bug fixing" | Cooldown is off-book (CYC-2). Don't shape it; it doesn't belong in the doc. |
 | Notion MCP unavailable | An MCP call errors on connection | Carry on locally — the local doc is authoritative, so the only cost is a stale mirror. Say so, and refresh next time. |
 | Mirrored but forgot `mirrored` | Next reconcile reports changes the maintainer already made, or misses ticks | The snapshot is the merge's only reference point. Run it after every successful write, never before. |

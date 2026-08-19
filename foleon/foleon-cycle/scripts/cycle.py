@@ -20,6 +20,7 @@ Usage:
   cycle.py log --repo R --scope S --text "..." --gate state|decision|surprise [--date D]
   cycle.py render [--json] [--id ID]
   cycle.py tickets [--json] [--id ID]
+  cycle.py questions [--id ID]
   cycle.py mirrored [--id ID]
   cycle.py reconcile --from <fetched.md> [--id ID]
   cycle.py snapshot --why "..." [--id ID]
@@ -57,6 +58,7 @@ SCOPE_RE = re.compile(r'^### scope:\s*(.+?)\s+[—-]\s*([a-z]+)\s*$')
 TASK_RE = re.compile(r'^- \[([ xX])\]\s*(~\s*)?(.+?)\s*$')
 LOG_RE = re.compile(r'^- (\d{4}-\d{2}-\d{2})\s+\[([a-z0-9._-]+)\]\s+(.+?)\s+(?:→|->)\s+(.+?)\s*$')
 FIELDS = ('Outcome:', 'Appetite:', 'No-gos:', 'Done when:')
+EXTRA_FIELDS = ('Open questions:', 'Assumptions:', 'Shipped:', 'Cut:')
 
 
 DEFAULT_HOME = '~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES'
@@ -88,6 +90,32 @@ def cycle_home():
                 f'Set FOLEON_CYCLE_HOME to a directory outside it.')
     os.makedirs(d, exist_ok=True)
     return d
+
+
+INTERROGATIVES = ('do', 'does', 'did', 'is', 'are', 'was', 'were', 'will', 'would', 'can',
+                  'could', 'should', 'shall', 'who', 'whom', 'whose', 'what', 'which', 'when',
+                  'where', 'why', 'how', 'if', 'any', 'has', 'have')
+
+
+def asks_something(entry):
+    """Does this open-question entry actually ask a question?
+
+    A real question often carries its "why this matters" in a trailing clause, so
+    the '?' is mid-string or absent: "is Mixpanel still the destination — nothing
+    in either repo says where these land". Requiring a trailing '?' rejected six
+    good questions and one bad one on first contact with a real doc, so the test
+    is instead: a question mark anywhere, or a clause that OPENS with an
+    interrogative. Position matters — "This is my assumption" contains "is" but
+    starts with "This", and it is exactly the kind of entry this check exists to
+    catch.
+    """
+    if '?' in entry:
+        return True
+    for clause in re.split(r'[—;.]|,\s+(?=and\b|or\b)', entry):
+        words = re.findall(r"[a-zA-Z']+", clause)
+        if words and words[0].lower() in INTERROGATIVES:
+            return True
+    return False
 
 
 def state_dir():
@@ -270,7 +298,7 @@ class Doc:
                 continue
 
             if topic is not None and scope is None:
-                for f in FIELDS + ('Open questions:', 'Shipped:', 'Cut:'):
+                for f in FIELDS + EXTRA_FIELDS:
                     if raw.startswith(f):
                         topic['fields'][f] = raw[len(f):].strip()
 
@@ -328,6 +356,12 @@ class Doc:
                 if ap and 'first cut' not in ap.lower():
                     p.append(f'{where}: CYC-4 — no first cut named; add '
                              f'"· First cut: <what goes first>"')
+            oq = t['fields'].get('Open questions:', '')
+            for q in [x.strip() for x in oq.split('·') if x.strip()]:
+                if not asks_something(q):
+                    p.append(f'{where}: CYC-3 — open question does not ask anything: {q[:60]!r}. '
+                             f'An assumption or a caveat belongs on "Assumptions:"; if it needs an '
+                             f'answer, phrase it as the question that would settle it')
             if ap and '(fixed)' not in ap and '(provisional)' not in ap:
                 p.append(f'{where}: CYC-4 — appetite must be marked "(fixed)", or '
                          f'"(provisional)" while the topic is still shaping')
@@ -492,6 +526,18 @@ def cmd_status(a):
         oq = t['fields'].get('Open questions:')
         if oq:
             print(f'  open: {oq}')
+    booked = 0.0
+    for t in d.topics:
+        ap = t['fields'].get('Appetite:', '')
+        wk = re.search(r'(\d+(?:\.\d+)?)\s*w', ap or '', re.I)
+        dy = re.search(r'(\d+(?:\.\d+)?)\s*d', ap or '', re.I)
+        booked += float(wk.group(1)) if wk else (float(dy.group(1)) / 5 if dy else 0)
+    if booked:
+        left = DEV_WEEKS - booked
+        note = ('%.1fw unbooked' % left if left > 0 else
+                'OVER-BOOKED by %.1fw — hammer a scope or drop a topic' % -left)
+        print('\nbooked: %.1fw of %dw dev window · %s' % (booked, DEV_WEEKS, note))
+
     stuck = [(t, s) for t in d.topics for s in t['scopes'] if s['hill'] in ('uphill', 'top')]
     if stuck:
         print(f'\n{len(stuck)} scope(s) not yet downhill — that is where the unknowns are:')
@@ -609,34 +655,91 @@ def cmd_render_for(d, a):
                 repos.append(r)
     repos.sort()
 
-    out = []
+    STATE_ICON = {'shaping': '🔍', 'shaped': '🎯'}
+    n_shaping = sum(1 for t in d.topics if t['state'] == 'shaping')
+    n_shaped = sum(1 for t in d.topics if t['state'] == 'shaped')
+    where = week_of(d)
+
+    # A callout at the top: the two things a human wants on opening the page —
+    # where the cycle is, and which parts of this page they may edit.
+    out = ['<callout icon="🔁" color="gray_bg">']
+    # The id may already say "Cycle" (the maintainer named one "Cycle-11"), and
+    # "Cycle Cycle-11" reads like a bug on a page they look at every day.
+    label = d.cycle_id if d.cycle_id.lower().startswith('cycle') else 'Cycle %s' % d.cycle_id
+    out.append('\t**%s**%s · %d shaping · %d shaped'
+               % (label, ' · ' + where if where else '', n_shaping, n_shaped))
+    out.append('\tTick tasks here and they sync back. Everything else — fields, appetite, '
+               'hill positions, the dev log — is edited locally.')
+    out.append('</callout>')
+    out.append('')
+
     for repo in repos:
+        out.append('---')
+        out.append('')
         out.append('## %s' % repo)
         out.append('')
         for t in d.topics:
             if repo not in t['repos']:
                 continue
-            out.append('### %s' % t['name'])
+            icon = STATE_ICON.get(t['state'], '')
+            out.append('### %s %s — %s' % (icon, t['name'], t['state'] or 'state undeclared'))
             out.append('')
-            for f in FIELDS + ('Open questions:', 'Shipped:', 'Cut:'):
+
+            # Fields as bold labels rather than "Label:" prose — same information,
+            # scannable instead of read line by line.
+            for f in FIELDS:
+                v = t['fields'].get(f)
+                if not v:
+                    continue
+                if f == 'Appetite:' and '·' in v:
+                    # "3w (fixed) · First cut: X" reads better as two labels than as
+                    # one line with a lowercase field name buried inside it.
+                    head, rest = v.split('·', 1)
+                    out.append('**Appetite** %s' % head.strip())
+                    cut = rest.strip()
+                    if cut.lower().startswith('first cut:'):
+                        cut = cut.split(':', 1)[1].strip()
+                    out.append('**First cut** %s' % cut)
+                else:
+                    out.append('**%s** %s' % (f.rstrip(':'), v))
+            for f in ('Shipped:', 'Cut:'):
                 if t['fields'].get(f):
-                    out.append('%s %s' % (f, t['fields'][f]))
+                    out.append('**%s** %s' % (f.rstrip(':'), t['fields'][f]))
+            if t['fields'].get('Assumptions:'):
+                out.append('')
+                out.append('<callout icon="⚠️" color="yellow_bg">')
+                out.append('\t**Assumed, not confirmed** — %s' % t['fields']['Assumptions:'])
+                out.append('</callout>')
             out.append('')
+
+            # Open questions were the worst part of the first render: one run-on
+            # line joined by "·", which is fine in a parseable file and unreadable
+            # on a page. They are the content that matters while a topic is
+            # shaping, so they get a real list and a count.
+            oq = [x.strip() for x in (t['fields'].get('Open questions:') or '').split('·')
+                  if x.strip()]
+            if oq:
+                out.append('**Open questions** (%d)' % len(oq))
+                for q in oq:
+                    out.append('- %s' % q)
+                out.append('')
+
             for sc in t['scopes']:
-                # Scope as a bold line, its tasks as real to-do items. The checkboxes
-                # are the INPUT surface (CYC-10 v2.0.0) — the maintainer ticks them in
-                # Notion and `reconcile` reads them back. The hill stays text-only and
-                # local-authoritative: it needs a human statement, and parsing it back
-                # out of a rendered line is the fragile part nobody needs yet.
-                out.append('**%s** — `%s`' % (sc['name'], sc['hill']))
+                # Scope as a heading-4: better looking in Notion than a bold line,
+                # and unambiguous to parse back (a "**bold** — word" field line
+                # could collide, a "#### " prefix cannot).
+                out.append('#### %s — `%s`' % (sc['name'], sc['hill']))
                 if not sc['tasks']:
-                    out.append('(no tasks yet)')
+                    out.append('*no tasks yet*')
                 for k in sc['tasks']:
                     mark = 'x' if k['done'] else ' '
                     pre = '~ ' if k['nice'] else ''
                     kind = 'self: ' if k['kind'] == 'self' else ''
                     out.append('- [%s] %s%s%s' % (mark, pre, kind, k['text']))
                 out.append('')
+
+    out.append('---')
+    out.append('')
     out.append('## Dev log')
     out.append('')
     out += [raw for _, raw, _ in d.log]
@@ -790,7 +893,9 @@ def cmd_mirrored(a):
 
 def parse_mirror_tasks(text):
     """{scope: [ {text, done, nice, kind} ]} from a rendered/fetched mirror body."""
-    scope_re = re.compile(r'^\*\*(.+?)\*\*\s+[—-]\s+`?(\w+)`?\s*$')
+    # h4 ONLY. Topic headings are h3 and now end with "— shaping"/"— shaped",
+    # so a looser pattern would read a topic as a scope named after it.
+    scope_re = re.compile(r'^####\s+(.+?)\s+[—-]\s*`?(\w+)`?\s*$')
     out, cur = {}, None
     for raw in text.split('\n'):
         # Notion escapes brackets on the way out (\[fio\]); undo before matching.
@@ -944,6 +1049,34 @@ def cmd_reconcile(a):
     return 0
 
 
+def cmd_questions(a):
+    """Number every open question so answers can be referred to, not re-pasted.
+
+    Stable numbering matters for the shape flow: the maintainer comes back from a
+    call able to say "1, 4 and 7 are settled" instead of restating nine questions.
+    """
+    d = Doc(resolve(a.id))
+    total = 0
+    for t in d.topics:
+        oq = [x.strip() for x in (t['fields'].get('Open questions:') or '').split('·') if x.strip()]
+        if not oq and t['state'] != 'shaping':
+            continue
+        tags = ''.join('[%s]' % r for r in t['repos'])
+        print('\n%s %s — %s (%s)' % (tags, t['name'], t['state'] or '?',
+                                     t['fields'].get('Appetite:', 'no appetite')))
+        if t['fields'].get('Assumptions:'):
+            print('  assumed: %s' % t['fields']['Assumptions:'])
+        for i, q in enumerate(oq, start=1):
+            total += 1
+            print('  %d. %s' % (i, q))
+        if not oq:
+            print('  (none left — this topic may be ready to shape)')
+    if total:
+        print('\n%d open question(s). Which are answered? Say the numbers per topic; anything '
+              'still open stays recorded.' % total)
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(prog='cycle.py', description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1000,6 +1133,10 @@ def main():
                     help='file holding the fetched Notion page body')
     rc.add_argument('--id')
     rc.set_defaults(fn=cmd_reconcile)
+
+    q = sub.add_parser('questions', help='list open questions, numbered per topic')
+    q.add_argument('--id')
+    q.set_defaults(fn=cmd_questions)
 
     z = sub.add_parser('close', help='close preflight, then flip status')
     z.add_argument('--id')
