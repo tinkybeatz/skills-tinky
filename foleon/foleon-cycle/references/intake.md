@@ -39,7 +39,24 @@ make this feel like paperwork.
 Flag a grab-bag when you see one (a "2.0", a "polish", an "improve X"). It is not a topic yet, and the
 honest move is to say so at parse time rather than interviewing it as if it were one.
 
-## Phase 1 — the interview
+## Phase 0b — is this topic even shapeable yet?
+
+Ask this before the interview, because it decides which interview to run:
+
+> Do you know what "done" looks like for this topic, or is that still to be decided?
+
+If it is still to be decided, the topic is **`shaping`** (CYC-3). Take the repo tag, the appetite and
+the open questions — verbatim, in their words — and stop. Then give it one `uphill` scope of `self:`
+research tasks whose outcome is producing the spec.
+
+**Do not run the question bank below on a shaping topic.** Those are spec questions. Asked too early
+they produce either a guess in the file or this, observed live: *"I don't understand the question,
+neither do i understand the options you're giving me. I don't have a wanted outcome yet!"* — followed
+by a session that could record nothing. The questions were good; the timing was wrong.
+
+Most cycles start with every topic shaping. That is what the first week is for.
+
+## Phase 1 — the interview (shaped topics only)
 
 **Batch with `AskUserQuestion`, four at a time.** One-at-a-time questioning is what turns shaping
 into an interrogation, and it is the single most likely reason the maintainer stops using this skill.

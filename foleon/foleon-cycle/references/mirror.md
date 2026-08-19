@@ -1,7 +1,7 @@
 # Mirror — the Notion page
 
-The mirror exists so the plan is readable without opening a terminal. It is **derived, one-way, and
-one page per cycle** (CYC-10). Requires the Notion MCP; if a call fails on connection, say so and stop
+The mirror exists so the plan is readable — and now editable — without opening a terminal. One page
+per cycle, refreshed automatically, with a **narrow writable surface** (CYC-10 v2.0.0). Requires the Notion MCP; if a call fails on connection, say so and stop
 — the local file is already authoritative, so there is nothing to fall back to and nothing at risk.
 
 ## Shape
@@ -42,6 +42,18 @@ Read it before mirroring, write it after creating a row. **Topics, scopes and ta
 never properties** — that is the boundary this shape is allowed to exist inside (CYC-10 v1.4.0).
 
 ## What the page carries
+
+### The writable surface
+
+| Editable in Notion, wins on read | Local-authoritative, Notion edits reported and ignored |
+|---|---|
+| a task's checked state | topic fields (outcome, no-gos, done when) |
+| a task's text | appetite, topic state (`shaping`/`shaped`) |
+| new task lines under an existing scope | **hill positions**, scopes themselves, the dev log |
+
+The hill is excluded on purpose. The maintainer moving it in Notion would satisfy CYC-6 — it is still a
+human setting it — but it renders inline in text rather than as a property, so reading it back is
+fragility bought for no benefit. Revisit once the checkbox path has a cycle of real use behind it.
 
 | Include | Leave local |
 |---|---|
@@ -124,7 +136,39 @@ mcp__notion__notion-update-data-source
 If that ever fails, fall back to mirroring **without** `Repos` and say which option is missing. Never
 let a select option abort a mirror — the body is the point, the property is a convenience.
 
-**6. Report** what was written and where.
+**6. Record the snapshot — always, and only after the write succeeded:**
+```bash
+python3 scripts/cycle.py mirrored
+```
+This is what makes the next read a three-way merge rather than a guess. Without a current snapshot,
+a task unticked in Notion is indistinguishable from one that was never ticked, and one side wins
+silently.
+
+**7. Report** what was written and where.
+
+## Reading it back
+
+Every flow starts here, because the maintainer may have ticked things off since the last mirror.
+
+```bash
+# fetch the page, save the body, then:
+python3 scripts/cycle.py reconcile --from /tmp/fetched.md
+```
+
+What it does, and deliberately does not do:
+
+- **Three-way merge** against `.state/<id>.mirror.md`. Their side and the local side are each compared
+  to that snapshot, so a change on one side applies and a change on neither is left alone.
+- **Never deletes.** A task missing from Notion is reported and left in place. Removing the
+  maintainer's work automatically is never the right default.
+- **Re-validates** the merged doc, and refuses to commit if it no longer conforms.
+- **Stops with nothing written on a collision.** In practice the only real collision is the same task
+  renamed on both sides: a *checked-state* collision cannot happen, because two sides moving a boolean
+  off the snapshot necessarily move it to the same value.
+- **Ignores everything outside the writable surface**, and says what it ignored.
+
+On success it commits as `<id>: reconciled from Notion (N change(s))`, so the history still records
+work that arrived from the other direction.
 
 ## Never
 

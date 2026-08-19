@@ -42,8 +42,8 @@ Done when: merged
 | Element | Exact form |
 |---|---|
 | Header | `# Cycle <id>` on line 1; `Dates: <dev start> → <dev end> · Cooldown: → <cycle end> · Status: active\|closed` on line 2. The range is the **6-week dev window**; cooldown is recorded but never tracked (CYC-2) |
-| Topic | `## [<repo>] <name>` — two tags for a cross-repo topic: `## [fio][ripley] <name>` |
-| Fields | `Outcome:` `Appetite:` `No-gos:` `Done when:` — all four required; `Open questions:` when there are any; `Shipped:` / `Cut:` added at close |
+| Topic | `## [<repo>] <name> — shaping\|shaped` — the state is required (CYC-3). Two tags for a cross-repo topic: `## [fio][ripley] <name> — shaped` |
+| Fields | **shaped**: `Outcome:` `Appetite:` `No-gos:` `Done when:` all required. **shaping**: only `Appetite:` (may be `(provisional)`) and `Open questions:`; `Open questions:` when there are any; `Shipped:` / `Cut:` added at close |
 | Scope | `### scope: <name> — <hill>` (em dash or hyphen both parse) |
 | Task | `- [ ] <text>` / `- [x] <text>`; nice-to-have: `- [ ] ~ <text>`; personal (not Jira): `- [ ] self: <text>` |
 | Log line | `- <YYYY-MM-DD> [<repo>] <scope> → <what changed>` |

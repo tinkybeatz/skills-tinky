@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 1.5.0 |
+| **Version** | 2.0.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
 | **Effective date** | 2026-08-19 |
@@ -167,11 +167,25 @@ and a checker can validate — see [override 5](#documented-overrides).
 **Enforcement:** `foleon-cycle` validates the skeleton on every write; unknown hill values and empty
 sections fail closed.
 
-### CYC-3 Shaped enough to leave intake
+### CYC-3 Two topic states: shaping, then shaped
 
-- A topic **MUST NOT** proceed to scopes or tasks until all six fields are present: **outcome**,
-  **appetite**, **first cut**, **no-gos**, **done signal**, and **repo tag**. `[SRC-001]` `[SRC-005]`
-- The **outcome MUST** be one sentence describing something **observable from outside the code** —
+- Every topic **MUST** declare its state in its heading — `## [fio] GTM Analytics — shaping` or
+  `— shaped`. An undeclared state is a conformance error, not a default. `[SRC-014]`
+- A **shaping** topic is one nobody can specify yet. It **MUST** carry only: a **repo tag**, an
+  **appetite** (which **MAY** be marked `(provisional)`), and at least one **open question** — the
+  open questions are what make it *shaping* rather than merely unstarted. It **MUST NOT** be required
+  to state an outcome, done signal or first cut. `[SRC-014]`
+- A shaping topic's scopes **MUST** all be `uphill`, and it **MUST** hold only `self:` research tasks
+  (CYC-7). Implementation work requires a shaped topic. `[SRC-014]`
+- A **shaped** topic **MUST** carry all six fields: **outcome**, **appetite**, **first cut**,
+  **no-gos**, **done signal**, **repo tag**. `[SRC-001]` `[SRC-005]`
+- The transition **MUST** be a deliberate act — the answers arrive (a call, a decision, a document),
+  the research tasks that asked for them are closed, the fields are filled, and the state flips. The
+  writing agent **MUST NOT** flip a topic to `shaped` on its own inference. `[SRC-014]`
+- A topic **SHOULD** be escalated rather than researched further once it has spent roughly a quarter
+  of its appetite still `shaping`: three weeks of research is not a three-week bet. This is Shape Up's
+  circuit breaker applied to shaping. `[SRC-004]` `[SRC-014]`
+- Once shaped, the **outcome MUST** be one sentence describing something **observable from outside the code** —
   what a user, reviewer, or demo can see. It **MUST NOT** be a restatement of the topic title, and
   **MUST NOT** be a technical task ("refactor the extractor").
 - The **done signal MUST** name the event that ends the topic (merged, deployed, demoed, reviewed by
@@ -184,14 +198,26 @@ sections fail closed.
 - Interview depth **SHOULD** scale to appetite: a topic of two days or less needs only outcome,
   no-gos and done signal; the full set applies at roughly a week or more.
 
-**Rationale:** Shape Up's grab-bag failure is diagnosed as not knowing what done looked like
-`[SRC-001]`, and its shaping phase exists to surface rabbit holes *before* the work is bet on
+**Rationale (revised 2026-08-19, v1.6.0):** v1.0.0 had one state and a hard six-field gate, because
+Shape Up assumes shaping happens *before* the bet — done by a senior pair during cool-down, so a team
+receives work already shaped. **This maintainer's hybrid does not work that way:** topics arrive as a
+title and an estimate, and shaping is part of the cycle. The single gate therefore produced a
+deadlock — the research tasks that would answer the questions could not be created until the
+questions were answered — and its only escape was writing a guessed `Outcome: TBD`, which passes
+validation while producing exactly the untrustworthy file the rule exists to prevent `[SRC-014]`.
+Two states keep the rule's purpose (never build against a guess) while letting the *finding out* be
+tracked, prioritised and committed like any other work.
+
+Shape Up's grab-bag failure is still diagnosed as not knowing what done looked like
+`[SRC-001]`, and shaping still exists to surface rabbit holes *before* implementation
 `[SRC-005]`. The recorded-not-inferred rule is the maintainer's own standing preference, and it is
 also the only way the doc stays trustworthy: an inferred outcome is indistinguishable from an agreed
 one three weeks later.
 
-**Enforcement:** `foleon-cycle` refuses to create scopes for a topic missing any required field; the
-missing field is named back to the maintainer.
+**Enforcement:** `scripts/cycle.py validate` branches on the declared state — a shaping topic is
+checked for appetite and open questions, a shaped one for all six fields — and rejects an undeclared
+state, a non-`self:` task under a shaping topic, and a shaping scope that is not `uphill`.
+`status` prints the state and warns when a topic has overrun its shaping budget.
 
 ### CYC-4 Appetite is a budget, not an estimate
 
@@ -268,6 +294,8 @@ inference path to disable.
   (CYC-5).
 - A task is a **must-have** by default. A **nice-to-have MUST** be written with a leading `~` and
   **MUST NOT** block a scope reaching `done`. `[SRC-004]`
+- A **shaping** topic (CYC-3) **MUST** hold only personal tasks — the work of a shaping topic is
+  finding out, and finding out is never a ticket. `[SRC-014]`
 - A task is one of **two kinds**, because only one belongs in a tracker: `[SRC-013]`
   - **Jira-bound** (the default, unmarked) — implementation work that becomes a ticket (CYC-14).
   - **Personal**, written `self: <text>` — work the maintainer does that is not a ticket: research,
@@ -337,7 +365,7 @@ which rules apply.
 **Enforcement:** tag presence validated on write; duplicate-topic detection by title across repo
 sections; reviewed at mirror time (CYC-11).
 
-### CYC-10 Local-vs-mirror boundary
+### CYC-10 The mirror — readable, and writable in one narrow place
 
 - The mirror **MUST** be one Notion **page** per cycle. That page **MAY** be a row in a dedicated
   **`Cycles` database** — a cycle is a bounded unit of a few per year, so a row per cycle is a real
@@ -352,15 +380,50 @@ sections; reviewed at mirror time (CYC-11).
   local file **MUST NOT** be added. `[SRC-012]`
 - The mirror **MUST** carry: the header, every topic with its full shaped fields, every scope with its
   hill position and its **must-have completion state**, open questions, and the dev log.
-- The mirror **SHOULD NOT** carry individual task checkboxes where a scope has more than a handful —
-  a scope's hill position and its done/not-done state is the reportable unit. `[SRC-002]` `[SRC-003]`
-- The mirror is **derived**. On any divergence, the local file wins. `foleon-cycle` **MUST** surface a
-  divergence it detects rather than overwriting silently, and **MUST NOT** read the mirror back into
-  the local file as an update path. `[SRC-009]`
+- The mirror **MUST** carry each scope's tasks as **Notion to-do items**, preserving the `~` and
+  `self:` markers. These checkboxes are the maintainer's **input surface**: ticking one in Notion is a
+  supported way to record that work is done, without going through this skill. `[SRC-015]`
+- Exactly **three things MAY be edited in Notion** and taken as authoritative on the next read: a
+  task's **checked state**, a task's **text**, and **new task lines** added under an existing scope.
+  `[SRC-015]`
+- Everything else **MUST** stay local-authoritative, and a Notion-side edit to it **MUST** be reported
+  and ignored: topic fields, appetite, no-gos, topic state, **hill positions**, scopes themselves, and
+  the dev log. Those either need a gate (the log's three gates) or a human statement that a text box
+  cannot enforce (the hill). `[SRC-015]`
+- Reading Notion back **MUST** be a **three-way merge** against a stored snapshot of what was last
+  mirrored, never a two-way comparison: without the snapshot, a task that is unticked in Notion is
+  indistinguishable from one that was never ticked, and one side silently wins. The snapshot **MUST**
+  be recorded only after a successful write. `[SRC-015]`
+- Reconciliation **MUST NOT** delete anything. A task that disappears from Notion is **reported and
+  left in place** locally. `[SRC-015]`
+- A genuine collision **MUST** stop the reconcile with nothing written, and **MUST** be resolved by the
+  maintainer. Note that a **checked-state collision is unreachable by construction**: if both sides
+  move a boolean away from the snapshot they move it to the same value, so the only real collision is
+  the same task renamed differently on both sides.
+- After a reconcile the doc **MUST** be re-validated, and **MUST NOT** be committed if it no longer
+  conforms. `[SRC-015]`
 - The mirror **MUST** be regenerated whole from the local file, never patched line by line from a
-  diff.
+  diff, and **MUST** be refreshed at the end of every flow that changed the doc — the maintainer reads
+  Notion, so a stale mirror is a wrong answer. `[SRC-015]`
+- Mirror writes **MUST NOT** require per-write approval. A generated page costs nothing to regenerate,
+  so a consent gate there is ceremony; CYC-11's gate applies to **creating** a cycle's row the first
+  time, not to refreshing its content. `[SRC-015]`
 
-**Rationale (revised 2026-08-19, v1.4.0):** v1.0.0 banned a database outright, importing
+**Rationale (revised 2026-08-19, v2.0.0):** v1.x made the mirror strictly one-way, on the principle
+that two writable surfaces drift. That principle is sound and the conclusion was still wrong for this
+maintainer: *"if i want to say i finished a task i dont want to go through claude to tell it that i
+did it. i want to update and then claude would be aware the next time i use the cycles tool"*
+`[SRC-015]`. A tool that makes you ask permission to tick a checkbox will be abandoned for the tool
+that doesn't.
+
+What makes this safe is not trust, it is **scope and mechanism**: exactly three editable things, a
+three-way merge against a snapshot so drift is *detectable* rather than silent, no automatic deletion,
+and a re-validate before anything is committed. Everything requiring judgement or a gate stays local —
+which is why the hill is deliberately not editable in Notion even though the maintainer setting it
+there would satisfy CYC-6: it lives inline in rendered text, and parsing it back is fragility bought
+for no benefit.
+
+**Earlier rationale (v1.4.0):** v1.0.0 banned a database outright, importing
 `CHEAT_SHEET.md` v2.0.0's finding wholesale. That was over-broad. The cheat-sheet defect was one page
 per *fact* — unbounded growth, one row per atom, properties standing in for content. A cycle is
 categorically different: bounded (a few a year), substantial (a document in its own right), and
@@ -428,6 +491,9 @@ the project skill's log instead, and the maintainer is told which one.
   tasks and any hammered scope), and the final hill position of every scope. `[SRC-004]`
 - Any scope still `uphill` at close **MUST** be flagged as a **shaping signal**, not a personal
   failure — it indicates the topic was under-shaped at intake. `[SRC-004]`
+- A topic still in the **shaping** state at close **MUST** be reported as the strongest such signal
+  available: it was bet on before anyone could say what done looked like, and that belongs with
+  whoever sets the topics rather than with the developer. `[SRC-014]`
 - The header status **MUST** move to `closed`, and the doc **MUST** become read-only: no new dev-log
   lines, no hill changes. Follow-on work belongs to the next cycle's doc.
 - Cycle-end analysis **MUST** be delegated to `sprint-review` rather than performed by
@@ -456,6 +522,9 @@ per-topic shipped/cut record before flipping status.
 - A ticket proposal **MUST** be grounded in the **actual code** of the repo it targets — read the
   relevant source (via that repo's project-context skill) before proposing tasks or writing criteria.
   A task list derived from a topic title alone is invention. `[SRC-013]`
+- A **shaping** topic **MUST NOT** contribute Jira tickets. Its research tasks appear in the personal
+  list, and the work list **MUST** say which topics are still shaping — that is the honest statement
+  of what this cycle's work currently is. `[SRC-014]`
 - Ordering **MUST** put unknowns first: a task under an `uphill` or `top` scope outranks a must-have
   under a `downhill` one, and `~` nice-to-haves come last. Each item also carries a **priority level**
   (`P1`/`P2`/`P3`) so Jira's own field can be set. Where the two disagree for a given cycle, the
@@ -483,6 +552,7 @@ placeholder; code-grounding is a review judgement at proposal time.
 | 2 | Shape Up: shaping produces no task list; tasks are discovered while building `[SRC-002]` | Intake produces a first task list per accepted scope (CYC-7) | The maintainer's stated need is to plan the development up front `[SRC-009]`. Mitigated: tasks require accepted scopes first, scopes may hold no tasks (CYC-5), and tasks are never a status measure (CYC-6). |
 | 3 | Shape Up: six-week cycles plus two-week cool-down `[SRC-001]` | **8 weeks: a 6-week dev window + 2 weeks cooldown**, cooldown untracked (CYC-2, v1.5.0) | Not an override at all, as it turns out — the maintainer's team runs almost exactly Shape Up's shape. v1.0.0 left length unspecified for fear of hard-coding the wrong number; once the real shape was stated `[SRC-013]`, encoding it bought appetite validation against the window and a "week 4 of 6" status reading. |
 | 4 | Scrum: the Daily Scrum is a synchronous 15-minute team event `[SRC-006]` | An asynchronous dev-log line, written when something changes (CYC-8) | A solo developer has no team to synchronise with; the *purpose* the Scrum Guide states — inspect progress, adapt the plan — is preserved, only the ceremony is dropped. |
+| 6 | Shape Up: shaping happens **before** the bet, by a senior pair, during cool-down `[SRC-002]` `[SRC-005]` | Shaping is **inside** the cycle, as a first-class topic state with its own research tasks (CYC-3, v1.6.0) | The maintainer's team hands over a title and an estimate, not a pitch. Pretending otherwise deadlocked intake `[SRC-014]`. The protection Shape Up gets from up-front shaping is preserved differently: a shaping topic cannot produce implementation tickets. |
 | 5 | Shape Up: the hill chart is a continuous position on a curve `[SRC-003]` | Four discrete values: `uphill`, `top`, `downhill`, `done` (CYC-2) | A markdown file needs a token a checker can validate. The four values keep the only distinction the metaphor is *for* — unknowns versus execution — and the `top` value preserves the pivot point where estimation first becomes meaningful `[SRC-003]`. |
 
 ---
@@ -494,7 +564,10 @@ A cycle doc is conforming when **all** are true:
 - [ ] One doc for the whole cycle, local file authoritative, stored in the maintainer's cycle directory — outside every code repo, `skills-tinky` included (CYC-1)
 - [ ] If the cycle directory keeps git history: no remote, never pushed, `.state/` unversioned, and a failed commit never costs the write (CYC-1)
 - [ ] Header, topics, dev log — in order, no empty sections, hill values from the closed set of four (CYC-2)
-- [ ] Every topic has outcome, appetite, first cut, no-gos, done signal, repo tag; unanswered items recorded as open questions, never inferred (CYC-3)
+- [ ] Every topic declares `— shaping` or `— shaped` (CYC-3)
+- [ ] A shaping topic has an appetite and at least one open question, all-uphill scopes, and only `self:` tasks (CYC-3, CYC-7)
+- [ ] A shaped topic has outcome, appetite, first cut, no-gos, done signal, repo tag; unanswered items recorded as open questions, never inferred (CYC-3)
+- [ ] No topic has been flipped to `shaped` by inference rather than by the answers arriving (CYC-3)
 - [ ] Appetite marked `(fixed)`, never revised upward without a logged re-bet; first cut named at intake (CYC-4)
 - [ ] Scopes are independently finishable slices, named in the maintainer's words, integrated unless a stated iceberg (CYC-5)
 - [ ] Every hill position traceable to a maintainer statement; no percentages anywhere (CYC-6)
@@ -505,7 +578,10 @@ A cycle doc is conforming when **all** are true:
 - [ ] The work list orders unknowns first, carries a P-level, and its acceptance criteria are ticket-specific and code-grounded — never a restatement of the outcome (CYC-14)
 - [ ] Every dev-log line passes a state-change / decision / surprise gate; nothing restates git; append-only (CYC-8)
 - [ ] Topics repo-tagged; cross-repo topics written once; mirror nested by project (CYC-9)
-- [ ] Mirror is one page per cycle, regenerated whole from local, never read back as an update path (CYC-10)
+- [ ] Mirror is one page per cycle, regenerated whole from local, refreshed at the end of every flow that changed the doc (CYC-10)
+- [ ] Tasks render as Notion to-do items; only checked-state, task text and added task lines are read back (CYC-10)
+- [ ] Notion-side edits to fields, appetite, state, hill, scopes or the dev log are reported and ignored (CYC-10)
+- [ ] Reconciliation is a three-way merge against a post-write snapshot, deletes nothing, and re-validates before committing (CYC-10)
 - [ ] The cycle may be a row in the `Cycles` database; no topic, scope or task is a row or a property (CYC-10)
 - [ ] Every cycle-row property is derived from the local file and regenerated on each mirror (CYC-10)
 - [ ] Nothing written to Notion without an explicit yes in that conversation; hooks queue only; skill is explicit-invocation only (CYC-11)
@@ -557,6 +633,8 @@ None standing.
 - `[SRC-006]` Schwaber, K. & Sutherland, J. — *The Scrum Guide* (2020). https://scrumguides.org/scrum-guide.html — *"The purpose of the Daily Scrum is to inspect progress toward the Sprint Goal and adapt the Sprint Backlog as necessary"*; basis for the dev-log cadence in the hybrid.
 - `[SRC-007]` Internal — [`CHEAT_SHEET.md`](CHEAT_SHEET.md) (CHS 2.4.0). Page-not-database (v2.0.0 reversal), CHS-9a project nesting, CHS-9b write-once for cross-project facts, CHS-9 conversational review gate. Reused rather than re-derived.
 - `[SRC-008]` Internal — [`PROJECT_CONTEXT_SKILL.md`](PROJECT_CONTEXT_SKILL.md) (PCS). PCS-6 discoveries log as the home of durable facts; PCS-9a silo-versus-checkout boundary; PCS-11 single external mirror.
+- `[SRC-015]` Internal — the maintainer's requirement, 2026-08-19: *"for notion, i want to both be able to read and edit (the local should then change too based on that automatically): if i want to say i finished a task i dont want to go through claude to tell it that i did it. i want to update and then claude would be aware the next time i use the cycles tool for something"*, and on the hill: *"we'll see for hills later, for now no editing the hills within notion."*
+- `[SRC-014]` Internal — the deadlock, observed live 2026-08-19. Asked for the outcome of an unshaped topic, the maintainer answered: *"I don't understand the question... I don't have a wanted outcome yet! this afternoon i'll be in a call to discuss this with PO, Data Engineer, etc... For now unknown like mentionned everywhere"*, and on the first cut: *"I feel like we can discuss bout this later on."* Their requirement: *"the cycle tasks could start by being 'make research and ask questions blablabla...' and then once i have more info i give everything to the skill and it would mark those tasks as done and create new ones"* — *"I want to have a system that helps me get through those steps and to adapt to what i can/cannot/know/dont know."*
 - `[SRC-013]` Internal — the maintainer's clarifications, 2026-08-19: *"a cycle is always 8 weeks, but the first 6 weeks are the dev session. the 2 last weeks are just 'cooldown' in which we do bug-fixing/research etc"*; that the point of the system is *"a list of priorised tickets generated for me (or at least a proposition) that i could then add into Jira (by-hand for now)"*; that not everything is a ticket — *"if i add a brand new feature i need to conceptualize... this won't be a ticket in JIRA, this will be a task for me -> the task could be 'research on how to implement, expected outcome of the task : make tickets to implement after research'"*; and that proposals should be code-grounded — *"it could be worth it having a technical skill read through the code of the mentionned repos"*.
 - `[SRC-012]` Internal — the maintainer's decision, 2026-08-19: *"i would like the cycles to be in the database 'Cycles' i just created (same location as Docs, in Foleon)"*, and on properties: *"i don't mind properties!! if they make sense obvs."* Their workspace files documents as rows in a `Docs` database (the cheat-sheet hub is one), so a `Cycles` database is the native shape there.
 - `[SRC-011]` Internal — the maintainer's authorisation, 2026-08-19, verbatim: *"SHAPEUP-CYCLES may auto-commit"*, given after asking for a system that needs no repo handling: *"i am just scared of the handling of the repo. how often do we push? can you make a system that is 100% independant?"* The answer that satisfied it — no remote, so no pushing is possible, and commits made by the tool rather than by hand — is what CYC-1 now requires.
@@ -567,6 +645,8 @@ None standing.
 
 | Version | Date | Change |
 |---|---|---|
+| **2.0.0** | 2026-08-19 | **The mirror becomes writable in one narrow place.** v1.x was strictly one-way on the sound principle that two writable surfaces drift — but the maintainer's actual need is to tick a task in Notion without going through the skill `[SRC-015]`, and a tool that requires permission to tick a checkbox loses to one that doesn't. CYC-10 now renders tasks as Notion to-do items and reads back exactly three things: checked state, task text, and task lines added under an existing scope. Everything else — fields, appetite, topic state, **hill**, scopes, dev log — stays local-authoritative and a Notion edit to it is reported and ignored. Safety comes from mechanism, not trust: a **three-way merge** against a snapshot recorded only after a successful write (without it, unticked and never-ticked are indistinguishable), **no automatic deletion** (a task missing from Notion is reported and left), a re-validate before any commit, and a stop-with-nothing-written on collision. Noted in passing: a checked-state collision is unreachable by construction — two sides moving a boolean off the snapshot move it to the same value — so renames are the only real collisions. Also: the mirror refreshes at the end of every flow, and CYC-11's consent gate no longer applies to refreshing a generated page (only to creating a cycle's row the first time). MAJOR because one-way derivation was a load-bearing property of v1.x. |
+| **1.6.0** | 2026-08-19 | **Two topic states, because shaping happens inside this cycle.** v1.0.0's single six-field gate assumed Shape Up's world, where a team receives work already shaped by a senior pair in cool-down. This maintainer receives a title and an estimate, so the gate deadlocked: the research tasks that would answer the intake questions could not exist until the questions were answered, and the only escape was a guessed `Outcome: TBD` — validation-passing and worthless `[SRC-014]`. CYC-3 now defines **`shaping`** (repo tag + appetite, optionally `(provisional)`, + at least one open question; scopes all `uphill`; only `self:` research tasks) and **`shaped`** (all six fields), with the state declared in the topic heading and never defaulted. The transition is a deliberate act on the answers arriving, never an inference. CYC-7 forbids implementation tasks under a shaping topic, CYC-14 excludes it from Jira tickets while requiring the work list to name it as still shaping, and CYC-13 reports a never-shaped topic as the strongest shaping signal the system produces — one that belongs with whoever sets the topics. New override #6 records the divergence from Shape Up honestly. Also: a shaping topic **should** be escalated rather than researched further past roughly a quarter of its appetite (the circuit breaker, applied to shaping), which `status` now warns about. |
 | **1.5.0** | 2026-08-19 | **The real cycle shape, and the output the system exists for.** Three things the maintainer clarified `[SRC-013]`. (1) A cycle is **8 weeks — 6 dev + 2 cooldown**; the header's dates are now the dev window with the cooldown end recorded after it, appetites are validated against the 6 weeks rather than the 8, and cooldown work is deliberately **not** tracked (it has no appetite, no no-gos, nothing to put on a hill). Override #3 is rewritten: it was never an override, the team runs almost exactly Shape Up's shape. (2) Tasks come in **two kinds** (CYC-7): Jira-bound by default, or `self:` for research and conceptualising, whose outcome is usually *producing the tickets* — and such a task adding new tasks when it closes is expected, not scope creep. (3) New rule **CYC-14**: the doc must produce a **prioritised work list** — tickets for Jira plus personal tasks — ordered unknowns-first with a P-level, where acceptance criteria must be ticket-specific and **grounded in the actual code**, never a restatement of the topic outcome, with an explicit placeholder rather than filler when they cannot yet be written. |
 | **1.4.0** | 2026-08-19 | **The cycle mirror may be a row in a `Cycles` database.** v1.0.0's blanket "MUST NOT be a database" imported `CHEAT_SHEET.md` v2.0.0's finding too broadly: that defect was one page per *fact*, unbounded and property-driven, whereas a cycle is bounded and substantial, and the maintainer's workspace already files documents as database rows `[SRC-012]`. CYC-10 now permits the per-cycle page to be a row in a dedicated `Cycles` database, and states the inner boundary explicitly — topics, scopes and tasks stay page content, never rows, never properties, because that is the line whose crossing turns the mirror into a tracker. Cycle rows **may** carry properties provided each is **derived** from the local file and regenerated on every mirror (reference set: `Name`, `Status`, `Dates`, `Repos`); a property that cannot be regenerated is forbidden, since a hand-editable property is a second source of truth. |
 | **1.3.0** | 2026-08-19 | **Commits in the cycle history carry a `Co-Authored-By: Claude` trailer**, at the maintainer's request and scoped to this history alone — not a global git convention. The cycle doc's plans and log lines are written collaboratively, so the history says so. |

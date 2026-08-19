@@ -2,13 +2,15 @@
 name: foleon-cycle
 description: >-
   Runs the maintainer's ShapeUp/Scrum cycle end to end: opens one doc per cycle,
-  interviews each topic into shape (outcome, appetite, first cut, no-gos, done
-  signal), factors it into scopes tracked on a four-value hill, plans tasks,
-  logs progress, mirrors the doc to one Notion page after an explicit yes, and
-  closes the cycle by handing the retro to `sprint-review`. Local markdown in
-  `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES/` is the source of truth; Notion is a derived
-  mirror. Covers every Foleon repo a cycle touches — `ripley`, `fio`, and any
-  added later. Enforces `docs/stds/CYCLE_DOC.md` (CYC-1…CYC-13).
+  interviews each topic into shape, factors it into scopes tracked on a four-value
+  hill, proposes a prioritised work list (Jira tickets + personal tasks), logs
+  progress, mirrors to the `Cycles` Notion database, and closes by handing the
+  retro to `sprint-review`. Topics start `shaping` — appetite plus open questions,
+  no spec required — and flip to `shaped` when the answers arrive. Local markdown
+  in `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES/` is the source of truth; in Notion
+  you may tick, rename and add tasks, and the next run reconciles that back.
+  Covers every Foleon repo a cycle touches — `ripley`, `fio`, and any added later.
+  Enforces `docs/stds/CYCLE_DOC.md` (CYC-1…CYC-14).
   **Explicit invocation only — `/foleon-cycle`.** Per CYC-11 this skill
   deliberately carries no trigger phrases and must not auto-load: do not invoke
   it because a message mentions a cycle, a topic, an estimate, planning, or
@@ -60,6 +62,7 @@ stop — the local doc is already authoritative, so there is nothing to fall bac
 | Invocation | Flow |
 |---|---|
 | `/foleon-cycle new` | **1. Open a cycle** — guided intake from a raw brief |
+| `/foleon-cycle shape` | **1b. Shape a topic** — the answers arrived, fill the fields, flip the state |
 | `/foleon-cycle plan` | **2. Scopes and tasks** for a topic already shaped |
 | `/foleon-cycle tickets` | **3. Work list** — prioritised tickets for Jira + personal tasks |
 | `/foleon-cycle status` | **4. Status** — where every scope sits |
@@ -106,10 +109,22 @@ a time; `new` refuses while another is active.
 A wrong parse poisons every question after it, which is why step 2 stops for confirmation and the
 topic interview only starts once the shape is agreed.
 
-**Step 5 — interview each topic** until it has all six CYC-3 fields: outcome, appetite, first cut, no-gos,
-done signal, repo tag. Batch the questions with `AskUserQuestion` — four at a time turns an
-interrogation into a conversation. Depth scales to appetite: a two-day topic needs outcome, no-gos and
-done signal, nothing more. The question bank, the depth ladder and worked examples are in
+**Step 5 — interview each topic, but only as far as the topic actually is.** Two states (CYC-3):
+
+- **`shaping`** — nobody can specify it yet. It needs a repo tag, an appetite (`(provisional)` allowed)
+  and its **open questions**, verbatim. Then stop. Do **not** ask for the outcome, done signal or first
+  cut: those are spec questions, and asking them of an unshaped topic produces either a guess in the
+  file or a frustrated maintainer. Give it one `uphill` scope of `self:` research tasks — *"self:
+  scoping call with the PO and data engineer → produces the outcome and done signal"* — and that list
+  is the real work list for now.
+- **`shaped`** — the answers exist. Interview for all six fields: outcome, appetite, first cut, no-gos,
+  done signal, repo tag. Batch with `AskUserQuestion` — four at a time turns an interrogation into a
+  conversation. Depth scales to appetite: a two-day topic needs outcome, no-gos and done signal,
+  nothing more.
+
+**Most cycles start with everything shaping. That is not a failed intake — it is what week one is
+for.** Record what *was* decided (id, dates, appetite split, ordering) and let the rest be open
+questions. The question bank, depth ladder and the shapeable-yet test are in
 [`references/intake.md`](references/intake.md) — read it before the first interview.
 
 Two rules that matter more than the rest:
@@ -121,7 +136,24 @@ Two rules that matter more than the rest:
   maintainer's own words. A proposal of yours is not an answer, and an inferred outcome is
   indistinguishable from an agreed one three weeks later.
 
-A topic with a missing field gets no scopes and no tasks. `cycle.py validate` will say which field.
+`cycle.py validate` checks each topic against its declared state and names what's missing.
+
+### 1b. Shape a topic — when the answers arrive
+
+The step the maintainer described as *"once I have more info I give everything to the skill"*.
+
+1. **Take the dump** — call notes, a decision, a Slack reply, however rough.
+2. **Close the research tasks it answered**, and log the answers under the `surprise` gate: an open
+   question closing is exactly that.
+3. **Fill the six fields** from what was actually said. Anything still open stays an open question — a
+   partial answer is not permission to invent the rest.
+4. **Flip the heading** to `— shaped`. Never on your own inference (CYC-3): the answers come from
+   people, not from you.
+5. **Then run flow 2** — factor scopes, read the code, propose tasks. The research task that produced
+   this normally spawns several new ones; that is the unknown resolving, not scope creep.
+
+If the answers only partly landed, the topic **stays shaping** with fewer open questions. That is
+progress, and it is honest.
 
 ### 2. Factor into scopes, then tasks
 
@@ -212,13 +244,37 @@ gate judgement is yours: the test is whether a line would still be worth reading
 afternoon was execution or discovering the approach was wrong. Propose the lines, show them, write only
 what's approved.
 
-### 6. Mirror to Notion
+### 6. Mirror to Notion — and read it back
 
-The mirror is **derived and one-way**: regenerated whole from the local file, never patched, never read
-back as an update path. Local wins on any divergence — surface it, don't overwrite silently.
+The maintainer reads and works in Notion, so the mirror refreshes at the **end of every flow that
+changed the doc**, no permission asked (CYC-10 v2.0.0). A generated page costs nothing to regenerate;
+the consent gate only covers *creating* a cycle's row the first time.
 
-**Nothing is written until the maintainer says yes in that conversation** (CYC-11). Show the content
-and the target page first. A "looks good" is a yes; silence is not. Full call sequence and page shape:
+**Every flow starts by reconciling**, because they may have ticked things off since you last looked:
+
+```bash
+# 1. fetch the cycle page with mcp__notion__notion-fetch, save its body to a file
+python3 scripts/cycle.py reconcile --from /tmp/fetched.md
+```
+
+Three things are read back from Notion and win: a task's **checked state**, a task's **text**, and
+**new task lines** added under an existing scope. Everything else — fields, appetite, topic state,
+**hill positions**, scopes, the dev log — is local-authoritative; a Notion-side edit to those is
+reported and ignored. The hill is deliberately excluded even though the maintainer setting it there
+would satisfy CYC-6: it lives inline in rendered text, and parsing it back is fragility bought for
+nothing.
+
+`reconcile` is a **three-way merge** against the snapshot of what was last mirrored. It deletes
+nothing (a task gone from Notion is reported and left in place), re-validates before committing, and
+stops with nothing written on a real collision — which in practice only happens when the same task was
+renamed on both sides.
+
+**After a successful write, always:**
+```bash
+python3 scripts/cycle.py mirrored     # records the snapshot the next reconcile merges against
+```
+Skipping that is the one way to break the merge: without a fresh snapshot, "unticked in Notion" and
+"never ticked" become indistinguishable. Full call sequence and page shape:
 [`references/mirror.md`](references/mirror.md).
 
 ### 7. Close the cycle
@@ -271,6 +327,9 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | Inferred a hill position | A scope moved and the maintainer never said it did | Revert it and ask. The hill measures knowledge, which no file-level signal can see (CYC-6). |
 | Tasks planned before scopes were accepted | A topic has tasks but its scope names were never confirmed | Stop; get the scope names right first. Tasks under a wrong slicing are wasted work. |
 | Interview became an interrogation | Eight questions for a two-day topic | Depth scales to appetite (CYC-3). Ask three and move on. |
+| Asked spec questions of an unshaped topic | The maintainer answers "I don't know yet" to outcome, done signal, first cut | Stop; it's a `shaping` topic (CYC-3). Record the open questions verbatim, give it `self:` research tasks, move on. This exact deadlock is why the states exist. |
+| Wrote `Outcome: TBD` to pass validation | A field filled with a placeholder nobody said | Never. It validates and produces the untrustworthy doc CYC-3 exists to prevent. Mark the topic `shaping` instead. |
+| Flipped a topic to `shaped` without the answers | State changed after a conversation with you, not with the PO | Revert. The transition follows answers arriving from people (CYC-3). |
 | Filled a blank with a guess | An outcome or done-signal the maintainer never said | Move it to `Open questions:` verbatim and ask. Inferred fields are the fastest way to make the doc untrustworthy. |
 | Dev log turned into a diary | Multiple lines per day, "continued on…", file lists | Re-read the three gates. Most work earns no line; `cycle.py validate` catches the phrasings, not the volume. |
 | Durable fact logged in the cycle doc | A gotcha or convention sitting in the dev log | Route it to the project skill's `knowledge.md` (CYC-12) and say which. From there the cheat-sheet pipeline can reach it; from a cycle archive, nothing can. |
@@ -280,5 +339,8 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | Proposed tasks without reading the code | A breakdown that could have been written from the topic title alone | Stop and read the source (CYC-14). Plausible-but-wrong task lists are the most expensive output this skill can produce. |
 | Acceptance criteria restate the outcome | Every ticket's criteria say the same thing | Replace with testable statements about that change, or leave the placeholder. Filler that looks finished is worse than an admitted blank. |
 | Cooldown work pushed through intake | A "topic" with no real appetite, e.g. "bug fixing" | Cooldown is off-book (CYC-2). Don't shape it; it doesn't belong in the doc. |
-| Notion MCP unavailable | An MCP call errors on connection | Report and stop. The local doc is authoritative — no fallback surface, nothing lost. |
+| Notion MCP unavailable | An MCP call errors on connection | Carry on locally — the local doc is authoritative, so the only cost is a stale mirror. Say so, and refresh next time. |
+| Mirrored but forgot `mirrored` | Next reconcile reports changes the maintainer already made, or misses ticks | The snapshot is the merge's only reference point. Run it after every successful write, never before. |
+| Reconcile wanted to delete a task | A task vanished from Notion | It is reported, not deleted (CYC-10). Deleting the maintainer's work automatically is never right; they can remove it locally if they meant it. |
+| Notion-side edit to a field or the hill | The page's fields differ from the local doc | Report and ignore (CYC-10). Only checked-state, task text and added tasks come back. |
 | Tempted to add a Notion database, status property or approval workflow | Any urge to give topics/scopes/tasks Notion properties | Don't (CYC-10/CYC-11). The cheat sheet already cost a full architecture reversal to learn this once. |

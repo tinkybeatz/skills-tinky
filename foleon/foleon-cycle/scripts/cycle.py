@@ -20,6 +20,8 @@ Usage:
   cycle.py log --repo R --scope S --text "..." --gate state|decision|surprise [--date D]
   cycle.py render [--json] [--id ID]
   cycle.py tickets [--json] [--id ID]
+  cycle.py mirrored [--id ID]
+  cycle.py reconcile --from <fetched.md> [--id ID]
   cycle.py snapshot --why "..." [--id ID]
   cycle.py close [--id ID]
 
@@ -49,7 +51,8 @@ BANNED_LOG = (
     'various fixes', 'misc',
 )
 PCT = re.compile(r'\b\d{1,3}\s?%')
-TOPIC_RE = re.compile(r'^## ((?:\[[a-z0-9._-]+\])+)\s+(.+?)\s*$')
+TOPIC_RE = re.compile(r'^## ((?:\[[a-z0-9._-]+\])+)\s+(.+?)(?:\s+[—-]\s*(shaping|shaped))?\s*$')
+STATES = ('shaping', 'shaped')
 SCOPE_RE = re.compile(r'^### scope:\s*(.+?)\s+[—-]\s*([a-z]+)\s*$')
 TASK_RE = re.compile(r'^- \[([ xX])\]\s*(~\s*)?(.+?)\s*$')
 LOG_RE = re.compile(r'^- (\d{4}-\d{2}-\d{2})\s+\[([a-z0-9._-]+)\]\s+(.+?)\s+(?:→|->)\s+(.+?)\s*$')
@@ -235,7 +238,8 @@ class Doc:
             if t:
                 topic = {
                     'repos': re.findall(r'\[([a-z0-9._-]+)\]', t.group(1)),
-                    'name': t.group(2), 'fields': {}, 'scopes': [], 'line': i,
+                    'name': t.group(2), 'state': t.group(3), 'fields': {},
+                    'scopes': [], 'line': i,
                 }
                 self.topics.append(topic)
                 scope = None
@@ -290,12 +294,43 @@ class Doc:
             where = f'topic "{t["name"]}" (line {t["line"]})'
             if not t['repos']:
                 p.append(f'{where}: CYC-9 — needs a repo tag, e.g. "## [fio] {t["name"]}"')
-            for f in FIELDS:
-                if f not in t['fields'] or not t['fields'][f]:
-                    p.append(f'{where}: CYC-3 — missing "{f}"')
+            state = t['state']
+            if state not in STATES:
+                p.append(f'{where}: CYC-3 — topic must declare its state: '
+                         f'"## [repo] {t["name"]} — shaping" or "— shaped"')
             ap = t['fields'].get('Appetite:', '')
-            if ap and '(fixed)' not in ap:
-                p.append(f'{where}: CYC-4 — appetite must be marked "(fixed)"')
+
+            if state == 'shaping':
+                # A shaping topic is one nobody can spec yet. It needs the budget
+                # and the open questions, and NOTHING that requires knowing the
+                # answer — demanding an outcome here is what produced a guessed
+                # `Outcome: TBD`, the exact untrustworthy file CYC-3 exists to
+                # prevent (v1.6.0).
+                if not ap:
+                    p.append(f'{where}: CYC-3 — a shaping topic still needs an appetite '
+                             f'(the budget is a decision, the spec is not)')
+                if not t['fields'].get('Open questions:'):
+                    p.append(f'{where}: CYC-3 — a shaping topic must carry at least one open '
+                             f'question; that is what makes it shaping rather than unstarted')
+                for sc in t['scopes']:
+                    if sc['hill'] != 'uphill':
+                        p.append(f'scope "{sc["name"]}" (line {sc["line"]}): CYC-7 — a shaping '
+                                 f'topic\'s scopes are all uphill by definition, got {sc["hill"]!r}')
+                    for k in sc['tasks']:
+                        if k['kind'] != 'self':
+                            p.append(f'line {k["line"]}: CYC-7 — a shaping topic holds only '
+                                     f'"self:" research tasks; implementation work needs a shaped '
+                                     f'topic (run the shape flow first)')
+            else:
+                for f in FIELDS:
+                    if f not in t['fields'] or not t['fields'][f]:
+                        p.append(f'{where}: CYC-3 — missing "{f}"')
+                if ap and 'first cut' not in ap.lower():
+                    p.append(f'{where}: CYC-4 — no first cut named; add '
+                             f'"· First cut: <what goes first>"')
+            if ap and '(fixed)' not in ap and '(provisional)' not in ap:
+                p.append(f'{where}: CYC-4 — appetite must be marked "(fixed)", or '
+                         f'"(provisional)" while the topic is still shaping')
             if ap:
                 weeks = re.search(r'(\d+(?:\.\d+)?)\s*w', ap, re.I)
                 days = re.search(r'(\d+(?:\.\d+)?)\s*d', ap, re.I)
@@ -305,8 +340,6 @@ class Doc:
                 elif days and float(days.group(1)) > DEV_WEEKS * 5:
                     p.append(f'{where}: CYC-4 — appetite {days.group(1)}d exceeds the '
                              f'{DEV_WEEKS}-week dev window ({DEV_WEEKS * 5} working days)')
-            if ap and 'first cut' not in ap.lower():
-                p.append(f'{where}: CYC-4 — no first cut named; add "· First cut: <what goes first>"')
             for s in t['scopes']:
                 if s['hill'] not in HILLS:
                     p.append(f'scope "{s["name"]}" (line {s["line"]}): CYC-2 — hill must be one of '
@@ -408,6 +441,30 @@ def week_of(d):
     return 'past the cycle end'
 
 
+def shaping_overrun(d, appetite):
+    """Shape Up's circuit breaker, applied to shaping.
+
+    Three weeks of research is not a three-week bet. Past roughly a quarter of the
+    appetite with the topic still unshaped, the useful move is to escalate to
+    whoever can answer, not to keep researching (v1.6.0).
+    """
+    m = re.search(r'Dates:\s*(\d{4}-\d{2}-\d{2})', '\n'.join(d.lines[:3]))
+    wk = re.search(r'(\d+(?:\.\d+)?)\s*w', appetite or '', re.I)
+    dy = re.search(r'(\d+(?:\.\d+)?)\s*d', appetite or '', re.I)
+    if not m or not (wk or dy):
+        return ''
+    try:
+        start = datetime.date.fromisoformat(m.group(1))
+    except ValueError:
+        return ''
+    budget = float(wk.group(1)) * 7 if wk else float(dy.group(1)) * 1.4
+    spent = (datetime.date.today() - start).days
+    if budget and spent > budget * 0.25:
+        return ('still shaping after %d of ~%d days of its appetite — escalate to whoever can '
+                'answer the open questions rather than researching further' % (spent, int(budget)))
+    return ''
+
+
 def cmd_status(a):
     d = Doc(resolve(a.id))
     where = week_of(d)
@@ -416,7 +473,12 @@ def cmd_status(a):
         tags = ''.join(f'[{r}]' for r in t['repos'])
         print(f'\n{tags} {t["name"]}')
         ap = t['fields'].get('Appetite:', '(no appetite)')
+        print(f'  state:    {t["state"] or "UNDECLARED"}')
         print(f'  appetite: {ap}')
+        if t['state'] == 'shaping':
+            warn = shaping_overrun(d, ap)
+            if warn:
+                print(f'  ⚠ {warn}')
         if not t['scopes']:
             print('  no scopes yet — shape it, then factor into scopes (CYC-5)')
         for s in t['scopes']:
@@ -485,6 +547,7 @@ def cmd_close(a):
         for m in missing:
             print(f'  - {m}')
         return 1
+    never_shaped = [t['name'] for t in d.topics if t['state'] == 'shaping']
     signal = [(t, s) for t in d.topics for s in t['scopes'] if s['hill'] in ('uphill', 'top')]
     body = '\n'.join(d.lines).replace('Status: active', 'Status: closed', 1)
     with open(d.path, 'w', encoding='utf-8') as fh:
@@ -494,6 +557,10 @@ def cmd_close(a):
     snapshot(state_dir(), '%s: cycle closed - %d/%d topic(s) shipped'
              % (d.cycle_id, shipped, len(d.topics)))
     print(f'cycle {d.cycle_id} closed — the doc is now read-only (CYC-13)')
+    if never_shaped:
+        print('\nnever shaped, the whole window: %s' % ', '.join(never_shaped))
+        print('This is the strongest shaping signal the system produces — the topic was bet on '
+              'before anyone could say what done looked like. Take it to whoever sets the topics.')
     if signal:
         print(f'\nshaping signal: {len(signal)} scope(s) never reached downhill. Not a personal '
               f'failure — it means these were under-shaped at intake (CYC-13):')
@@ -518,13 +585,16 @@ def cmd_snapshot(a):
 
 
 def cmd_render(a):
+    return cmd_render_for(Doc(resolve(a.id)), a)
+
+
+def cmd_render_for(d, a):
     """Render the Notion mirror: body markdown + the derived properties (CYC-10).
 
     Deterministic on purpose. The model rendering this by hand each time is how
     the body drifts — the first hand-render duplicated Dates/Status in the body
     when the row's properties already carry them.
     """
-    d = Doc(resolve(a.id))
     probs = d.check()
     if probs:
         print('not rendering a non-conforming doc - fix these first:')
@@ -553,14 +623,20 @@ def cmd_render(a):
                     out.append('%s %s' % (f, t['fields'][f]))
             out.append('')
             for sc in t['scopes']:
-                must = [k for k in sc['tasks'] if not k['nice']]
-                done = [k for k in must if k['done']]
-                nice = [k for k in sc['tasks'] if k['nice'] and not k['done']]
-                bits = '%d/%d must-have' % (len(done), len(must)) if must else 'no tasks yet'
-                if nice:
-                    bits += ', %d nice-to-have open' % len(nice)
-                out.append('- **%s** — `%s` (%s)' % (sc['name'], sc['hill'], bits))
-            out.append('')
+                # Scope as a bold line, its tasks as real to-do items. The checkboxes
+                # are the INPUT surface (CYC-10 v2.0.0) — the maintainer ticks them in
+                # Notion and `reconcile` reads them back. The hill stays text-only and
+                # local-authoritative: it needs a human statement, and parsing it back
+                # out of a rendered line is the fragile part nobody needs yet.
+                out.append('**%s** — `%s`' % (sc['name'], sc['hill']))
+                if not sc['tasks']:
+                    out.append('(no tasks yet)')
+                for k in sc['tasks']:
+                    mark = 'x' if k['done'] else ' '
+                    pre = '~ ' if k['nice'] else ''
+                    kind = 'self: ' if k['kind'] == 'self' else ''
+                    out.append('- [%s] %s%s%s' % (mark, pre, kind, k['text']))
+                out.append('')
     out.append('## Dev log')
     out.append('')
     out += [raw for _, raw, _ in d.log]
@@ -610,6 +686,7 @@ def cmd_tickets(a):
     d = Doc(resolve(a.id))
     rank = {'uphill': 0, 'top': 1, 'downhill': 2, 'done': 3}
     rows = []
+    shaping = [t['name'] for t in d.topics if t['state'] == 'shaping']
     for t in d.topics:
         for sc in t['scopes']:
             for k in sc['tasks']:
@@ -666,10 +743,204 @@ def cmd_tickets(a):
         print('  written after looking at the code. Do not restate the topic outcome.')
         print()
 
+    if shaping:
+        print('Still shaping: %s — no Jira tickets from these until the topic is shaped. Their '
+              'research tasks are above; that IS the work right now.' % ', '.join(shaping))
     print('--- %d Jira ticket(s), %d personal task(s). Unknowns first: a task under an uphill scope '
           'outranks a must-have under a downhill one. ---' % (len(jira), len(mine)))
     if not rows:
         print('Nothing open — every task is done, or no tasks exist yet.')
+    return 0
+
+
+def mirror_snapshot_path(cycle_id):
+    d = os.path.join(cycle_home(), '.state')
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, '%s.mirror.md' % cycle_id)
+
+
+def render_body(d):
+    """The mirror body for a doc — same text `render` prints, reused by the snapshot."""
+    import io as _io
+    import contextlib
+    buf = _io.StringIO()
+
+    class _A:
+        json = False
+        id = None
+    with contextlib.redirect_stdout(buf):
+        cmd_render_for(d, _A())
+    return buf.getvalue().split('--- properties')[0].rstrip() + '\n'
+
+
+def cmd_mirrored(a):
+    """Record what was just written to Notion. Run ONLY after a successful write.
+
+    The snapshot is what makes a later reconcile a 3-way merge instead of a guess:
+    without it, a task that is unticked in Notion is indistinguishable from a task
+    that was never ticked, and one side silently wins.
+    """
+    d = Doc(resolve(a.id))
+    path = mirror_snapshot_path(d.cycle_id)
+    with open(path, 'w', encoding='utf-8') as fh:
+        fh.write(render_body(d))
+    print('snapshot recorded: %s' % path)
+    return 0
+
+
+def parse_mirror_tasks(text):
+    """{scope: [ {text, done, nice, kind} ]} from a rendered/fetched mirror body."""
+    scope_re = re.compile(r'^\*\*(.+?)\*\*\s+[—-]\s+`?(\w+)`?\s*$')
+    out, cur = {}, None
+    for raw in text.split('\n'):
+        # Notion escapes brackets on the way out (\[fio\]); undo before matching.
+        ln = raw.replace('\\[', '[').replace('\\]', ']').rstrip()
+        m = scope_re.match(ln)
+        if m:
+            cur = m.group(1)
+            out.setdefault(cur, [])
+            continue
+        k = TASK_RE.match(ln)
+        if k and cur is not None:
+            body = k.group(3)
+            m_self = SELF_RE.match(body)
+            out[cur].append({
+                'done': k.group(1).lower() == 'x', 'nice': bool(k.group(2)),
+                'kind': 'self' if m_self else 'jira',
+                'text': m_self.group(1) if m_self else body,
+            })
+    return out
+
+
+def cmd_reconcile(a):
+    """Apply the maintainer's Notion-side task edits back into the local doc.
+
+    Three-way: their side (fetched page) and ours (local doc) are each compared
+    against the snapshot of what was last mirrored. A change on one side applies; a
+    change on both sides of the same task stops for a decision. Nothing about a
+    field, an appetite, a hill position or the dev log is ever taken from Notion —
+    those need gates or human judgement a text box cannot enforce (CYC-10 v2.0.0).
+    """
+    import difflib
+    d = Doc(resolve(a.id))
+    snap_path = mirror_snapshot_path(d.cycle_id)
+    if not os.path.isfile(snap_path):
+        die(f'no mirror snapshot for {d.cycle_id} — nothing has been mirrored yet, so there is '
+            f'nothing to reconcile against. Mirror first, then `mirrored` to record it.')
+    theirs = parse_mirror_tasks(read(a.source))
+    snap = parse_mirror_tasks(read(snap_path))
+
+    applied, conflicts, ignored, added = [], [], [], []
+    lines = list(d.lines)
+
+    def local_tasks(scope_name):
+        for t in d.topics:
+            for sc in t['scopes']:
+                if sc['name'] == scope_name:
+                    return sc
+        return None
+
+    for scope_name, their_list in theirs.items():
+        sc = local_tasks(scope_name)
+        if sc is None:
+            ignored.append(f'scope {scope_name!r} exists in Notion but not locally — scopes are '
+                           f'local-only; add it with the plan flow')
+            continue
+        snap_list = snap.get(scope_name, [])
+        snap_by_text = {k['text']: k for k in snap_list}
+        retitled_from = set()   # snapshot texts a retitle consumed — not disappearances
+        local_by_text = {k['text']: k for k in sc['tasks']}
+
+        for th in their_list:
+            was = snap_by_text.get(th['text'])
+            if was is None:
+                near = difflib.get_close_matches(th['text'], list(snap_by_text), 1, 0.8)
+                if near and near[0] not in {x['text'] for x in their_list}:
+                    old = near[0]
+                    loc = local_by_text.get(old)
+                    if loc is None:
+                        # They retitled it in Notion and it was also retitled (or
+                        # removed) locally. This is the ONLY real conflict this
+                        # reconcile can hit — see the note on booleans below.
+                        conflicts.append(f'{scope_name}: {old!r} was retitled to {th["text"]!r} in '
+                                         f'Notion but no longer exists under that name locally; '
+                                         f'resolve by hand')
+                        continue
+                    if loc:
+                        lines[loc['line'] - 1] = lines[loc['line'] - 1].replace(old, th['text'])
+                        retitled_from.add(old)
+                        applied.append(f'{scope_name}: retitled {old!r} → {th["text"]!r}')
+                        continue
+                if th['text'] not in local_by_text:
+                    mark = 'x' if th['done'] else ' '
+                    pre = '~ ' if th['nice'] else ''
+                    kind = 'self: ' if th['kind'] == 'self' else ''
+                    insert_at = (sc['tasks'][-1]['line'] if sc['tasks'] else sc['line'])
+                    lines.insert(insert_at, '- [%s] %s%s%s' % (mark, pre, kind, th['text']))
+                    for t2 in d.topics:
+                        for s2 in t2['scopes']:
+                            for k2 in s2['tasks']:
+                                if k2['line'] > insert_at:
+                                    k2['line'] += 1
+                    added.append(f'{scope_name}: added {th["text"]!r}')
+                continue
+
+            loc = local_by_text.get(th['text'])
+            if loc is None:
+                ignored.append(f'{scope_name}: {th["text"]!r} was removed locally; not restored')
+                continue
+            if th['done'] == was['done']:
+                continue                      # they didn't change it
+            if loc['done'] != was['done']:
+                # Both sides moved this checkbox. With a boolean that cannot
+                # diverge: if each side changed it away from the snapshot value,
+                # both changed it to the same value, so there is nothing to
+                # resolve and nothing to write. A done-state conflict is
+                # unreachable by construction — conflicts only exist for renames.
+                continue
+            ln = lines[loc['line'] - 1]
+            lines[loc['line'] - 1] = (ln.replace('- [ ]', '- [x]', 1) if th['done']
+                                      else ln.replace('- [x]', '- [ ]', 1))
+            applied.append(f'{scope_name}: {th["text"]!r} → '
+                           f'{"done" if th["done"] else "reopened"}')
+
+        for was_text in snap_by_text:
+            if was_text in retitled_from:
+                continue
+            if was_text not in {x['text'] for x in their_list}:
+                ignored.append(f'{scope_name}: {was_text!r} disappeared from Notion; left in place '
+                               f'locally (deleting work is never automatic)')
+
+    if conflicts:
+        print('CONFLICTS — nothing written. Resolve these first:')
+        for c in conflicts:
+            print('  ! %s' % c)
+        print('\nDecide per task, then re-run. The doc is untouched.')
+        return 1
+
+    if not (applied or added):
+        print('nothing to reconcile — Notion matches the local doc')
+        for i in ignored:
+            print('  · %s' % i)
+        return 0
+
+    with open(d.path, 'w', encoding='utf-8') as fh:
+        fh.write('\n'.join(lines).rstrip('\n') + '\n')
+    for x in applied + added:
+        print('  ✓ %s' % x)
+    for i in ignored:
+        print('  · %s' % i)
+
+    d2 = Doc(d.path)
+    probs = d2.check()
+    if probs:
+        print('\nWARNING — the reconciled doc no longer validates:')
+        for x in probs:
+            print('  - %s' % x)
+        print('Fix locally; not committed.')
+        return 1
+    snapshot(cycle_home(), '%s: reconciled from Notion (%d change(s))'
+             % (d.cycle_id, len(applied) + len(added)))
     return 0
 
 
@@ -719,6 +990,16 @@ def main():
     k.add_argument('--json', action='store_true')
     k.add_argument('--id')
     k.set_defaults(fn=cmd_tickets)
+
+    mk = sub.add_parser('mirrored', help='record the snapshot after a successful Notion write')
+    mk.add_argument('--id')
+    mk.set_defaults(fn=cmd_mirrored)
+
+    rc = sub.add_parser('reconcile', help='apply Notion-side task edits back into the local doc')
+    rc.add_argument('--from', dest='source', required=True,
+                    help='file holding the fetched Notion page body')
+    rc.add_argument('--id')
+    rc.set_defaults(fn=cmd_reconcile)
 
     z = sub.add_parser('close', help='close preflight, then flip status')
     z.add_argument('--id')
