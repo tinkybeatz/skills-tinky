@@ -59,13 +59,42 @@ fragility bought for no benefit. Revisit once the checkbox path has a cycle of r
 |---|---|
 | Repo sections, one per repo the cycle touches | The header line — `Dates` and `Status` are row **properties**; writing them in the body too creates two truths in one page |
 | Every topic with all its shaped fields | — |
-| Every scope with its hill position and done/not-done | Individual task checkboxes, when a scope has more than a handful |
-| Open questions | — |
+| Every scope with its hill position and its must-have tally | — |
+| Every task, as a to-do item — they are the input surface (CYC-10 v2.0.0) | — |
+| Open questions, numbered | — |
 | The dev log | — |
 
-Scope-level is the reportable unit: Shape Up's point is that status conversations work better pointing
-at finished slices than defending individual outstanding tasks. Mirroring 40 checkboxes recreates
-exactly the weeds the hill was adopted to escape.
+Scope-level is still the *reportable* unit — Shape Up's point is that status conversations work
+better pointing at finished slices than defending individual outstanding tasks — which is why the
+hill board leads the page and the scope carries a must-have tally. Every task is nonetheless
+mirrored: v1.x left long task lists out on exactly the "40 checkboxes recreate the weeds" argument,
+and v2.0.0 overrode it, because a checkbox the maintainer cannot tick is not weeds, it is a missing
+input.
+
+## How it reads — the visual contract (CYC-15)
+
+The renderer owns all of this; it is written down here so a change to it is a deliberate one.
+
+| Rule | Why |
+|---|---|
+| **Hill board first** — every scope, its position, its must-have tally, colour-coded | The whole cycle on one screen. The hill's value is being *seen*; three screens down as inline text it was the doc's least visible signal |
+| One fixed colour per hill value — `uphill` orange, `top` purple, `downhill` blue, `done` green | A colour that moves between cycles teaches nothing |
+| **Outcome + done signal** in a blue callout, loudest block in the topic | It is the sentence that decides whether everything under it is the right work |
+| Appetite, first cut, no-gos in **grey**, below it | Constraints matter and still lose to what the topic *is* |
+| Open questions **numbered**, matching `cycle.py questions` | So "3 and 5 are settled" is sayable straight off the page |
+| Topic state stated **once** (in the callout) | It used to be in the heading, the icon and the counter — three renderings of one fact |
+| Dev log as a table: when · scope · what changed | Fine as four bullets, unreadable as forty |
+| Completion as a count (`2 of 7`), never a percentage | CYC-6 |
+| **The bet** table + a mermaid bar chart: appetite per topic against the 6w window, with the unbooked remainder | "How much time is it worth" was only answerable by reading three topics and adding up |
+| Bars and charts over **time only** — never over task completion | An appetite is a real quantity. A bar over must-haves-done implies the remaining work is known, which `uphill` says it isn't |
+| The hill as a **position track** (`◉ ─ ○ ─ ○ ─ ○`), never a fill bar and never a 2-axis plot | Four ordinal stops. A fill bar reads "half done"; a plot needs a coordinate nobody stated (CYC-6) |
+
+**The one hard exclusion: nothing `reconcile` parses back may carry a rendering attribute.** Scope
+headings (`#### name — \`hill\``) and task lines render plain, with no `{color=}` and no decoration.
+A colour attribute on a task line is swallowed into the task's *text*, and task text is
+Notion-authoritative under CYC-10 v2.0.0 — so styling the writable surface hands the three-way merge
+corrupted input. That is a data-loss bug wearing a styling change's clothes. The hill gets its colour
+in the board instead, which is derived output nothing reads back.
 
 ## Sequence
 
@@ -166,6 +195,14 @@ What it does, and deliberately does not do:
   renamed on both sides: a *checked-state* collision cannot happen, because two sides moving a boolean
   off the snapshot necessarily move it to the same value.
 - **Ignores everything outside the writable surface**, and says what it ignored.
+- **Undoes Notion's own rewrites first.** Notion autolinks anything domain-shaped on the way out, so
+  a task mentioning `docs/observability/gtm.md` comes back as
+  `docs/observability/[gtm.md](http://gtm.md)`. Left alone, `difflib` matches that at >0.8 and
+  reconcile applies it as a **retitle** — writing the autolink into the local doc as the task's real
+  text. `unautolink()` unwraps a link only where the URL is the link text with a scheme bolted on,
+  which is the autolink signature; a link the maintainer typed themselves survives. It also
+  un-escapes the brackets Notion adds (`\[fio\]`). Any new Notion-side rewrite belongs here, not in
+  the merge.
 
 On success it commits as `<id>: reconciled from Notion (N change(s))`, so the history still records
 work that arrived from the other direction.

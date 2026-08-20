@@ -526,12 +526,7 @@ def cmd_status(a):
         oq = t['fields'].get('Open questions:')
         if oq:
             print(f'  open: {oq}')
-    booked = 0.0
-    for t in d.topics:
-        ap = t['fields'].get('Appetite:', '')
-        wk = re.search(r'(\d+(?:\.\d+)?)\s*w', ap or '', re.I)
-        dy = re.search(r'(\d+(?:\.\d+)?)\s*d', ap or '', re.I)
-        booked += float(wk.group(1)) if wk else (float(dy.group(1)) / 5 if dy else 0)
+    booked = booked_weeks(d)
     if booked:
         left = DEV_WEEKS - booked
         note = ('%.1fw unbooked' % left if left > 0 else
@@ -634,12 +629,112 @@ def cmd_render(a):
     return cmd_render_for(Doc(resolve(a.id)), a)
 
 
+HILL_BG = {'uphill': 'orange_bg', 'top': 'purple_bg', 'downhill': 'blue_bg', 'done': 'green_bg'}
+STATE_ICON = {'shaping': '🔍', 'shaped': '🎯'}
+STATE_BG = {'shaping': 'orange_bg', 'shaped': 'blue_bg'}
+
+# The hill as a position on its own track, which is what Shape Up draws: a dot
+# somewhere on a curve. Deliberately NOT a fill bar — `▓▓░░` for `top` reads as
+# "half done", and the hill measures knowledge, not output (CYC-6). A track shows
+# an ordinal position and claims nothing about how much is finished.
+HILL_TRACK = {
+    'uphill':   '◉ ─ ○ ─ ○ ─ ○',
+    'top':      '○ ─ ◉ ─ ○ ─ ○',
+    'downhill': '○ ─ ○ ─ ◉ ─ ○',
+    'done':     '○ ─ ○ ─ ○ ─ ◉',
+}
+
+
+def bar(weeks, of=None, cells_per_week=2):
+    """A proportional bar for an appetite.
+
+    Only ever used for **time**, never for task completion. An appetite is a
+    quantity of weeks the maintainer bet, so drawing it to scale is honest. A bar
+    over must-haves-done would be the percentage CYC-6 bans wearing a costume:
+    it implies the remaining work is known, which is the one thing an uphill
+    scope guarantees it is not.
+    """
+    of = DEV_WEEKS if of is None else of
+    full = int(round(weeks * cells_per_week))
+    total = int(round(of * cells_per_week))
+    full = max(0, min(full, total))
+    return '█' * full + '░' * (total - full)
+
+
+def appetite_weeks(field):
+    """One topic's appetite in weeks. A day is a fifth of a week — a five-day week."""
+    wk = re.search(r'(\d+(?:\.\d+)?)\s*w', field or '', re.I)
+    dy = re.search(r'(\d+(?:\.\d+)?)\s*d', field or '', re.I)
+    return float(wk.group(1)) if wk else (float(dy.group(1)) / 5 if dy else 0.0)
+
+
+def booked_weeks(d):
+    """Appetite booked across every topic, in weeks."""
+    return sum(appetite_weeks(t['fields'].get('Appetite:', '')) for t in d.topics)
+
+
+def must_have_line(scope):
+    """CYC-10's required must-have completion state, as a count — never a percentage (CYC-6)."""
+    must = [k for k in scope['tasks'] if not k['nice']]
+    done = [k for k in must if k['done']]
+    nice_open = [k for k in scope['tasks'] if k['nice'] and not k['done']]
+    if not scope['tasks']:
+        return 'no tasks yet — the steps are not discovered'
+    bits = '**%d of %d** must-haves' % (len(done), len(must)) if must else 'no must-haves'
+    if nice_open:
+        bits += ' · %d nice-to-have open' % len(nice_open)
+    return bits
+
+
+def cell(s):
+    """Table cells take rich text only; the angle brackets are what would break the XML."""
+    return (s or '').replace('<', '\\<').replace('>', '\\>')
+
+
+def roundtrip_problems(d, body):
+    """CYC-15's enforcement: does the rendered body parse back to the local doc?
+
+    The mirror is a writable surface (CYC-10 v2.0.0), so `reconcile` reads scope
+    headings and task lines straight back out of it and a task's text wins. Any
+    styling that leaks into one of those lines therefore *rewrites the doc* on the
+    next reconcile. Checking it here rather than in a test is deliberate: render
+    is the only write path, so a body that fails this can never reach Notion.
+    """
+    parsed = parse_mirror_tasks(body)
+    probs = []
+    for t in d.topics:
+        for s in t['scopes']:
+            if s['name'] not in parsed:
+                probs.append('scope %r does not parse back out of the render — every task under it '
+                             'would be reported as missing from Notion' % s['name'])
+                continue
+            mine = [(k['text'], k['done'], k['nice'], k['kind']) for k in s['tasks']]
+            theirs = [(k['text'], k['done'], k['nice'], k['kind']) for k in parsed[s['name']]]
+            if mine == theirs:
+                continue
+            for a, b in zip(mine, theirs):
+                if a != b:
+                    probs.append('task under %r round-trips as %r, not %r' % (s['name'], b[0], a[0]))
+            if len(mine) != len(theirs):
+                probs.append('scope %r has %d task(s) locally and %d in the render'
+                             % (s['name'], len(mine), len(theirs)))
+    return probs
+
+
 def cmd_render_for(d, a):
     """Render the Notion mirror: body markdown + the derived properties (CYC-10).
 
     Deterministic on purpose. The model rendering this by hand each time is how
     the body drifts — the first hand-render duplicated Dates/Status in the body
     when the row's properties already carry them.
+
+    The visual contract is CYC-15: the four questions the doc answers must be
+    answerable without scrolling, so the hill board comes first, the outcome is
+    the loudest thing in a topic, and the constraints recede into grey. Two
+    things are deliberately NOT styled — the scope h4 and the task lines — since
+    both are parsed back out of Notion by `reconcile` (a `{color=}` swallowed
+    into a task's text would rewrite the task, and task text is authoritative
+    from Notion).
     """
     probs = d.check()
     if probs:
@@ -655,23 +750,107 @@ def cmd_render_for(d, a):
                 repos.append(r)
     repos.sort()
 
-    STATE_ICON = {'shaping': '🔍', 'shaped': '🎯'}
     n_shaping = sum(1 for t in d.topics if t['state'] == 'shaping')
     n_shaped = sum(1 for t in d.topics if t['state'] == 'shaped')
     where = week_of(d)
 
-    # A callout at the top: the two things a human wants on opening the page —
-    # where the cycle is, and which parts of this page they may edit.
-    out = ['<callout icon="🔁" color="gray_bg">']
+    # A callout at the top: where the cycle is, how much of the window is bet,
+    # and which parts of this page the maintainer may edit. Purple because it is
+    # the maintainer's own accent and this is the one block that is about them
+    # rather than about the work.
+    out = ['<callout icon="🔁" color="purple_bg">']
     # The id may already say "Cycle" (the maintainer named one "Cycle-11"), and
     # "Cycle Cycle-11" reads like a bug on a page they look at every day.
     label = d.cycle_id if d.cycle_id.lower().startswith('cycle') else 'Cycle %s' % d.cycle_id
-    out.append('\t**%s**%s · %d shaping · %d shaped'
-               % (label, ' · ' + where if where else '', n_shaping, n_shaped))
+    out.append('\t**%s**%s · %d shaped · %d shaping'
+               % (label, ' · ' + where if where else '', n_shaped, n_shaping))
+    booked = booked_weeks(d)
+    if booked:
+        left = DEV_WEEKS - booked
+        note = ('%.1fw unbooked' % left if left > 0
+                else '**over-booked by %.1fw** — hammer a scope or drop a topic' % -left)
+        out.append('\t`%s`  **%.1fw** of %dw dev window booked · %s'
+                   % (bar(booked), booked, DEV_WEEKS, note))
     out.append('\tTick tasks here and they sync back. Everything else — fields, appetite, '
                'hill positions, the dev log — is edited locally.')
     out.append('</callout>')
     out.append('')
+
+    # The hill board. The whole reason the hill exists is to answer "where are the
+    # unknowns" at a glance, and it could not do that when it rendered as an
+    # inline code chip three screens down. One table, every scope, colour and a
+    # position track — this is the first thing on the page after the header.
+    board = [(t, s) for t in d.topics for s in t['scopes']]
+    if board:
+        out.append('## Where the work stands')
+        out.append('')
+        out.append('<table fit-page-width="true" header-row="true">')
+        out.append('\t<tr><td>**Scope**</td><td>**Topic**</td><td>**Hill**</td>'
+                   '<td>**uphill → done**</td><td>**Must-haves**</td></tr>')
+        for t, s in board:
+            must = [k for k in s['tasks'] if not k['nice']]
+            done = [k for k in must if k['done']]
+            tally = '%d of %d' % (len(done), len(must)) if must else '—'
+            out.append('\t<tr><td>%s</td><td>%s</td><td color="%s">**%s**</td>'
+                       '<td color="%s">`%s`</td><td>%s</td></tr>'
+                       % (cell(s['name']), cell(t['name']),
+                          HILL_BG.get(s['hill'], 'gray_bg'), s['hill'],
+                          HILL_BG.get(s['hill'], 'gray_bg'),
+                          HILL_TRACK.get(s['hill'], '?'), tally))
+        out.append('</table>')
+        out.append('')
+        stuck = [x for x in board if x[1]['hill'] in ('uphill', 'top')]
+        if stuck:
+            out.append('%d of %d scopes are not yet downhill — that is where the unknowns are, and '
+                       'that is what to attack first. {color="gray"}' % (len(stuck), len(board)))
+            out.append('')
+
+    # The bet, to scale. "How much time is it worth" is one of the four questions
+    # and it was only ever answerable by reading three topics and adding up. A
+    # bar over *time* is honest in a way a bar over task completion would not be
+    # — see `bar()`.
+    if d.topics:
+        out.append('## The bet')
+        out.append('')
+        out.append('<table fit-page-width="true" header-row="true">')
+        out.append('\t<tr><td>**Topic**</td><td>**Appetite**</td>'
+                   '<td>**against the %dw window**</td><td>**State**</td></tr>' % DEV_WEEKS)
+        for t in d.topics:
+            ap = t['fields'].get('Appetite:', '') or ''
+            head = ap.split('·', 1)[0].strip()
+            wks = appetite_weeks(ap)
+            out.append('\t<tr><td>%s</td><td>%s</td><td>`%s`</td><td color="%s">%s %s</td></tr>'
+                       % (cell(t['name']), cell(head) or '—', bar(wks),
+                          STATE_BG.get(t['state'], 'gray_bg'),
+                          STATE_ICON.get(t['state'], ''), t['state'] or 'undeclared'))
+        left = DEV_WEEKS - booked
+        if left > 0:
+            out.append('\t<tr><td>*unbooked*</td><td>*%.1fw*</td><td>`%s`</td><td>—</td></tr>'
+                       % (left, bar(left)))
+        out.append('</table>')
+        out.append('')
+
+        # Notion renders mermaid natively in a code block. Only the appetite is
+        # charted, because it is the one quantity in this doc that IS a quantity —
+        # the hill is four ordinal stops and any chart of it needs a second axis
+        # nobody stated, which is inference (CYC-6).
+        if booked:
+            out.append('```mermaid')
+            out.append('xychart-beta')
+            out.append('    title "Appetite against the %dw dev window"' % DEV_WEEKS)
+            labels, values = [], []
+            for t in d.topics:
+                nm = t['name'].replace('"', '')
+                labels.append('"%s"' % (nm if len(nm) <= 22 else nm[:21].rstrip() + '…'))
+                values.append('%g' % appetite_weeks(t['fields'].get('Appetite:', '')))
+            if left > 0:
+                labels.append('"unbooked"')
+                values.append('%g' % left)
+            out.append('    x-axis [%s]' % ', '.join(labels))
+            out.append('    y-axis "weeks" 0 --> %d' % DEV_WEEKS)
+            out.append('    bar [%s]' % ', '.join(values))
+            out.append('```')
+            out.append('')
 
     for repo in repos:
         out.append('---')
@@ -682,59 +861,86 @@ def cmd_render_for(d, a):
             if repo not in t['repos']:
                 continue
             icon = STATE_ICON.get(t['state'], '')
-            out.append('### %s %s — %s' % (icon, t['name'], t['state'] or 'state undeclared'))
+            # The state used to be spelled out in this heading as well as carried
+            # by the icon and counted in the header callout — three times for one
+            # fact. It lives in the callout below now.
+            out.append('### %s %s' % (icon, t['name']))
             out.append('')
 
-            # Fields as bold labels rather than "Label:" prose — same information,
-            # scannable instead of read line by line.
-            for f in FIELDS:
-                v = t['fields'].get(f)
-                if not v:
-                    continue
-                if f == 'Appetite:' and '·' in v:
-                    # "3w (fixed) · First cut: X" reads better as two labels than as
-                    # one line with a lowercase field name buried inside it.
-                    head, rest = v.split('·', 1)
-                    out.append('**Appetite** %s' % head.strip())
-                    cut = rest.strip()
-                    if cut.lower().startswith('first cut:'):
-                        cut = cut.split(':', 1)[1].strip()
-                    out.append('**First cut** %s' % cut)
-                else:
-                    out.append('**%s** %s' % (f.rstrip(':'), v))
-            for f in ('Shipped:', 'Cut:'):
-                if t['fields'].get(f):
-                    out.append('**%s** %s' % (f.rstrip(':'), t['fields'][f]))
-            if t['fields'].get('Assumptions:'):
+            oq = [x.strip() for x in (t['fields'].get('Open questions:') or '').split('·')
+                  if x.strip()]
+
+            if t['state'] == 'shaped':
+                # The outcome is the one sentence that decides whether everything
+                # under it is the right work, so it gets the loudest block on the
+                # page. Done-when rides with it: same question, other end.
+                out.append('<callout icon="🎯" color="blue_bg">')
+                if t['fields'].get('Outcome:'):
+                    out.append('\t**Outcome** — %s' % t['fields']['Outcome:'])
+                if t['fields'].get('Done when:'):
+                    out.append('\t**Done when** — %s' % t['fields']['Done when:'])
+                out.append('</callout>')
                 out.append('')
+            else:
+                out.append('<callout icon="🔍" color="orange_bg">')
+                out.append('\t**Still shaping** — %s. No outcome or done signal yet, on purpose '
+                           '(CYC-3).'
+                           % ('%d open question%s' % (len(oq), '' if len(oq) == 1 else 's')
+                              if oq else 'the questions are not written down yet'))
+                warn = shaping_overrun(d, t['fields'].get('Appetite:', ''))
+                if warn:
+                    out.append('\t⚠️ %s' % warn)
+                out.append('</callout>')
+                out.append('')
+
+            # Constraints recede: same information, grey, below the outcome. What
+            # the topic IS should outrank what it is not.
+            ap = t['fields'].get('Appetite:') or ''
+            cut = ''
+            if '·' in ap:
+                ap, rest = [x.strip() for x in ap.split('·', 1)]
+                cut = rest.split(':', 1)[1].strip() if rest.lower().startswith('first cut:') else rest
+            if ap:
+                out.append('**Appetite** %s · %s {color="gray"}' % (ap, t['state'] or 'state undeclared'))
+            if cut:
+                out.append('**First cut** %s {color="gray"}' % cut)
+            for f in ('No-gos:', 'Shipped:', 'Cut:'):
+                if t['fields'].get(f):
+                    out.append('**%s** %s {color="gray"}' % (f.rstrip(':'), t['fields'][f]))
+            out.append('')
+
+            if t['fields'].get('Assumptions:'):
                 out.append('<callout icon="⚠️" color="yellow_bg">')
                 out.append('\t**Assumed, not confirmed** — %s' % t['fields']['Assumptions:'])
                 out.append('</callout>')
-            out.append('')
+                out.append('')
 
-            # Open questions were the worst part of the first render: one run-on
-            # line joined by "·", which is fine in a parseable file and unreadable
-            # on a page. They are the content that matters while a topic is
-            # shaping, so they get a real list and a count.
-            oq = [x.strip() for x in (t['fields'].get('Open questions:') or '').split('·')
-                  if x.strip()]
+            # Open questions are the content of a shaping topic, so they stay
+            # expanded — but numbered, to match `cycle.py questions`. That makes
+            # "3 and 5 are settled" a sentence the maintainer can say straight off
+            # this page.
             if oq:
                 out.append('**Open questions** (%d)' % len(oq))
-                for q in oq:
-                    out.append('- %s' % q)
+                for n, q in enumerate(oq, start=1):
+                    out.append('%d. %s' % (n, q))
                 out.append('')
 
             for sc in t['scopes']:
                 # Scope as a heading-4: better looking in Notion than a bold line,
                 # and unambiguous to parse back (a "**bold** — word" field line
-                # could collide, a "#### " prefix cannot).
+                # could collide, a "#### " prefix cannot). Left uncoloured on
+                # purpose — this line is `reconcile`'s scope key, and an attribute
+                # list on it is one more thing the round-trip can mangle. The hill
+                # gets its colour in the board above instead.
                 out.append('#### %s — `%s`' % (sc['name'], sc['hill']))
-                if not sc['tasks']:
-                    out.append('*no tasks yet*')
+                out.append('%s {color="gray"}' % must_have_line(sc))
                 for k in sc['tasks']:
                     mark = 'x' if k['done'] else ' '
                     pre = '~ ' if k['nice'] else ''
                     kind = 'self: ' if k['kind'] == 'self' else ''
+                    # Deliberately unstyled: this line comes back from Notion and
+                    # its text wins, so anything appended here would become part
+                    # of the task on the next reconcile.
                     out.append('- [%s] %s%s%s' % (mark, pre, kind, k['text']))
                 out.append('')
 
@@ -742,8 +948,31 @@ def cmd_render_for(d, a):
     out.append('')
     out.append('## Dev log')
     out.append('')
-    out += [raw for _, raw, _ in d.log]
+    if d.log:
+        # A flat bullet list was fine at four lines and unreadable at forty. The
+        # date and the scope are what you scan by, so they get their own columns.
+        out.append('<table fit-page-width="true" header-row="true">')
+        out.append('\t<tr><td>**When**</td><td>**Scope**</td><td>**What changed**</td></tr>')
+        for _, raw, m in d.log:
+            if m:
+                out.append('\t<tr><td>%s</td><td>%s</td><td>%s</td></tr>'
+                           % (m.group(1), cell('%s › %s' % (m.group(2), m.group(3))),
+                              cell(m.group(4))))
+            else:
+                out.append('\t<tr><td>—</td><td>—</td><td>%s</td></tr>'
+                           % cell(raw.strip().lstrip('- ')))
+        out.append('</table>')
+    else:
+        out.append('*nothing logged yet*')
     body = '\n'.join(out).rstrip() + '\n'
+
+    rt = roundtrip_problems(d, body)
+    if rt:
+        print('render aborted — the body does not parse back to the local doc (CYC-15).')
+        print('Writing it would let the next reconcile rewrite the doc from a mangled read:')
+        for x in rt:
+            print('  - %s' % x)
+        return 1
 
     # The header line is deliberately NOT in the body: Dates and Status are row
     # properties, and writing them twice creates two truths in one page (CYC-10).
@@ -891,15 +1120,31 @@ def cmd_mirrored(a):
     return 0
 
 
+# Notion silently autolinks anything that looks like a domain, so a task
+# mentioning `docs/observability/gtm.md` comes back as
+# `docs/observability/[gtm.md](http://gtm.md)`. Left alone that reads as a
+# retitle (difflib matches it at >0.8) and the autolink gets written into the
+# local doc as the task's new text. Only unwrap where the URL is the link text
+# with a scheme bolted on — that is the autolink signature, and it leaves a
+# link the maintainer actually typed untouched.
+AUTOLINK_RE = re.compile(r'\[([^\]]+)\]\(https?://(?:www\.)?([^)]+)\)')
+
+
+def unautolink(s):
+    return AUTOLINK_RE.sub(lambda m: m.group(1) if m.group(2).rstrip('/') == m.group(1) else m.group(0), s)
+
+
 def parse_mirror_tasks(text):
     """{scope: [ {text, done, nice, kind} ]} from a rendered/fetched mirror body."""
-    # h4 ONLY. Topic headings are h3 and now end with "— shaping"/"— shaped",
-    # so a looser pattern would read a topic as a scope named after it.
-    scope_re = re.compile(r'^####\s+(.+?)\s+[—-]\s*`?(\w+)`?\s*$')
+    # h4 ONLY. Topic headings are h3, so a looser pattern would read a topic as a
+    # scope named after it. A trailing attribute list is tolerated in case a
+    # future render or Notion's round-trip puts one here — CYC-15 forbids the
+    # renderer from doing it, and this is the belt to that braces.
+    scope_re = re.compile(r'^####\s+(.+?)\s+[—-]\s*`?(\w+)`?(?:\s*\{[^}]*\})?\s*$')
     out, cur = {}, None
     for raw in text.split('\n'):
         # Notion escapes brackets on the way out (\[fio\]); undo before matching.
-        ln = raw.replace('\\[', '[').replace('\\]', ']').rstrip()
+        ln = unautolink(raw.replace('\\[', '[').replace('\\]', ']')).rstrip()
         m = scope_re.match(ln)
         if m:
             cur = m.group(1)

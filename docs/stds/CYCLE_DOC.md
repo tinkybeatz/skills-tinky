@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 2.1.0 |
+| **Version** | 2.2.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
-| **Effective date** | 2026-08-19 |
+| **Effective date** | 2026-08-20 |
 | **Applies to** | The per-cycle work doc for Foleon cycles — the local markdown file that is its source of truth, stored in the maintainer's own cycle directory (**not** in `skills-tinky`, see CYC-1), and the single Notion page that mirrors it — written and maintained by the `foleon-cycle` skill across every repo a cycle touches (`ripley`, `fio`, and any future Foleon repo) |
 
 **Reference implementation** — `foleon/foleon-cycle` (to be built against this standard; no
@@ -556,6 +556,62 @@ system to generate and the most expensive to act on when wrong.
 **Enforcement:** `scripts/cycle.py tickets` produces the list and refuses filler criteria by emitting a
 placeholder; code-grounding is a review judgement at proposal time.
 
+### CYC-15 The mirror's visual hierarchy
+
+- The mirror **MUST** answer the doc's four questions — what am I building, how much time is it worth,
+  where are the unknowns, what gets cut first — **from the top of the page**, without reading a topic
+  through. `[SRC-017]`
+- A **hill board** — every scope in the cycle with its position and its must-have tally — **MUST** be
+  the first thing on the page after the header callout. It is the only block that shows the whole
+  cycle at once.
+- A hill position **MUST** carry visual weight of its own, and the four values **MUST** map to one
+  fixed colour each, stable across cycles. Rendering the hill as undifferentiated inline text makes
+  the doc's primary signal its least visible one.
+- Within a topic, the **outcome and done signal MUST be the most prominent block**, and the
+  constraints — appetite, first cut, no-gos — **MUST** be rendered subordinate to them. What the topic
+  *is* outranks what it is not.
+- `Open questions:` **MUST** be rendered as a **numbered** list, numbered as `cycle.py questions`
+  numbers them, so a question can be referred to by number from the page itself.
+- A topic's state (`shaping`/`shaped`) **MUST** be stated once per topic. Repeating it in the heading,
+  an icon, and a counter is three renderings of one fact.
+- **Anything `reconcile` parses back MUST be rendered plain** — no colour, no attribute list, no
+  decoration. This covers the scope heading and every task line. A `{color=}` attribute swallowed into
+  a task's text *becomes* that task's text on the next read, because task text is Notion-authoritative
+  (CYC-10); the same attribute on a scope heading can orphan every task under it.
+- Completion state **MUST** be a count, never a percentage (CYC-6).
+- **A bar, chart or gauge MAY be drawn over time, and MUST NOT be drawn over task completion.** An
+  appetite is a quantity of weeks the maintainer bet, so drawing it to scale states a fact. A bar
+  over must-haves-done is the banned percentage in costume: it implies the remaining work is known,
+  which is exactly what an `uphill` scope guarantees it is not.
+- The hill **MUST NOT** be charted on a second axis. It is four ordinal stops; any plot of it needs a
+  coordinate nobody stated, and inventing one is the inference CYC-6 forbids. A **position track**
+  along its own four stops is the faithful rendering — not a fill bar, which reads as "half done".
+- The styling **MUST** be produced by the renderer, never hand-authored — whole-page regeneration is
+  the only write path (CYC-10), so a hand-applied flourish is erased on the next flow and is
+  indistinguishable from a rendering bug while it survives.
+
+**Rationale:** the maintainer reads and works in Notion `[SRC-015]`, which makes the mirror's
+readability a functional property rather than a cosmetic one. The first implementation was
+*complete* and unreadable: every fact CYC-10 requires was present, and none of it was findable —
+the hill rendered as a grey inline code chip three screens down, the fact that a topic was the
+cycle's main priority sat mid-sentence inside `First cut`, the state was spelled three times per
+topic, and twelve open questions carried the same visual weight as forty checkboxes `[SRC-017]`.
+Shape Up's argument for the hill is that it is *seen* — *"you can see at a glance"* `[SRC-002]` —
+and a hill nobody looks at is a hill that has stopped working. The parse-back exclusion is the one
+hard boundary: v2.0.0 bought a writable surface with a three-way merge, and decorating that surface
+would hand the merge corrupted input, which is a data-loss bug wearing a styling change's clothes.
+
+- The reverse of the same rule binds the read: **Notion's own transformations of a parsed-back line
+  MUST be undone before the merge sees it.** Notion rewrites content on the way out — it autolinks
+  anything domain-shaped and escapes markdown metacharacters — and an untreated transformation is
+  indistinguishable from the maintainer retitling the task.
+
+**Enforcement:** `scripts/cycle.py render` is the only render path and is deterministic, and it
+**refuses to emit a body that does not parse back** — the round-trip check (render →
+`parse_mirror_tasks` → assert every scope and task is byte-identical to the local doc) runs inside
+`render` rather than in a test, so a failing body cannot reach Notion at all. The read side is
+covered by normalising Notion's transformations in `parse_mirror_tasks` before any comparison.
+
 ---
 
 ## Documented overrides
@@ -593,6 +649,10 @@ A cycle doc is conforming when **all** are true:
 - [ ] Header dates are the 6-week dev window with the cooldown end recorded; no cooldown work in the doc (CYC-2)
 - [ ] Every appetite fits inside the 6-week dev window (CYC-4)
 - [ ] The work list orders unknowns first, carries a P-level, and its acceptance criteria are ticket-specific and code-grounded — never a restatement of the outcome (CYC-14)
+- [ ] The mirror opens with a hill board covering every scope; the hill has a fixed colour per value (CYC-15)
+- [ ] Within a topic the outcome and done signal are the most prominent block; constraints render subordinate (CYC-15)
+- [ ] Open questions are numbered as `cycle.py questions` numbers them; topic state is stated once (CYC-15)
+- [ ] Scope headings and task lines render plain — nothing `reconcile` parses back carries a rendering attribute (CYC-15)
 - [ ] Every dev-log line passes a state-change / decision / surprise gate; nothing restates git; append-only (CYC-8)
 - [ ] Topics repo-tagged; cross-repo topics written once; mirror nested by project (CYC-9)
 - [ ] Mirror is one page per cycle, regenerated whole from local, refreshed at the end of every flow that changed the doc (CYC-10)
@@ -651,6 +711,7 @@ None standing.
 - `[SRC-007]` Internal — [`CHEAT_SHEET.md`](CHEAT_SHEET.md) (CHS 2.4.0). Page-not-database (v2.0.0 reversal), CHS-9a project nesting, CHS-9b write-once for cross-project facts, CHS-9 conversational review gate. Reused rather than re-derived.
 - `[SRC-008]` Internal — [`PROJECT_CONTEXT_SKILL.md`](PROJECT_CONTEXT_SKILL.md) (PCS). PCS-6 discoveries log as the home of durable facts; PCS-9a silo-versus-checkout boundary; PCS-11 single external mirror.
 - `[SRC-016]` Internal — the maintainer's requirement after a partial scoping call, 2026-08-19: *"i would like to re-evaluate the current state and from there take a decision (if too many left over open questions, push on waiting for more answers, if a few answers help working on a first part of the shape, then the skill should be able to ask me if agree)"*, and on the mis-filed entry: *"3 is a fair point, it's not a question. make sure this doesnt happen anymore."* Also the observation that this is the general case, not a special one: *"shapeup IS about figuring out solutions"* — under Scrum a PO and scrum master pre-prepared the tasks; here that work is the developer's.
+- `[SRC-017]` Internal — the maintainer's judgement on the first rendered mirror, 2026-08-20: *"content-wise im pretty happy with it, but the doc is like so boring to look at"* — a complete page that is not read is a reporting surface that has failed at the only thing it is for.
 - `[SRC-015]` Internal — the maintainer's requirement, 2026-08-19: *"for notion, i want to both be able to read and edit (the local should then change too based on that automatically): if i want to say i finished a task i dont want to go through claude to tell it that i did it. i want to update and then claude would be aware the next time i use the cycles tool for something"*, and on the hill: *"we'll see for hills later, for now no editing the hills within notion."*
 - `[SRC-014]` Internal — the deadlock, observed live 2026-08-19. Asked for the outcome of an unshaped topic, the maintainer answered: *"I don't understand the question... I don't have a wanted outcome yet! this afternoon i'll be in a call to discuss this with PO, Data Engineer, etc... For now unknown like mentionned everywhere"*, and on the first cut: *"I feel like we can discuss bout this later on."* Their requirement: *"the cycle tasks could start by being 'make research and ask questions blablabla...' and then once i have more info i give everything to the skill and it would mark those tasks as done and create new ones"* — *"I want to have a system that helps me get through those steps and to adapt to what i can/cannot/know/dont know."*
 - `[SRC-013]` Internal — the maintainer's clarifications, 2026-08-19: *"a cycle is always 8 weeks, but the first 6 weeks are the dev session. the 2 last weeks are just 'cooldown' in which we do bug-fixing/research etc"*; that the point of the system is *"a list of priorised tickets generated for me (or at least a proposition) that i could then add into Jira (by-hand for now)"*; that not everything is a ticket — *"if i add a brand new feature i need to conceptualize... this won't be a ticket in JIRA, this will be a task for me -> the task could be 'research on how to implement, expected outcome of the task : make tickets to implement after research'"*; and that proposals should be code-grounded — *"it could be worth it having a technical skill read through the code of the mentionned repos"*.
@@ -663,6 +724,7 @@ None standing.
 
 | Version | Date | Change |
 |---|---|---|
+| **2.2.0** | 2026-08-20 | **The mirror gets a visual contract.** v2.0.0 settled *what* the mirror carries and said nothing about how it reads, and the first real page showed why that is not a cosmetic gap: every required fact was present and none of it was findable `[SRC-017]`. New CYC-15 makes the reading order normative — a **hill board** covering every scope first on the page, one fixed colour per hill value, the outcome as the loudest block in a topic with the constraints subordinate to it, open questions **numbered** to match `cycle.py questions`, and topic state stated once instead of three times. The load-bearing clause is the exclusion: **anything `reconcile` parses back renders plain**. A `{color=}` attribute on a task line is swallowed into the task text, and task text is Notion-authoritative under v2.0.0 — so decorating the writable surface would feed the three-way merge corrupted input, which is a data-loss bug dressed as a styling change. Enforced by a round-trip check (render → `parse_mirror_tasks` → assert byte-identical to local) that must pass before any mirror write. MINOR: additive, and no v2.1.0 doc stops conforming. |
 | **2.1.0** | 2026-08-19 | **Shaping becomes a decision, and a topic can be split.** v1.6.0 gave topics two states but only one transition — apply the answers and flip — which broke on the first real partial call: some questions answered, some not, and no way to express *"the plumbing is knowable, the event list isn't"* because state is per-topic `[SRC-016]`. CYC-3 now requires answers to be **re-evaluated**: remaining questions are classified **blocking** (can the outcome or done signal be written without it?) or non-blocking, and one of **hold / split / shape** is proposed with reasoning and agreed before anything changes. A **split** produces one shaped half — independently shippable, no open questions — and one shaping half carrying the questions, with the appetite divided rather than duplicated. Holding on a non-blocking question is forbidden, as is downgrading a blocking one to get moving. `status` now reports total appetite booked against the dev window. Also: an `Open questions:` entry must actually ask something, with caveats and inferences moved to a new `Assumptions:` field (rendered as a callout) — the first version of that check demanded a trailing `?` and rejected six good questions carrying a "why this matters" clause, so it now accepts a question mark anywhere or a clause opening with an interrogative. |
 | **2.0.0** | 2026-08-19 | **The mirror becomes writable in one narrow place.** v1.x was strictly one-way on the sound principle that two writable surfaces drift — but the maintainer's actual need is to tick a task in Notion without going through the skill `[SRC-015]`, and a tool that requires permission to tick a checkbox loses to one that doesn't. CYC-10 now renders tasks as Notion to-do items and reads back exactly three things: checked state, task text, and task lines added under an existing scope. Everything else — fields, appetite, topic state, **hill**, scopes, dev log — stays local-authoritative and a Notion edit to it is reported and ignored. Safety comes from mechanism, not trust: a **three-way merge** against a snapshot recorded only after a successful write (without it, unticked and never-ticked are indistinguishable), **no automatic deletion** (a task missing from Notion is reported and left), a re-validate before any commit, and a stop-with-nothing-written on collision. Noted in passing: a checked-state collision is unreachable by construction — two sides moving a boolean off the snapshot move it to the same value — so renames are the only real collisions. Also: the mirror refreshes at the end of every flow, and CYC-11's consent gate no longer applies to refreshing a generated page (only to creating a cycle's row the first time). MAJOR because one-way derivation was a load-bearing property of v1.x. |
 | **1.6.0** | 2026-08-19 | **Two topic states, because shaping happens inside this cycle.** v1.0.0's single six-field gate assumed Shape Up's world, where a team receives work already shaped by a senior pair in cool-down. This maintainer receives a title and an estimate, so the gate deadlocked: the research tasks that would answer the intake questions could not exist until the questions were answered, and the only escape was a guessed `Outcome: TBD` — validation-passing and worthless `[SRC-014]`. CYC-3 now defines **`shaping`** (repo tag + appetite, optionally `(provisional)`, + at least one open question; scopes all `uphill`; only `self:` research tasks) and **`shaped`** (all six fields), with the state declared in the topic heading and never defaulted. The transition is a deliberate act on the answers arriving, never an inference. CYC-7 forbids implementation tasks under a shaping topic, CYC-14 excludes it from Jira tickets while requiring the work list to name it as still shaping, and CYC-13 reports a never-shaped topic as the strongest shaping signal the system produces — one that belongs with whoever sets the topics. New override #6 records the divergence from Shape Up honestly. Also: a shaping topic **should** be escalated rather than researched further past roughly a quarter of its appetite (the circuit breaker, applied to shaping), which `status` now warns about. |

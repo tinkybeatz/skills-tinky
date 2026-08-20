@@ -10,7 +10,7 @@ description: >-
   in `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES/` is the source of truth; in Notion
   you may tick, rename and add tasks, and the next run reconciles that back.
   Covers every Foleon repo a cycle touches — `ripley`, `fio`, and any added later.
-  Enforces `docs/stds/CYCLE_DOC.md` (CYC-1…CYC-14).
+  Enforces `docs/stds/CYCLE_DOC.md` (CYC-1…CYC-15).
   **Explicit invocation only — `/foleon-cycle`.** Per CYC-11 this skill
   deliberately carries no trigger phrases and must not auto-load: do not invoke
   it because a message mentions a cycle, a topic, an estimate, planning, or
@@ -28,7 +28,7 @@ The maintainer's team hands over a cycle as **topics with an estimated time each
 a development plan — and knowing on any given Wednesday where the work actually stands — is the
 developer's job. This skill is that job, done in one file per cycle.
 
-Governed by [`docs/stds/CYCLE_DOC.md`](../../docs/stds/CYCLE_DOC.md) (CYC-1…CYC-13). The standard wins
+Governed by [`docs/stds/CYCLE_DOC.md`](../../docs/stds/CYCLE_DOC.md) (CYC-1…CYC-15). The standard wins
 any disagreement with this file.
 
 A cycle is **8 weeks: 6 of dev, then 2 of cooldown**. The doc covers the **dev window only** —

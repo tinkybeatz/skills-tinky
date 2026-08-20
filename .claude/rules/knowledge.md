@@ -8,6 +8,14 @@ root `CLAUDE.md` and prune the rest.
 Format: `- YYYY-MM-DD — <finding>`
 
 ## Discoveries
+- 2026-08-20 — **Notion rewrites content on the way out, and `foleon-cycle`'s reconcile reads task
+  text back as authoritative — so any Notion-side rewrite is a silent local corruption.** It
+  autolinks anything domain-shaped (`gtm.md` → `[gtm.md](http://gtm.md)`) and escapes metacharacters
+  (`~` → `\~`). `difflib.get_close_matches` at 0.8 then matches the autolinked line to the original
+  and reconcile applies it as a *retitle*. Fixed with `unautolink()` in `parse_mirror_tasks`, which
+  unwraps only links whose URL is the link text plus a scheme. The general rule: normalise on the
+  read, never in the merge — and never style anything the parser reads back (CYC-15), since a
+  `{color=}` on a to-do line is swallowed into the task's text the same way.
 - 2026-08-12 — `cheatsheet-queue-append.py` must ignore its own bookkeeping. Marking a
   ripley finding `sheet: no` is a write to `knowledge.md`, so it re-queued the finding
   that was just rejected — and since the Stop hook nudges on any non-empty queue, every
