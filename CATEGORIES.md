@@ -22,6 +22,8 @@ Entry points: **`god`** turns a goal into a plan across these skills ("/god i wa
 | `personal/` | Personal-life & side-project domains, organized into subfolders |
 | `foleon/` | Foleon-only work: `ripley` project context and Foleon-specific capabilities, kept out of the shared codebase |
 
+**Not a category:** [`output-styles/`](output-styles/) holds Claude Code **output styles** (always-on response-style specs, selected via `outputStyle` in `settings.json` or `/output-style`). Not skills — they are harness config, applied to every turn rather than invoked. Symlinked into `~/.claude/output-styles/` (the loader resolves symlinks; verified). Contains no `SKILL.md`, so the taxonomy audit skips it.
+
 **Not a category:** [`docs/stds/`](docs/stds/README.md) holds the repo's **standards** (normative rules with enforcement, e.g. the Project-Context Skill and Cheat Sheet standards). It contains no `SKILL.md`, so the taxonomy audit skips it. Note that `docs/` therefore serves double duty — skill category *and* standards home.
 
 ## Installing / updating
