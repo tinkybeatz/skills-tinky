@@ -55,26 +55,44 @@ whether the number of outstanding tasks will go down or up.
 The Notion mirror requires the **Notion MCP**. If a call fails because it is not connected, say so and
 stop — the local doc is already authoritative, so there is nothing to fall back to and nothing lost.
 
-## Arguments
+## How it is invoked
 
-`/foleon-cycle <verb>` — the verb picks the flow, so nothing has to be guessed:
+**`/foleon-cycle` on its own, or with anything you want to say.** The verbs below exist, but they are
+shortcuts, not a vocabulary the maintainer has to learn. Never make them type one.
 
-| Invocation | Flow |
+**Free text is the primary interface.** `/foleon-cycle here's what came out of the call with Chiel: …`
+is a shape flow. `/foleon-cycle where am I` is status. Read what they said and pick the flow; do not
+answer a plain-English request by asking them to choose a verb.
+
+**Bare, with nothing else: work out what's next and say it in one line — do not print a menu.** Run the
+state check first (`active`, `questions`, `queue.sh count`, `status`), then lead with the single most
+likely next step and offer the rest only if they ask:
+
+| State | Almost certainly next |
 |---|---|
-| `/foleon-cycle new` | **1. Open a cycle** — guided intake from a raw brief |
-| `/foleon-cycle shape` | **1b. Shape a topic** — the answers arrived, fill the fields, flip the state |
-| `/foleon-cycle plan` | **2. Scopes and tasks** for a topic already shaped |
-| `/foleon-cycle questions` | **1c. Open questions**, numbered — what is still unanswered |
-| `/foleon-cycle tickets` | **3. Work list** — prioritised tickets for Jira + personal tasks |
-| `/foleon-cycle status` | **4. Status** — where every scope sits |
-| `/foleon-cycle log` | **5. Log** what happened |
-| `/foleon-cycle mirror` | **6. Mirror** to Notion |
-| `/foleon-cycle close` | **7. Close** the cycle |
-| `/foleon-cycle` (bare) | Say which of the above, in one short line. Do **not** default to `new` — and if there is no cycle doc yet, say so and offer `new` rather than listing every flow. |
+| No cycle doc | **open a cycle** — ask for the brief |
+| Shaping topics, and they've pasted something that reads like answers | **shape** — re-evaluate |
+| Shaping topics, nothing new | **questions** — show what's open, ask if anything got answered |
+| All shaped, no scopes or tasks | **plan** — factor scopes, read the code |
+| Tasks exist, queue has unlogged days | **log** — propose lines for those days |
+| Tasks exist, queue empty | **status**, then offer the work list |
+| Past the dev window end | **close** |
 
-Anything after the verb is treated as input for that flow — `/foleon-cycle new <pasted brief>` skips
-straight to parsing that brief. An unrecognised verb is a request in prose, not an error: read it and
-pick the flow it describes.
+Reconcile from Notion before any of it (flow 6) — they may have ticked things off since you last looked.
+
+| Shortcut | Flow |
+|---|---|
+| `new` | **1. Open a cycle** — guided intake from a raw brief |
+| `shape` | **1b. Shape** — the answers arrived; re-evaluate and decide |
+| `questions` | **1c. Open questions**, numbered |
+| `plan` | **2. Scopes and tasks** for a shaped topic |
+| `tickets` | **3. Work list** — Jira tickets + personal tasks |
+| `status` | **4. Status** — where every scope sits |
+| `log` | **5. Log** what happened |
+| `mirror` | **6. Mirror** to Notion |
+| `close` | **7. Close** the cycle |
+
+An unrecognised verb is a request in prose, not an error. Anything after a verb is input for that flow.
 
 ---
 
@@ -344,6 +362,7 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | Failure | Signal | Recovery |
 |---|---|---|
 | Auto-loaded without `/foleon-cycle` | This skill is running and the maintainer never typed the command | Stop and say so. CYC-11 makes explicit invocation part of the standard, not a preference. |
+| Made the maintainer pick a verb | Answered a plain request, or a bare invocation, with a menu of nine flows | Read the state and lead with the likely next step. The verbs are shortcuts; nobody should have to learn nine names to use this. |
 | Wrote to Notion without a yes | Mirror content appears that was never approved | The worst failure this skill can produce. Say so plainly, and treat the local file as truth when regenerating. |
 | Inferred a hill position | A scope moved and the maintainer never said it did | Revert it and ask. The hill measures knowledge, which no file-level signal can see (CYC-6). |
 | Tasks planned before scopes were accepted | A topic has tasks but its scope names were never confirmed | Stop; get the scope names right first. Tasks under a wrong slicing are wasted work. |
