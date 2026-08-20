@@ -8,6 +8,14 @@ root `CLAUDE.md` and prune the rest.
 Format: `- YYYY-MM-DD — <finding>`
 
 ## Discoveries
+- 2026-08-20 — **`shaping_overrun` measures elapsed days from the *cycle start*, not from when a
+  topic entered shaping — so it is permanently on for short appetites.** A quarter of a 1w appetite
+  is 1.75 days, so a `shaping` topic warns from day 2 of an 8-week cycle and never stops; by the
+  end of week 1 every topic warns. The doc records no "entered shaping" date, so this cannot be
+  fixed without a new field. It is harmless in `cycle.py status` (asked for, read in context) and
+  becomes wallpaper the moment anything surfaces it unsolicited — which is why
+  `cycle-queue-check.py` gates it behind a one-shot marker per topic. General rule: an always-on
+  nudge doesn't just get ignored, it drags the useful nudge in the same hook down with it.
 - 2026-08-20 — **Notion rewrites content on the way out, and `foleon-cycle`'s reconcile reads task
   text back as authoritative — so any Notion-side rewrite is a silent local corruption.** It
   autolinks anything domain-shaped (`gtm.md` → `[gtm.md](http://gtm.md)`) and escapes metacharacters
