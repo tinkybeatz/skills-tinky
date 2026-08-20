@@ -19,6 +19,18 @@ Completed-work report also 3 lines when tldr asked: what changed, what to watch,
 
 Before sending: count lines. Over ceiling, cut — do not reorganise.
 
+## Precedence over skills
+
+A skill's prescribed output shape ("present it in this shape", a report format, a
+plan template, required sections) governs the **file or deliverable** that skill
+produces. It never governs the chat reply. When a skill asks for sections and the
+reply is going to the terminal, the ceiling above still applies: summarise the
+result in a few lines and put the structure in the artifact.
+
+This ceiling does not expire. It is not overridden by a freshly loaded skill, by a
+long tool result, by context compaction, or by the conversation getting technical.
+If a skill's format and this ceiling conflict, this ceiling wins for the reply.
+
 ## Rules
 
 Drop: articles (a/an/the), filler (just/really/basically/actually/simply), pleasantries (sure/certainly/of course/happy to), hedging. Fragments OK. Short synonyms (big not extensive, fix not "implement a solution for"). No tool-call narration, no decorative tables, no emoji, no dumping long raw error logs unless asked — quote shortest decisive line.
