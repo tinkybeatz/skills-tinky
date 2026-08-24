@@ -10,7 +10,7 @@ description: >-
   in `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES/` is the source of truth; in Notion
   you may tick, rename and add tasks, and the next run reconciles that back.
   Covers every Foleon repo a cycle touches — `ripley`, `fio`, and any added later.
-  Enforces `docs/stds/CYCLE_DOC.md` (CYC-1…CYC-15).
+  Enforces `docs/stds/CYCLE_DOC.md` (CYC-1…CYC-17).
   **Explicit invocation only — `/foleon-cycle`.** Per CYC-11 this skill
   deliberately carries no trigger phrases and must not auto-load: do not invoke
   it because a message mentions a cycle, a topic, an estimate, planning, or
@@ -28,7 +28,7 @@ The maintainer's team hands over a cycle as **topics with an estimated time each
 a development plan — and knowing on any given Wednesday where the work actually stands — is the
 developer's job. This skill is that job, done in one file per cycle.
 
-Governed by [`docs/stds/CYCLE_DOC.md`](../../docs/stds/CYCLE_DOC.md) (CYC-1…CYC-15). The standard wins
+Governed by [`docs/stds/CYCLE_DOC.md`](../../docs/stds/CYCLE_DOC.md) (CYC-1…CYC-17). The standard wins
 any disagreement with this file. The Notion mirror also conforms to
 [`docs/stds/NOTION_STYLE.md`](../../docs/stds/NOTION_STYLE.md) (NST-1…NST-11), which carries the
 workspace-wide page rules — section framing, colour meanings, and the ban on styling anything the
@@ -234,13 +234,22 @@ Must-have by default; a nice-to-have is written `- [ ] ~ …` and never blocks a
   file's order, so interleaved kinds fail `validate`.
 Marking a task `~` **is** the scope-hammering action — so it earns a dev-log line as a decision.
 
-**A new Jira-bound task changes the topic's annex, if it has one.** Annexes are generated from a
-local sidecar (CYC-16), so `validate` fails until every ticket has its section:
+**A shaped topic with any Jira-bound task must have an annex**, and a new ticket changes it. Annexes
+are generated from a local sidecar (CYC-16), so `validate` fails until the topic has its `Annex:`
+line and every ticket has its section:
 ```bash
 python3 scripts/cycle.py annex sync     # stubs the uncovered tickets
 ```
 `sync` writes the structure. **You write the write-up** — from the code, never generated, for the same
 reason acceptance criteria are never generated (CYC-14). An unwritten stub cannot be published.
+
+Every ticket section is **eight named slots in a fixed order** (CYC-17), not free prose: required are
+`Expected outcome`, `Done when`, `Criteria` and `Expected testing` — that last one even when the
+answer is the literal `none`. Conditional are `Environment`, `Parameters`, `Open questions` and
+`Lives under`, omitted rather than left empty. `Parameters` is a bullet list, one constraint per line.
+**There is no "what to build" bullet list**: a step that constrains the implementation goes in
+`Parameters` *with its reason*, and one that does not is not the ticket's business. Contract:
+[`references/tickets.md`](references/tickets.md) § The slots.
 
 Edit the markdown directly, then always:
 ```bash
@@ -407,6 +416,8 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | Held a topic on a non-blocking question | A topic sat shaping for a week over something discoverable later | Apply the blocking test (`references/shaping.md`). Split it and start the shapeable half. |
 | Split into halves that aren't independent | The "shaped" half only makes sense once the other lands | Then it is not a split — it is one topic still shaping. Revert it. |
 | Cooldown work pushed through intake | A "topic" with no real appetite, e.g. "bug fixing" | Cooldown is off-book (CYC-2). Don't shape it; it doesn't belong in the doc. |
+| Ticket write-up is free prose, or a bare "what to build" list | A section without the CYC-17 slots, or with implementation bullets carrying no reason | `validate` fails on it. Rewrite into the slots; a constraining step goes in `Parameters` with its reason, the rest is deleted. |
+| Shaped topic with tickets and no annex | `validate` names the topic and its ticket count | Add the `Annex:` line, then `cycle.py annex sync`. Optional annexes date from when they were hand-written (CYC-16 v5.1.0). |
 | Annex drifted from the ticket list | A ticket was added and the annex still describes the old set | `cycle.py validate` now fails on it (CYC-16). `annex sync` inserts the stub; write it before mirroring. |
 | Wrote an annex write-up from the task title | A section that could have been written without opening the repo | Same failure as generated acceptance criteria, one page larger. Read the code (CYC-14), or leave the stub and say it is unwritten. |
 | Edited an annex in Notion | Content on the annex page that is not in the sidecar | It is lost on the next render — annexes have no writable surface. Move it into the sidecar before re-rendering, and say so. |

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 3.1.0 |
+| **Version** | 5.1.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
 | **Effective date** | 2026-08-24 |
@@ -719,7 +719,14 @@ asserting no task line begins with `self:`.
 ### CYC-16 An annex is generated from a local sidecar, never authored in Notion
 
 - A topic **MAY** carry an `Annex:` line linking a supporting document — a ticket write-up, a list of
-  questions for a call — that is too long to live in the topic. Annexes stay optional.
+  questions for a call — that is too long to live in the topic.
+- A **shaped** topic that has produced at least one **Jira-bound task MUST** carry one. Annexes were
+  optional while they were hand-authored in Notion, where creating one cost real effort; generated
+  from a sidecar the cost is a single `annex sync`, so a shaped topic with tickets and no annex is an
+  oversight rather than a decision, and its tickets go to Jira with no write-up behind them.
+  `[SRC-025]` A **shaping** topic needs no clause: it has only `self:` tasks (CYC-3, CYC-7), so there
+  is nothing to write up, and a shaped topic whose scopes hold only `self:` tasks is exempt for the
+  same reason.
 - Where one exists, its content **MUST** live in a **local sidecar file** in the cycle directory,
   named `<cycle-id>.annex.<slug>.md`, and that file **MUST** be the source of truth. The Notion page
   is generated output, exactly as the cycle page is (CYC-1, CYC-10). `[SRC-021]`
@@ -759,6 +766,56 @@ and `render` all carry it; the strict variant additionally refuses stubs and gat
 `cycle.py annex render`. `cycle.py annex list` reports coverage, `cycle.py annex sync` creates
 sidecars and stubs the uncovered tickets, and `cycle.py mirrored` records an annex snapshot alongside
 the cycle's.
+
+---
+
+### CYC-17 A ticket write-up is a fixed set of slots, in a fixed order
+
+- Every **ticket-bound** section of an annex **MUST** be written as the slots below, in this order.
+  Sections carrying no `Task:` line — background, an ordering note — are unaffected and stay free-form.
+
+  | Slot | | Holds |
+  |---|---|---|
+  | `**Expected outcome**` | **MUST** | What the ticket must achieve, observable from outside the change |
+  | `**Environment**` | if applicable | Settled facts the implementer must respect but did not choose — an id, a gate, an existing pattern to copy, a sequencing constraint |
+  | `**Parameters**` | if applicable | The surface the ticket exposes: the call, its arguments, the pieces that ship — **a bullet list, each item with the reason it is there** |
+  | `**Open questions**` | if applicable | What is still undecided inside this ticket, and who settles it |
+  | `**Done when**` | **MUST** | The one-sentence finish signal, observable |
+  | `**Criteria**` | **MUST** | The testable statements about this change, run together on one line separated by `·` |
+  | `**Lives under**` | if applicable | Where the code goes |
+  | `**Expected testing**` | **MUST** | Which tests, at which level — or the literal `none` when there are none |
+
+- `**Done when**` and `**Criteria**` are **two slots, not two lines inside one**. They answer different
+  questions — *how do I know I am finished* and *what would fail if I were not* — and nesting the
+  second inside the first buried the only half a reviewer can check. `[SRC-024]`
+- `**Parameters**` **MUST** be a bullet list, one item per line under the header, never a run-on
+  behind `·`. Its items are independent constraints; running them together makes the reader do the
+  separating that punctuation should have done for them. `[SRC-024]`
+
+- A conditional slot that does not apply **MUST** be **omitted**, never left as an empty header. An
+  empty slot is CYC-14's failure in miniature: it looks answered and says nothing.
+- `**Expected testing**` is required *including* when the answer is `none`, because unstated testing
+  is how "no tests" gets decided silently by whoever is in a hurry rather than by whoever wrote the
+  ticket. Where a criterion cannot be tested — vendor behaviour, prose — the slot **MUST** say so and
+  name the manual check instead. `[SRC-023]`
+- A ticket write-up **MUST NOT** carry a bare checklist of implementation steps. The maintainer
+  deleted exactly that from the first ticket pasted into Jira: a list of what to build, with no reason
+  attached to any item, which reads as noise to whoever picks the ticket up and duplicates what the
+  code will say anyway. `[SRC-023]` Where a step genuinely constrains the implementation it belongs in
+  `**Parameters**` **with its reason**; where it does not, it does not belong in the ticket.
+- Slot **order** is enforced, not merely recommended: the value of a fixed shape is that a reader
+  finds the same thing in the same place across forty tickets, and a section carrying every slot in
+  its own order defeats exactly that.
+- A slot **MUST NOT** be padded to look justified. An `Expected outcome` that argues for itself, or
+  states something trivially true of the code as it stands, is filler wearing a required slot's name —
+  CYC-14's failure in the one place the rule cannot catch it. Write the outcome and stop. `[SRC-024]`
+- CYC-16's exclusion still governs the words. This rule fixes the **shape**; the content of each slot
+  is written by a human or by an agent that has read the code, never generated (CYC-14).
+
+**Enforcement:** `slot_problems` in `cycle.py`, called from `annex_problems` for every ticket-bound
+section, so `validate`, `snapshot` and `annex render` all carry it. It runs on written sections only —
+an unwritten stub is already caught as a stub, and reporting both would bury the one that matters.
+`cycle.py annex sync` emits the required slots as its stub, so a new ticket starts in the right shape.
 
 ---
 
@@ -802,10 +859,13 @@ A cycle doc is conforming when **all** are true:
 - [ ] Open questions are numbered as `cycle.py questions` numbers them; topic state is stated once (CYC-15)
 - [ ] Scope headings and task lines render plain — nothing `reconcile` parses back carries a rendering attribute (CYC-15)
 - [ ] The mirror conforms to [`NOTION_STYLE.md`](NOTION_STYLE.md) (NST-1…NST-11) (CYC-15)
+- [ ] Every shaped topic with at least one Jira-bound task carries an `Annex:` line (CYC-16)
 - [ ] Every `Annex:` link has a local sidecar that is its source of truth; the Notion annex page is generated (CYC-16)
 - [ ] Every Jira-bound task is covered by exactly one annex section, and every annex section covers a task that still exists (CYC-16)
 - [ ] No annex is published while any of its sections is still a stub; no annex write-up was generated (CYC-16, CYC-14)
 - [ ] Every annex page links back to its cycle page by a derived id, and says it is generated (CYC-16)
+- [ ] Every ticket-bound annex section carries the required slots — expected outcome, done when, criteria, expected testing — in the standard's order, with conditional slots omitted rather than left empty and `Parameters` written as a bullet list (CYC-17)
+- [ ] No ticket write-up carries a bare implementation checklist; a constraining step sits in `Parameters` with its reason (CYC-17)
 - [ ] Page-level sections at `#` — `Preview`, one per project, `Dev log` — with no block outside a section (CYC-15a)
 - [ ] Every topic heading is `## <icon> Shape N: <name>`, numbered across the whole cycle, colon-separated, and the ordinal is never used as an identifier (CYC-15a)
 - [ ] Scope headings stay `####`; `###` is unused (the recorded NST-2 exception) (CYC-15a)
@@ -881,6 +941,9 @@ None standing.
 - `[SRC-015]` Internal — the maintainer's requirement, 2026-08-19: *"for notion, i want to both be able to read and edit (the local should then change too based on that automatically): if i want to say i finished a task i dont want to go through claude to tell it that i did it. i want to update and then claude would be aware the next time i use the cycles tool for something"*, and on the hill: *"we'll see for hills later, for now no editing the hills within notion."*
 - `[SRC-014]` Internal — the deadlock, observed live 2026-08-19. Asked for the outcome of an unshaped topic, the maintainer answered: *"I don't understand the question... I don't have a wanted outcome yet! this afternoon i'll be in a call to discuss this with PO, Data Engineer, etc... For now unknown like mentionned everywhere"*, and on the first cut: *"I feel like we can discuss bout this later on."* Their requirement: *"the cycle tasks could start by being 'make research and ask questions blablabla...' and then once i have more info i give everything to the skill and it would mark those tasks as done and create new ones"* — *"I want to have a system that helps me get through those steps and to adapt to what i can/cannot/know/dont know."*
 - `[SRC-013]` Internal — the maintainer's clarifications, 2026-08-19: *"a cycle is always 8 weeks, but the first 6 weeks are the dev session. the 2 last weeks are just 'cooldown' in which we do bug-fixing/research etc"*; that the point of the system is *"a list of priorised tickets generated for me (or at least a proposition) that i could then add into Jira (by-hand for now)"*; that not everything is a ticket — *"if i add a brand new feature i need to conceptualize... this won't be a ticket in JIRA, this will be a task for me -> the task could be 'research on how to implement, expected outcome of the task : make tickets to implement after research'"*; and that proposals should be code-grounded — *"it could be worth it having a technical skill read through the code of the mentionned repos"*.
+- `[SRC-025]` Internal — the maintainer, 2026-08-24, on being told CYC-17's slots only reach tickets that have an annex: *"why would a topic have no Annex? this is a genuine question."* The two honest answers were a shaping topic, which has no tickets, and an oversight. They asked for the oversight to be closed.
+- `[SRC-024]` Internal — the maintainer on the first slotted annex, 2026-08-24: *"I want to have *Done when* -- and *Criteria* -- separated"* — the nested pair read as one block and the criteria line was lost inside it — and *"parameters would be better if list also i think"*. They also flagged padding in an `Expected outcome` that justified itself rather than stating the outcome, which is where the no-filler line in this rule comes from.
+- `[SRC-023]` Internal — the maintainer's report, 2026-08-24, after pasting the first shape-1 ticket into Jira: they kept the outcome, the done signal, the criteria and the location, and deleted the three-bullet "what to build" list — *"Your 3 points didn't make a lot of sense. I would like to have a reason for having those pointers. We need a stable and validated structure that we need to follow everytime."* The slot list, `Expected testing` included, is theirs.
 - `[SRC-022]` Internal — the maintainer's request, 2026-08-24, on the shape-1 annex: *"i would like to have a proposition for a task name for Jira for all options"*, sketched as a `### Jira Ticket name :` line under each ticket heading. The annex's own headings are written for a reader of the page and read poorly as tracker summaries, which is the gap the separate line closes.
 - `[SRC-021]` Internal — the maintainer's requirement, 2026-08-24, on the shape-1 ticket annex, verbatim: *"this should be deeply-linked! automatically updated once we add a new ticket! can you enforce that rule please? … i mean enforce this as a global thing for the whole cycle system! not just for that cycle."* Raised on an annex whose page still read *"Three tickets"* over a topic that had four, and whose own "Cycle 11" backlink pointed at a page that was not the cycle's. Both defects follow from the same v2.x position — that where an annex lives *"is not this skill's call to invent"* — which left the annex as the one hand-authored surface in a system whose every other page is generated.
 - `[SRC-020]` Internal — the maintainer's request, 2026-08-21: *"can we make the answer to points being written down next to them when answered? it would be easier than just having them mixed up in the logs."* Raised on a shape-1 research task whose answer already sat four rows up the dev-log table, unfindable from the task that asked for it.
@@ -893,6 +956,9 @@ None standing.
 
 | Version | Date | Change |
 |---|---|---|
+| **5.1.0** | 2026-08-24 | **A shaped topic with tickets owes an annex.** CYC-17's slots only reach ticket write-ups, and write-ups only exist inside an annex, which CYC-16 had left optional — so the whole ticket standard could be skipped by not linking one `[SRC-025]`. CYC-16 now **requires** an annex on any shaped topic carrying at least one Jira-bound task. The optionality dated from v2.x, when an annex was hand-authored in Notion and creating one cost real effort; generated from a sidecar it costs one `annex sync`. Shaping topics need no exemption clause — they hold only `self:` tasks, so there is nothing to write up. MINOR: additive, and the only shaped topic in the only live cycle already carries its annex. |
+| **5.0.0** | 2026-08-24 | **The slots, corrected by first use.** 4.0.0's shape survived one reading. `Acceptance criteria` nested `Done when` and `Criteria` as two lines under one header, and the maintainer's report was that it *"looks weird"* — the criteria line disappeared into the block above it, which is the half a reviewer actually checks `[SRC-024]`. They are now two sibling slots. `Parameters` is now a **bullet list**, enforced: its items are independent constraints and a run-on behind `·` makes the reader separate them by hand. Added a ban on **padding a slot to look justified** — the first slotted ticket's outcome argued for itself and asserted something trivially true of the code as it stood, which is CYC-14's filler failure in the one slot the coverage rules cannot see. MAJOR: every 4.0.0 annex is non-conforming; migration is splitting one slot and bulleting another. |
+| **4.0.0** | 2026-08-24 | **A ticket write-up gets a fixed shape.** v3.1.0 fixed the annex's structure — one section per ticket, a Jira name on each — and left the section body as free prose, so every ticket invented its own arrangement. The maintainer pasted the first one into Jira and cut most of it: what survived was outcome, done signal, criteria and location; what went was a three-bullet list of what to build with no reason attached to any item `[SRC-023]`. New **CYC-17** replaces free prose with seven named slots in a fixed order — three required (`Expected outcome`, `Acceptance criteria` as done-when plus criteria, `Expected testing`), four conditional (`Environment`, `Parameters`, `Open questions`, `Lives under`) — bans the bare implementation checklist, and requires a reason on anything kept in `Parameters`. `Expected testing` is required even when the answer is `none`, because the alternative is that answer being made silently. Order is enforced for the reason the shape exists: the same thing in the same place across forty tickets. MAJOR: every annex conforming at 3.1.0 is now non-conforming; migration is rewriting each ticket section into the slots, which cannot be automated for the same reason the write-up cannot (CYC-14). |
 | **3.1.0** | 2026-08-24 | **A ticket section proposes its Jira summary.** CYC-16 shipped the annex as the place a ticket is written up, and the maintainer went to paste one into Jira and found nothing to paste: the section heading is written for someone reading the annex top to bottom, where a Jira summary is read in a list of forty with no surrounding page `[SRC-022]`. A ticket-bound section now carries a proposed Jira ticket name on its own line, `annex sync` stubs it alongside the write-up, and `annex render` refuses to publish while either placeholder stands — the name is a proposal for the maintainer to accept or rewrite, exactly as scope names are (CYC-5). MINOR: additive, and the only existing annex already carries the line. |
 | **3.0.0** | 2026-08-24 | **Annexes become generated output.** v1.x through v2.5.0 linked an annex and deliberately said nothing about it — *"where the annex itself lives is not this skill's call to invent"* — which made it the only page in the system authored by hand in Notion. The consequence was visible on the first one: a ticket added to the cycle doc left the annex reading "Three tickets" over four, and the annex's own backlink pointed at a page that was not its cycle's, with nothing able to notice either `[SRC-021]`. New **CYC-16** moves an annex's content into a **local sidecar** beside the cycle doc, makes that file authoritative, and requires **exactly one section per Jira-bound task** — a missing, orphaned or duplicated section is a validation error on the cycle doc, so adding a ticket makes the doc non-conforming until the annex accounts for it. The backlink is derived from the recorded page id rather than typed. The load-bearing exclusion is what is *not* automated: the write-up itself **MUST NOT** be generated. CYC-14 already forbids generated acceptance criteria because filler that looks finished beats an admitted blank at being wrong, and a generated annex is that failure at page scale — so the tooling inserts a **stub** that cannot be published, and a human or a code-reading agent writes the words. Annexes are not read back from Notion: they have no writable surface, CYC-10's merge does not apply, and the page says so. MAJOR: a doc that conformed at 2.5.0 with an `Annex:` line and no sidecar no longer conforms; migration is one `cycle.py annex sync` plus moving the existing page's prose into the sidecar. |
 | **2.5.0** | 2026-08-21 | **A closed research task records its own answer.** CYC-7 gave personal tasks a purpose — *finding out* — and no place to put what was found, so the answer went to the dev log and only there. The dev log is chronological, which is right for a narrative and wrong for a lookup: the maintainer hit this on a shape-1 task whose answer sat four rows up the same table, invisible from the question that produced it `[SRC-020]`. CYC-7 now requires the answer inline on the task, `→ answer: <…>`, when a personal task completes. The dev-log line is unaffected where CYC-8 admits one — the two are not redundant, they are indexed differently. Mechanically free: task text is already free-form and Notion-authoritative under CYC-10 v2.0.0, so the appended clause round-trips through `reconcile` with no renderer or parser change. MINOR: additive, and no existing doc stops conforming — untouched historic tasks simply carry no answer clause. |

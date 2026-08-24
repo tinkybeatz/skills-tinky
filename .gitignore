@@ -1,3 +1,7 @@
 # Runtime state written by hooks — never committed.
 # hooks/state/ is recreated on demand (queue.sh does mkdir -p).
 hooks/state/
+
+# Python bytecode — regenerated from source on every run.
+__pycache__/
+*.py[cod]

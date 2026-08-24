@@ -1558,10 +1558,115 @@ ANNEX_TASK_RE = re.compile(r'^Task:\s*(.+?)\s*$')
 ANNEX_JIRA_RE = re.compile(r'^###\s*Jira ticket name:\s*(.*?)\s*$', re.I)
 ANNEX_JIRA_TODO = 'TODO — a short imperative summary, readable out of context in a Jira list'
 
-# The one line a stub must lose before the annex may be published. Deliberately
-# not a subtle marker: it has to be obvious in the file that nobody wrote this.
-ANNEX_STUB = 'TODO — write this up from the code (references/tickets.md): what it is · what to build · done when · criteria.'
+# CYC-17: a ticket write-up is a fixed set of slots, in a fixed order.
+#
+# Before this, a section was free prose and every ticket invented its own shape.
+# The maintainer pasted the first one into Jira and deleted most of it: a bullet
+# list of "what to build" that stated implementation steps without saying why
+# any of them were there, which reads as noise to whoever picks the ticket up.
+# So the slots are the ones a ticket is actually read for — what it must achieve,
+# what it must respect, when it is done, and what proves it — and the checklist
+# of steps is gone, because the annex is not a design document.
+#
+# Required slots are required because a ticket missing one cannot be worked:
+# no outcome is no ticket, no criteria is unfalsifiable, and unstated testing is
+# how "expected testing: none" gets decided silently by whoever is in a hurry.
+# The rest are conditional and simply omitted when they do not apply — an empty
+# slot header is worse than an absent one, for CYC-14's reason.
+ANNEX_SLOTS = [
+    ('Expected outcome', True),
+    ('Environment', False),
+    ('Parameters', False),
+    ('Open questions', False),
+    ('Done when', True),
+    ('Criteria', True),
+    ('Lives under', False),
+    ('Expected testing', True),
+]
+# Slots whose content is a bullet list rather than inline prose. `Parameters` is
+# a set of independent constraints, and running them together behind `·` makes
+# the reader do the separating that punctuation should have done for them.
+ANNEX_LIST_SLOTS = {'Parameters'}
+ANNEX_SLOT_NAMES = [n for n, _ in ANNEX_SLOTS]
+ANNEX_SLOT_REQUIRED = [n for n, r in ANNEX_SLOTS if r]
+ANNEX_SLOT_RE = re.compile(r'^\*\*(%s)\*\*\s*(.*)$' % '|'.join(
+    re.escape(n) for n in ANNEX_SLOT_NAMES))
+# `Done when` and `Criteria` are two slots, not two lines inside one. They answer
+# different questions — "how do I know I am finished" and "what would fail if I
+# were not" — and nesting the second inside the first buried it.
+
+# The one marker a stub must lose before the annex may be published. Deliberately
+# not subtle: it has to be obvious in the file that nobody wrote this.
+ANNEX_STUB_MARK = 'TODO — write this from the code'
+ANNEX_STUB = '\n'.join([
+    '**Expected outcome** — %s (references/tickets.md): what this ticket must achieve, observable from outside.' % ANNEX_STUB_MARK,
+    '**Done when** — %s: the one-sentence signal that it is finished.' % ANNEX_STUB_MARK,
+    '**Criteria** — %s: testable statements about THIS change, never the topic outcome (CYC-14).' % ANNEX_STUB_MARK,
+    '**Expected testing** — %s: which tests, at which level, or "none" if none.' % ANNEX_STUB_MARK,
+])
 ANNEX_STUB_JIRA = '### Jira ticket name: ' + ANNEX_JIRA_TODO
+
+
+def slot_problems(section):
+    """CYC-17 conformance for one ticket-bound section: the required slots are
+    present, non-empty, unduplicated and in the standard's order, and the ones
+    that are lists are written as lists.
+
+    Order is enforced rather than merely recommended because the value of a
+    fixed shape is that a reader finds the same thing in the same place across
+    forty tickets; a section that carries every slot in its own order defeats
+    exactly that.
+    """
+    p = []
+    seen = []
+    for raw in section['body']:
+        m = ANNEX_SLOT_RE.match(raw.strip())
+        if not m:
+            continue
+        name, rest = m.group(1), m.group(2).strip(' —-·')
+        if name in [x[0] for x in seen]:
+            p.append('slot "%s" appears twice' % name)
+            continue
+        seen.append((name, rest.strip()))
+    have = [n for n, _ in seen]
+    for name in ANNEX_SLOT_REQUIRED:
+        if name not in have:
+            p.append('no "**%s**" slot' % name)
+    order = [ANNEX_SLOT_NAMES.index(n) for n in have if n in ANNEX_SLOT_NAMES]
+    if order != sorted(order):
+        p.append('slots are out of order — the standard\'s order is: %s'
+                 % ' · '.join(ANNEX_SLOT_NAMES))
+
+    def content_after(name):
+        """The lines belonging to a slot: everything up to the next slot header."""
+        run = []
+        hit = False
+        for raw in section['body']:
+            m = ANNEX_SLOT_RE.match(raw.strip())
+            if m:
+                if m.group(1) == name:
+                    hit = True
+                    continue
+                if hit:
+                    break
+                continue
+            if hit:
+                run.append(raw)
+        return run
+
+    for name, rest in seen:
+        run = [x for x in content_after(name) if x.strip()]
+        if name in ANNEX_LIST_SLOTS:
+            if rest:
+                p.append('slot "%s" is a list — put its items on "- " lines under the header, '
+                         'not inline' % name)
+            elif not run:
+                p.append('slot "%s" is empty — omit it rather than leaving a header' % name)
+            elif [x for x in run if not x.strip().startswith('- ')]:
+                p.append('slot "%s" is a list — every line under it must start with "- "' % name)
+        elif not rest and not run:
+            p.append('slot "%s" is empty — omit it rather than leaving a header' % name)
+    return p
 
 
 def annex_slug(label):
@@ -1663,7 +1768,7 @@ class Annex:
         for s in self.ticket_sections:
             body = '\n'.join(s['body'])
             written = [x for x in s['body'] if x.strip() and not ANNEX_JIRA_RE.match(x)]
-            if ANNEX_STUB[:20] in body or not written:
+            if ANNEX_STUB_MARK in body or not written:
                 out.append((s, 'the write-up is still the generated stub'))
             elif s['jira'] is None:
                 out.append((s, 'no "### Jira ticket name:" line'))
@@ -1695,6 +1800,18 @@ def annex_problems(d, strict=False):
     for t in d.topics:
         entries = topic_annexes(d, t)
         if not entries:
+            # CYC-16 v5.1.0: a shaped topic that has produced Jira-bound tasks owes
+            # an annex. Annexes were optional while they were hand-authored in
+            # Notion, where creating one cost real effort; generated from a sidecar
+            # the cost is one `annex sync`, so a shaped topic with tickets and no
+            # annex is an oversight rather than a decision. A shaping topic is
+            # exempt without needing a clause: it has only `self:` tasks, so there
+            # is nothing to write up.
+            if t['state'] == 'shaped' and jira_tasks(t):
+                p.append('topic "%s": CYC-16 — shaped, with %d Jira-bound task(s), and no "Annex:" '
+                         'line. A shaped topic that has produced tickets owes their write-up; add '
+                         'the line, then run "cycle.py annex sync".'
+                         % (t['name'], len(jira_tasks(t))))
             continue
         want = [k['text'] for k in jira_tasks(t)]
         for label, url, path, a in entries:
@@ -1730,6 +1847,13 @@ def annex_problems(d, strict=False):
             for x in dupes:
                 p.append('%s: CYC-16 — %d sections claim the same ticket %r; one section per '
                          'ticket' % (where, have.count(x), x[:70]))
+            for sec in a.ticket_sections:
+                if ANNEX_STUB_MARK in '\n'.join(sec['body']):
+                    continue
+                for why in slot_problems(sec):
+                    p.append('%s: CYC-17 — section "%s" (line %d): %s. A ticket write-up is a '
+                             'fixed set of slots in a fixed order; see references/tickets.md.'
+                             % (where, sec['title'][:50], sec['line'], why))
             if strict:
                 for s, why in a.stubs():
                     p.append('%s: CYC-16 — section "%s" (line %d): %s. An annex is published only '

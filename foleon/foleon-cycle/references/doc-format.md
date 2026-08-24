@@ -89,6 +89,10 @@ with a section per ticket, a list of questions for a call, a piece of research. 
 with an `Annex:` line on the topic — and, since CYC-16, they are **generated pages like every other**,
 not hand-written in Notion.
 
+**A shaped topic with at least one Jira-bound task must have one.** Its tickets otherwise reach Jira
+with no write-up behind them, and CYC-17's slots never apply to them. A shaping topic needs no annex:
+it holds only `self:` tasks, so there is nothing to write up.
+
 **The content lives in a local sidecar** next to the cycle doc:
 
 ```
@@ -110,8 +114,24 @@ Shared background, once. Never repeated per ticket.
 ## Build the "send an event" call
 Task: the track() call and its typed event contract, with a recording transport for tests
 ### Jira ticket name: Add the editor's analytics track() call and typed event contract
-What it is · what to build · done when · criteria — the shape in `tickets.md`.
+**Expected outcome** — …
+**Environment** — …
+**Parameters**
+- … — the reason it is there
+- … — the reason it is there
+**Open questions** — …
+**Done when** — …
+**Criteria** — … · … · …
+**Lives under** — …
+**Expected testing** — …
 ```
+
+**The body is eight named slots in a fixed order (CYC-17)**, not free prose. Required:
+`Expected outcome`, `Done when`, `Criteria` and `Expected testing` — the last one even when the
+answer is the literal `none`. Conditional: `Environment`, `Parameters`, `Open questions`,
+`Lives under`, each **omitted** when it does not apply rather than left as an empty header.
+`Parameters` is a bullet list; the rest are inline. Order is enforced. The full contract, and why the old
+"what to build" bullet list is banned, is in [`tickets.md`](tickets.md).
 
 - A section is **ticket-bound** when its first line is `Task: <the task text, verbatim from the cycle
   doc>`. That quote is the link between the two files, which is why it has to match exactly.

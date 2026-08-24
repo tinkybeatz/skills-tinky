@@ -67,8 +67,10 @@ Both are checkable; neither could have been written from the topic title.
 
 ## Ticket write-ups — short, and written for a newcomer
 
-When a topic's tickets need more than one line each, they get an **annex** (see
-`doc-format.md`): a local sidecar file, one section per ticket, rendered to its own Notion page.
+A shaped topic with any Jira-bound task gets an **annex** (see `doc-format.md`): a local sidecar
+file, one section per ticket, rendered to its own Notion page. It is not optional — without it the
+tickets reach Jira with nothing behind them and none of the slots below apply. A shaping topic has
+only `self:` tasks, so it has nothing to annex.
 `cycle.py annex sync` creates the section the moment a Jira-bound task appears and the cycle doc
 stops validating until it is written — so the annex cannot fall behind the ticket list (CYC-16).
 What it will not do is write it: a generated write-up is the same failure as generated acceptance
@@ -78,15 +80,39 @@ criteria, one page larger. That page has a hard budget.
 document about three tickets does not get read, and an unread document is worth less than no
 document. Length is not thoroughness; it is a failure to decide what matters.
 
-Per ticket, in this order and nothing else:
+### The slots (CYC-17)
 
-1. **What it is** — one or two sentences. What the thing does, in words that survive being read by
-   someone who has never opened this repo.
-2. **What to build** — three to six terse bullets. No sub-bullets, no rationale paragraphs.
-3. **Done when** — one sentence, observable.
-4. **Criteria** — the testable statements, run together on one line separated by `·`, not a bulleted
-   list of full sentences.
-5. Anything genuinely undecided, marked **Ask first**.
+Per ticket, exactly these, in this order and nothing else. Three are required; the rest are written
+only when they apply and **omitted** — never left as an empty header — when they do not.
+
+| Slot | | What goes in it |
+|---|---|---|
+| `**Expected outcome**` | required | One or two sentences: what this ticket must achieve, observable from outside the change, in words that survive being read by someone who has never opened the repo. |
+| `**Environment**` | if applicable | Settled facts the implementer must respect but did not choose — an id, a gate, a pattern to copy, a sequencing constraint. |
+| `**Parameters**` | if applicable | The surface the ticket exposes: the call, its arguments, the pieces that ship. **A bullet list — one item per line under the header, each carrying the reason it is there.** |
+| `**Open questions**` | if applicable | What is still undecided inside this ticket, and who settles it. (This replaces the old **Ask first**.) |
+| `**Done when**` | required | One sentence, observable: the signal that the ticket is finished. |
+| `**Criteria**` | required | The testable statements about this change, run together on one line separated by `·`, never a bulleted list of full sentences. |
+| `**Lives under**` | if applicable | Where the code goes — a path, not a paragraph. |
+| `**Expected testing**` | required | Which tests, at which level, naming the project and the file convention. The literal `none` when there are none. |
+
+`Done when` and `Criteria` are **siblings, not a nested pair**. They answer different questions —
+*how do I know I am finished* and *what would fail if I were not* — and the first version of this
+standard nested the second inside the first, which buried the only half a reviewer can check.
+
+`Parameters` is a **list** because its items are independent constraints. Run together behind `·`
+they make the reader do the separating that punctuation should have done for them.
+
+**Why `Expected testing` is required even when the answer is `none`:** unstated testing is how "no
+tests" gets decided by whoever is in a hurry rather than by whoever wrote the ticket. Where a
+criterion cannot be tested — vendor behaviour, prose — say so in the slot and name the manual check.
+
+**There is no "what to build" list.** The maintainer pasted the first ticket into Jira and deleted
+exactly that: three bullets of implementation steps with no reason attached to any of them, which
+reads as noise to whoever picks the ticket up and duplicates what the code will say anyway. A step
+that genuinely constrains the implementation goes in `**Parameters**` **with its reason**; a step that
+does not is not the ticket's business. `cycle.py validate` enforces the slots, their order and the
+two lines under `Acceptance criteria`.
 
 Above all of it, the **proposed Jira ticket name** — the summary that goes in the tracker. Write it to
 survive being read in a list of forty tickets with none of this page around it: imperative, naming the
@@ -104,6 +130,9 @@ what is still open. Never repeated per ticket.
 - Explaining a concept the reader will meet in the code anyway.
 - Priority, estimate and dependency lines repeated per ticket when a two-line **Order** section at the
   end says the same thing once.
+- A `**Parameters**` item with no reason attached — that is the banned checklist wearing a slot name.
+- A slot padded to look justified: an `Expected outcome` that argues for itself, or states something
+  trivially true of the code as it stands. Write the outcome and stop.
 
 **Assume no prior knowledge, not no intelligence.** Name the file and the function that already solve
 the problem — `rum.ts`, `identifyEditorUser`, `monitoringEnabled()` — instead of describing at length
