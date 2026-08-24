@@ -109,6 +109,7 @@ Shared background, once. Never repeated per ticket.
 
 ## Build the "send an event" call
 Task: the track() call and its typed event contract, with a recording transport for tests
+### Jira ticket name: Add the editor's analytics track() call and typed event contract
 What it is · what to build · done when · criteria — the shape in `tickets.md`.
 ```
 
@@ -117,6 +118,10 @@ What it is · what to build · done when · criteria — the shape in `tickets.m
 - **Every Jira-bound task in the topic needs exactly one section.** Missing, orphaned or duplicated —
   all three fail `cycle.py validate` on the *cycle doc*, so adding a ticket makes the doc
   non-conforming until the annex accounts for it. That is the enforcement, and it is the point.
+- A ticket-bound section also carries a **proposed Jira ticket name**. The heading is for whoever
+  reads this page; the Jira summary is read in a list of forty with none of it around, so it is
+  written separately and never defaulted to the heading. It is a proposal — accept it or rewrite it,
+  the way scope names work.
 - Sections with no `Task:` line — background, an ordering note — are free-form.
 
 ```bash

@@ -1552,10 +1552,16 @@ ANNEX_HEAD_RE = re.compile(r'^# Annex:\s*(.+?)\s*$')
 ANNEX_META_RE = re.compile(r'^Cycle:\s*(\S+)\s*·\s*Topic:\s*(.+?)\s*$')
 ANNEX_SECTION_RE = re.compile(r'^##\s+(.+?)\s*$')
 ANNEX_TASK_RE = re.compile(r'^Task:\s*(.+?)\s*$')
+# The Jira summary to paste into the tracker. The section heading is written for
+# a reader of this page; a Jira ticket is read in a list of forty, out of context,
+# so it gets its own line rather than reusing the heading.
+ANNEX_JIRA_RE = re.compile(r'^###\s*Jira ticket name:\s*(.*?)\s*$', re.I)
+ANNEX_JIRA_TODO = 'TODO — a short imperative summary, readable out of context in a Jira list'
 
 # The one line a stub must lose before the annex may be published. Deliberately
 # not a subtle marker: it has to be obvious in the file that nobody wrote this.
 ANNEX_STUB = 'TODO — write this up from the code (references/tickets.md): what it is · what to build · done when · criteria.'
+ANNEX_STUB_JIRA = '### Jira ticket name: ' + ANNEX_JIRA_TODO
 
 
 def annex_slug(label):
@@ -1633,7 +1639,7 @@ class Annex:
                 continue
             s = ANNEX_SECTION_RE.match(raw)
             if s:
-                cur = {'title': s.group(1), 'task': None, 'line': i, 'body': []}
+                cur = {'title': s.group(1), 'task': None, 'jira': None, 'line': i, 'body': []}
                 self.sections.append(cur)
                 continue
             if cur is None:
@@ -1643,6 +1649,9 @@ class Annex:
             if t and cur['task'] is None and not [x for x in cur['body'] if x.strip()]:
                 cur['task'] = t.group(1)
                 continue
+            j = ANNEX_JIRA_RE.match(raw)
+            if j and cur['jira'] is None:
+                cur['jira'] = j.group(1)
             cur['body'].append(raw)
 
     @property
@@ -1650,9 +1659,17 @@ class Annex:
         return [s for s in self.sections if s['task'] is not None]
 
     def stubs(self):
-        return [s for s in self.ticket_sections
-                if ANNEX_STUB[:20] in '\n'.join(s['body'])
-                or not [x for x in s['body'] if x.strip()]]
+        out = []
+        for s in self.ticket_sections:
+            body = '\n'.join(s['body'])
+            written = [x for x in s['body'] if x.strip() and not ANNEX_JIRA_RE.match(x)]
+            if ANNEX_STUB[:20] in body or not written:
+                out.append((s, 'the write-up is still the generated stub'))
+            elif s['jira'] is None:
+                out.append((s, 'no "### Jira ticket name:" line'))
+            elif not s['jira'] or s['jira'].startswith('TODO'):
+                out.append((s, 'the Jira ticket name is still a placeholder'))
+        return out
 
 
 def topic_annexes(d, topic):
@@ -1714,11 +1731,10 @@ def annex_problems(d, strict=False):
                 p.append('%s: CYC-16 — %d sections claim the same ticket %r; one section per '
                          'ticket' % (where, have.count(x), x[:70]))
             if strict:
-                for s in a.stubs():
-                    p.append('%s: CYC-16 — section "%s" (line %d) is still a stub. An annex is '
-                             'published only once its write-up is written — the structure is '
-                             'generated, the words are not (CYC-14).'
-                             % (where, s['title'][:50], s['line']))
+                for s, why in a.stubs():
+                    p.append('%s: CYC-16 — section "%s" (line %d): %s. An annex is published only '
+                             'once its write-up is written — the structure is generated, the words '
+                             'are not (CYC-14).' % (where, s['title'][:50], s['line'], why))
     return p
 
 
@@ -1801,7 +1817,8 @@ def annex_sync(a):
                 continue
             body = read(path).rstrip('\n')
             for k in add:
-                body += '\n\n## %s\nTask: %s\n%s\n' % (k['text'], k['text'], ANNEX_STUB)
+                body += '\n\n## %s\nTask: %s\n%s\n%s\n' % (
+                    k['text'], k['text'], ANNEX_STUB_JIRA, ANNEX_STUB)
             with open(path, 'w', encoding='utf-8') as fh:
                 fh.write(body.rstrip('\n') + '\n')
             print('%s: +%d stub section(s)' % (os.path.basename(path), len(add)))

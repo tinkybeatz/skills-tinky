@@ -88,6 +88,11 @@ Per ticket, in this order and nothing else:
    list of full sentences.
 5. Anything genuinely undecided, marked **Ask first**.
 
+Above all of it, the **proposed Jira ticket name** — the summary that goes in the tracker. Write it to
+survive being read in a list of forty tickets with none of this page around it: imperative, naming the
+thing and the system it belongs to. `annex sync` stubs it and `annex render` refuses to publish the
+placeholder, so it is never silently the section heading.
+
 Shared background sits once at the top: what the system is in plain terms, what is already settled,
 what is still open. Never repeated per ticket.
 
