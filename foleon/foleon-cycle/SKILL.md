@@ -29,7 +29,10 @@ a development plan — and knowing on any given Wednesday where the work actuall
 developer's job. This skill is that job, done in one file per cycle.
 
 Governed by [`docs/stds/CYCLE_DOC.md`](../../docs/stds/CYCLE_DOC.md) (CYC-1…CYC-15). The standard wins
-any disagreement with this file.
+any disagreement with this file. The Notion mirror also conforms to
+[`docs/stds/NOTION_STYLE.md`](../../docs/stds/NOTION_STYLE.md) (NST-1…NST-11), which carries the
+workspace-wide page rules — section framing, colour meanings, and the ban on styling anything the
+skill parses back.
 
 A cycle is **8 weeks: 6 of dev, then 2 of cooldown**. The doc covers the **dev window only** —
 cooldown is bug-fixing and research, which has no appetite and nothing to put on a hill, so it stays
@@ -48,9 +51,10 @@ whether the number of outstanding tasks will go down or up.
 | Never | inside any repo — not `ripley`, not `fio`, and **not `skills-tinky`**, which is a skills repo, shared pro/perso and pushed to GitHub (CYC-1 v1.1.0) |
 | Repos covered | whatever is registered in `hooks/awareness-ignore.txt` (`ripley`, `fio`, …). One cycle doc spans all of them |
 | Notion mirror | the **`🔁 Cycles` database** — one row per cycle, sectioned by repo inside the page. Topics/scopes/tasks are page content, never rows or properties (CYC-10 v1.4.0) |
+| Annexes | `<cycle-id>.annex.<slug>.md` beside the cycle doc — **the sidecar is the source of truth**; its Notion page is generated, one section per Jira-bound task, and the cycle doc stops validating when the two disagree (CYC-16) |
 | Queue | `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES/.state/cycle-queue.jsonl` — dates on which a Foleon repo was edited. Evidence work happened, not log lines |
 | History | local-only git in the cycle directory — **no remote, never pushed**. `new`, `log` and `close` commit on their own; `snapshot --why "..."` records a hand-edit (CYC-1 v1.2.0) |
-| Mechanics | `scripts/cycle.py` (skeleton, hill, tasks, log patterns, close preflight), `scripts/queue.sh` |
+| Mechanics | `scripts/cycle.py` (skeleton, hill, tasks, log patterns, annex coverage, close preflight), `scripts/queue.sh` |
 
 The Notion mirror requires the **Notion MCP**. If a call fails because it is not connected, say so and
 stop — the local doc is already authoritative, so there is nothing to fall back to and nothing lost.
@@ -222,7 +226,21 @@ Must-have by default; a nice-to-have is written `- [ ] ~ …` and never blocks a
 - **`self: …`** — yours alone: research, conceptualising, deciding an approach. Its outcome is usually
   *producing the tickets*, e.g. `- [ ] self: research how nested tables paginate → produces the tickets`.
   When it closes and adds three new tasks to its scope, that is the system working, not scope creep.
+  **When it closes, its answer goes on the task line** — `→ answer: <what was decided>` (CYC-7). The
+  task is the question, so ticking it silently discards what it produced; the dev-log line still goes
+  in where a gate admits one, because the log is chronological and the inline answer is findable.
+  Under a scope, write **all the `self:` tasks first, then the Jira-bound ones** — the mirror renders
+  the kind as a group label instead of repeating `self:` on every line (CYC-15b), and it keeps the
+  file's order, so interleaved kinds fail `validate`.
 Marking a task `~` **is** the scope-hammering action — so it earns a dev-log line as a decision.
+
+**A new Jira-bound task changes the topic's annex, if it has one.** Annexes are generated from a
+local sidecar (CYC-16), so `validate` fails until every ticket has its section:
+```bash
+python3 scripts/cycle.py annex sync     # stubs the uncovered tickets
+```
+`sync` writes the structure. **You write the write-up** — from the code, never generated, for the same
+reason acceptance criteria are never generated (CYC-14). An unwritten stub cannot be published.
 
 Edit the markdown directly, then always:
 ```bash
@@ -307,6 +325,10 @@ nothing (a task gone from Notion is reported and left in place), re-validates be
 stops with nothing written on a real collision — which in practice only happens when the same task was
 renamed on both sides.
 
+Topics with an `Annex:` line get their page regenerated in the same pass —
+`cycle.py annex render --json` gives the body and the target url, backlink already derived. Annexes
+are never read back; a Notion-side edit to one is lost on the next render.
+
 **After a successful write, always:**
 ```bash
 python3 scripts/cycle.py mirrored     # records the snapshot the next reconcile merges against
@@ -341,6 +363,9 @@ retrospection. Details: [`references/close.md`](references/close.md).
 - **Never revise an appetite upward** without recording a re-bet as a log line (CYC-4). The response to
   overrun is scope hammering, not more time.
 - **No percentages, anywhere.** Not in the doc, not in the mirror, not in a status report (CYC-6).
+- **Never write an annex by hand in Notion, and never generate its write-up.** The sidecar is the
+  source of truth (CYC-16); the page is output. The structure is automated, the words are not — a
+  generated ticket write-up is a generated acceptance criterion one page larger (CYC-14).
 - **Never edit a closed doc.** Follow-on work belongs to the next cycle.
 - **Never give the cycle directory a git remote**, and never push it. The maintainer authorised
   auto-commit *because* the history stays on the laptop; a remote would silently convert a private
@@ -353,6 +378,7 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | [`references/intake.md`](references/intake.md) | Interviewing a topic into shape — question bank, depth ladder, worked example |
 | [`references/doc-format.md`](references/doc-format.md) | Writing or fixing the markdown — exact skeleton, hill semantics, task rules |
 | [`references/mirror.md`](references/mirror.md) | Pushing to Notion — page shape, call sequence, consent gate |
+| [`references/doc-format.md`](references/doc-format.md) § Annexes | Ticket write-ups — the sidecar, the coverage rule, `annex sync`/`render` |
 | [`references/shaping.md`](references/shaping.md) | Re-evaluating a shaping topic — the blocking test, and the hold/split/shape decision |
 | [`references/tickets.md`](references/tickets.md) | Producing the work list — ticket shape, ordering, code-grounding |
 | [`references/close.md`](references/close.md) | Closing a cycle and handing off to `sprint-review` |
@@ -381,6 +407,9 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | Held a topic on a non-blocking question | A topic sat shaping for a week over something discoverable later | Apply the blocking test (`references/shaping.md`). Split it and start the shapeable half. |
 | Split into halves that aren't independent | The "shaped" half only makes sense once the other lands | Then it is not a split — it is one topic still shaping. Revert it. |
 | Cooldown work pushed through intake | A "topic" with no real appetite, e.g. "bug fixing" | Cooldown is off-book (CYC-2). Don't shape it; it doesn't belong in the doc. |
+| Annex drifted from the ticket list | A ticket was added and the annex still describes the old set | `cycle.py validate` now fails on it (CYC-16). `annex sync` inserts the stub; write it before mirroring. |
+| Wrote an annex write-up from the task title | A section that could have been written without opening the repo | Same failure as generated acceptance criteria, one page larger. Read the code (CYC-14), or leave the stub and say it is unwritten. |
+| Edited an annex in Notion | Content on the annex page that is not in the sidecar | It is lost on the next render — annexes have no writable surface. Move it into the sidecar before re-rendering, and say so. |
 | Notion MCP unavailable | An MCP call errors on connection | Carry on locally — the local doc is authoritative, so the only cost is a stale mirror. Say so, and refresh next time. |
 | Mirrored but forgot `mirrored` | Next reconcile reports changes the maintainer already made, or misses ticks | The snapshot is the merge's only reference point. Run it after every successful write, never before. |
 | Reconcile wanted to delete a task | A task vanished from Notion | It is reported, not deleted (CYC-10). Deleting the maintainer's work automatically is never right; they can remove it locally if they meant it. |

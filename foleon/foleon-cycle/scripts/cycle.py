@@ -34,6 +34,7 @@ commit on their own; `snapshot` records a hand-edit.
 import argparse
 import datetime
 import glob
+import json
 import os
 import re
 import sys
@@ -42,6 +43,23 @@ HILLS = ('uphill', 'top', 'downhill', 'done')
 DEV_WEEKS = 6          # the bet window: everything shaped must fit here
 COOLDOWN_WEEKS = 2     # bug-fixing / research, deliberately NOT tracked in the doc
 SELF_RE = re.compile(r'^self\s*:\s*(.+)$', re.I)   # a task for the maintainer, never a Jira ticket
+
+# CYC-15b: a task's kind is carried by the group it sits in, not by a prefix on
+# every line. These label lines open each group in the mirror. They are the only
+# place the kind is visible, and they are deliberately NOT parsed as content —
+# which is what lets them carry a colour the task line never may (CYC-15).
+KIND_LABEL = {
+    'self': '**Mine — research & decisions, never a ticket**',
+    'jira': '**Ticket work — becomes a Jira ticket**',
+}
+# NST-3's mapping: research is an unknown (orange), ticket work is execution (blue).
+KIND_COLOR = {'self': 'orange', 'jira': 'blue'}
+# Matched on the leading word rather than the whole label, so rewording a label
+# does not orphan every task under it on a page mirrored before the change.
+KIND_LABEL_RE = re.compile(r'^\s*\*{0,2}(Mine|Ticket work)\b', re.I)
+KIND_ORDER = ('self', 'jira')   # research before execution, as CYC-14 orders the work list
+SELF_PREFIX_RE = re.compile(r'^- \[[ xX]\]\s*(?:~\s*)?self\s*:', re.I)
+SHAPE_HEAD_RE = re.compile(r'^## .*\bShape \d+: ')
 GATES = ('state', 'decision', 'surprise')
 
 # CYC-8: a log line states an outcome, not an activity. These openers describe
@@ -58,7 +76,27 @@ SCOPE_RE = re.compile(r'^### scope:\s*(.+?)\s+[—-]\s*([a-z]+)\s*$')
 TASK_RE = re.compile(r'^- \[([ xX])\]\s*(~\s*)?(.+?)\s*$')
 LOG_RE = re.compile(r'^- (\d{4}-\d{2}-\d{2})\s+\[([a-z0-9._-]+)\]\s+(.+?)\s+(?:→|->)\s+(.+?)\s*$')
 FIELDS = ('Outcome:', 'Appetite:', 'No-gos:', 'Done when:')
-EXTRA_FIELDS = ('Open questions:', 'Assumptions:', 'Shipped:', 'Cut:')
+EXTRA_FIELDS = ('Open questions:', 'Assumptions:', 'Annex:', 'Shipped:', 'Cut:')
+
+def parse_annexes(raw):
+    """Splits an `Annex:` field into (label, url) pairs.
+
+    Written `Annex: <label> → <url> · <label> → <url>`. A malformed entry is
+    skipped rather than raising: an annex is a convenience link, and losing one
+    must never be able to stop a mirror.
+    """
+    out = []
+    for chunk in (raw or '').split('·'):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        parts = re.split(r'\s+(?:→|->)\s+', chunk, maxsplit=1)
+        if len(parts) != 2 or not parts[1].startswith('http'):
+            continue
+        out.append((parts[0].strip(), parts[1].strip()))
+    return out
+
+
 
 
 DEFAULT_HOME = '~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES'
@@ -378,6 +416,25 @@ class Doc:
                 if s['hill'] not in HILLS:
                     p.append(f'scope "{s["name"]}" (line {s["line"]}): CYC-2 — hill must be one of '
                              f'{", ".join(HILLS)}, got {s["hill"]!r}')
+                # CYC-15b: the mirror renders task kind as a group label rather than
+                # a `self:` prefix on every line, and the round-trip check compares
+                # task ORDER. So the groups have to already be in order here: all
+                # research tasks, then all ticket tasks. Reordering at render time
+                # instead would make the rendered body stop parsing back to this
+                # file, which is the one failure CYC-15 refuses to write through.
+                seq = []
+                for k in s['tasks']:
+                    if not seq or seq[-1] != k['kind']:
+                        seq.append(k['kind'])
+                if len(seq) != len(set(seq)):
+                    p.append(f'scope "{s["name"]}" (line {s["line"]}): CYC-15b — tasks of one kind '
+                             f'must be contiguous; the "self:" and Jira tasks are interleaved. '
+                             f'Group them: "self:" tasks first, then the rest')
+                elif seq and [x for x in KIND_ORDER if x in seq] != seq:
+                    p.append(f'scope "{s["name"]}" (line {s["line"]}): CYC-15b — "self:" research '
+                             f'tasks come before Jira-bound ones (unknowns first, as CYC-14 orders '
+                             f'the work list)')
+
                 if s['hill'] == 'done':
                     open_must = [k for k in s['tasks'] if not k['done'] and not k['nice']]
                     if open_must:
@@ -396,6 +453,13 @@ class Doc:
                     p.append(f'line {lineno}: CYC-8 — {b!r} narrates activity; state the outcome '
                              f'(what changed, what was decided, what surprised you)')
                     break
+
+        # CYC-16: an annex is generated from a local sidecar, so a topic whose
+        # ticket list has moved on from its annex is a non-conforming doc, not a
+        # cosmetic mismatch. Structure only here — the write-up itself is
+        # demanded at publish time, so adding a ticket never blocks an unrelated
+        # local snapshot.
+        p.extend(annex_problems(self))
         return p
 
 
@@ -721,6 +785,52 @@ def roundtrip_problems(d, body):
     return probs
 
 
+def layout_problems(body, repos, n_topic_headings):
+    """CYC-15a's enforcement: does the rendered body have the page shape the standard fixes?
+
+    Same fail-closed contract as `roundtrip_problems`: checked in the write path,
+    not in a test, because `render` is the only way a body reaches Notion. The
+    checks are structural on purpose — a heading level or a missing orientation
+    line is exactly the kind of regression that survives review by looking fine.
+    """
+    lines = body.split('\n')
+    probs = []
+
+    first = next((l for l in lines if l.strip()), '')
+    if first != '# Preview':
+        probs.append('the page must open with "# Preview" (CYC-15a), got %r' % first[:40])
+
+    want = ['# Preview'] + ['# %s' % r for r in repos] + ['# Dev log']
+    got = [l for l in lines if l.startswith('# ')]
+    if got != want:
+        probs.append('page sections are %r, expected %r (CYC-15a)' % (got, want))
+
+    for i, l in enumerate(lines, start=1):
+        if l.startswith('### ') and not l.startswith('#### '):
+            probs.append('line %d: "###" is unused on this page — scopes are "####" and topics '
+                         '"##" (CYC-15a): %r' % (i, l[:40]))
+        if SELF_PREFIX_RE.match(l):
+            probs.append('line %d: a task line renders a "self:" prefix; kind is a group label '
+                         '(CYC-15b): %r' % (i, l[:60]))
+
+    n = sum(1 for l in lines if SHAPE_HEAD_RE.match(l))
+    if n != n_topic_headings:
+        probs.append('%d "## <icon> Shape N: <name>" headings, expected %d (CYC-15a)'
+                     % (n, n_topic_headings))
+
+    # Every page section states what it is before its first block (NST-11). A
+    # callout counts — for Preview the header callout IS the orientation, and a
+    # grey line under it would say the same thing twice.
+    for i, l in enumerate(lines):
+        if not l.startswith('# '):
+            continue
+        after = [x for x in lines[i + 1:i + 4] if x.strip()]
+        if not after or not (after[0].startswith('<callout')
+                             or after[0].rstrip().endswith('{color="gray"}')):
+            probs.append('section %r has no orientation line under it (CYC-15a, NST-11)' % l[:40])
+    return probs
+
+
 def cmd_render_for(d, a):
     """Render the Notion mirror: body markdown + the derived properties (CYC-10).
 
@@ -731,6 +841,9 @@ def cmd_render_for(d, a):
     The visual contract is CYC-15: the four questions the doc answers must be
     answerable without scrolling, so the hill board comes first, the outcome is
     the loudest thing in a topic, and the constraints recede into grey. Two
+    CYC-15a fixes the page's sections (`#` Preview / project / Dev log, topics as
+    `## <icon> Shape N: <name>`) and CYC-15b moves task kind onto a group label,
+    both asserted before the write by `layout_problems`. Two
     things are deliberately NOT styled — the scope h4 and the task lines — since
     both are parsed back out of Notion by `reconcile` (a `{color=}` swallowed
     into a task's text would rewrite the task, and task text is authoritative
@@ -758,7 +871,11 @@ def cmd_render_for(d, a):
     # and which parts of this page the maintainer may edit. Purple because it is
     # the maintainer's own accent and this is the one block that is about them
     # rather than about the work.
-    out = ['<callout icon="🔁" color="purple_bg">']
+    # Page-level sections at `#` (CYC-15a): Preview, one per project, Dev log.
+    # Before this the top half of the page was three unframed blocks and the
+    # reader had to infer the page's shape from its contents.
+    out = ['# Preview', '']
+    out.append('<callout icon="🔁" color="purple_bg">')
     # The id may already say "Cycle" (the maintainer named one "Cycle-11"), and
     # "Cycle Cycle-11" reads like a bug on a page they look at every day.
     label = d.cycle_id if d.cycle_id.lower().startswith('cycle') else 'Cycle %s' % d.cycle_id
@@ -852,19 +969,38 @@ def cmd_render_for(d, a):
             out.append('```')
             out.append('')
 
+    # A shape's number is its position in the doc, counted across the whole cycle
+    # so "Shape 2" is unambiguous on a multi-project page. Derived only: it
+    # renumbers the moment a topic is added or split, which is why CYC-15a forbids
+    # using it as an identifier anywhere outside this page.
+    shape_no = {id(t): n for n, t in enumerate(d.topics, start=1)}
+    n_topic_headings = sum(1 for r in repos for t in d.topics if r in t['repos'])
+
     for repo in repos:
+        mine = [t for t in d.topics if repo in t['repos']]
+        scopes = [sc for t in mine for sc in t['scopes']]
+        stuck_here = [sc for sc in scopes if sc['hill'] in ('uphill', 'top')]
+        weeks = sum(appetite_weeks(t['fields'].get('Appetite:', '')) for t in mine)
         out.append('---')
         out.append('')
-        out.append('## %s' % repo)
+        out.append('# %s' % repo)
         out.append('')
-        for t in d.topics:
-            if repo not in t['repos']:
-                continue
+        # Derived counts only. A sentence about what the repo *is* would have to be
+        # composed here, and an invented gloss reads like a fact (CYC-15a) — if one
+        # is ever wanted it gets quoted from that repo's project-context skill.
+        out.append('%d shape%s · %d scope%s, %d not yet downhill · %.1fw of the %dw window '
+                   '{color="gray"}'
+                   % (len(mine), '' if len(mine) == 1 else 's',
+                      len(scopes), '' if len(scopes) == 1 else 's',
+                      len(stuck_here), weeks, DEV_WEEKS))
+        out.append('')
+        for t in mine:
             icon = STATE_ICON.get(t['state'], '')
-            # The state used to be spelled out in this heading as well as carried
-            # by the icon and counted in the header callout — three times for one
-            # fact. It lives in the callout below now.
-            out.append('### %s %s' % (icon, t['name']))
+            # Numbered, because three shapes rendered as three bare titles read as
+            # one column. Colon-separated, not em-dash: topic names contain em
+            # dashes already ("GTM analytics — plumbing") and "Shape 1 — GTM
+            # analytics — plumbing" is unreadable (CYC-15a).
+            out.append('## %s Shape %d: %s' % (icon, shape_no[id(t)], t['name']))
             out.append('')
 
             oq = [x.strip() for x in (t['fields'].get('Open questions:') or '').split('·')
@@ -934,19 +1070,50 @@ def cmd_render_for(d, a):
                 # gets its colour in the board above instead.
                 out.append('#### %s — `%s`' % (sc['name'], sc['hill']))
                 out.append('%s {color="gray"}' % must_have_line(sc))
+                # CYC-15b: the kind is a group, not a prefix. `self:` on forty
+                # consecutive lines spent forty lines conveying a grouping the eye
+                # can read for free — and the obvious fix, a colour on the
+                # checkbox, is the one thing CYC-15 forbids, because that
+                # attribute becomes the task's text on the next read. The label
+                # line takes the colour instead: nothing parses it back. Groups
+                # are emitted in file order (validate guarantees they are already
+                # contiguous and research-first) so the round-trip stays exact.
+                last = None
                 for k in sc['tasks']:
+                    if k['kind'] != last:
+                        out.append('')
+                        out.append('%s {color="%s"}'
+                                   % (KIND_LABEL.get(k['kind'], KIND_LABEL['jira']),
+                                      KIND_COLOR.get(k['kind'], 'blue')))
+                        last = k['kind']
                     mark = 'x' if k['done'] else ' '
                     pre = '~ ' if k['nice'] else ''
-                    kind = 'self: ' if k['kind'] == 'self' else ''
                     # Deliberately unstyled: this line comes back from Notion and
                     # its text wins, so anything appended here would become part
                     # of the task on the next reconcile.
-                    out.append('- [%s] %s%s%s' % (mark, pre, kind, k['text']))
+                    out.append('- [%s] %s%s' % (mark, pre, k['text']))
+                out.append('')
+
+            # Annexes render once per topic, directly under its last scope's
+            # tasks — the point in the page where the reader has just seen the
+            # ticket lines and wants the write-up behind them. Grey and plain:
+            # `reconcile` reads scope headings and task lines, so a link line
+            # sitting between them must not look like either.
+            for label, url in parse_annexes(t['fields'].get('Annex:')):
+                out.append('📎 **Annex** — [%s](%s) {color="gray"}' % (label, url))
+            if t['fields'].get('Annex:'):
                 out.append('')
 
     out.append('---')
     out.append('')
-    out.append('## Dev log')
+    out.append('# Dev log')
+    out.append('')
+    dates = sorted(m.group(1) for _, _, m in d.log if m)
+    span = ''
+    if dates:
+        span = ' · %s' % dates[0] if dates[0] == dates[-1] else ' · %s → %s' % (dates[0], dates[-1])
+    out.append('%d entr%s%s {color="gray"}'
+               % (len(d.log), 'y' if len(d.log) == 1 else 'ies', span))
     out.append('')
     if d.log:
         # A flat bullet list was fine at four lines and unreadable at forty. The
@@ -966,6 +1133,13 @@ def cmd_render_for(d, a):
         out.append('*nothing logged yet*')
     body = '\n'.join(out).rstrip() + '\n'
 
+    lay = layout_problems(body, repos, n_topic_headings)
+    if lay:
+        print('render aborted — the page layout does not conform (CYC-15a/CYC-15b):')
+        for x in lay:
+            print('  - %s' % x)
+        return 1
+
     rt = roundtrip_problems(d, body)
     if rt:
         print('render aborted — the body does not parse back to the local doc (CYC-15).')
@@ -976,13 +1150,13 @@ def cmd_render_for(d, a):
 
     # The header line is deliberately NOT in the body: Dates and Status are row
     # properties, and writing them twice creates two truths in one page (CYC-10).
-    dates = re.search(r'Dates:\s*(\S+)\s*(?:→|->)\s*(\S+)', '\n'.join(d.lines[:3]))
+    hdr = re.search(r'Dates:\s*(\S+)\s*(?:→|->)\s*(\S+)', '\n'.join(d.lines[:3]))
     props = {'Name': d.cycle_id,
              'Status': 'In progress' if d.status == 'active' else 'Done'}
-    if dates and dates.group(1) not in ('?', ''):
-        props['date:Dates:start'] = dates.group(1)
-        if dates.group(2) not in ('?', ''):
-            props['date:Dates:end'] = dates.group(2)
+    if hdr and hdr.group(1) not in ('?', ''):
+        props['date:Dates:start'] = hdr.group(1)
+        if hdr.group(2) not in ('?', ''):
+            props['date:Dates:end'] = hdr.group(2)
     props['Repos'] = repos
 
     if a.json:
@@ -1117,6 +1291,17 @@ def cmd_mirrored(a):
     with open(path, 'w', encoding='utf-8') as fh:
         fh.write(render_body(d))
     print('snapshot recorded: %s' % path)
+    # An annex is generated output and is never read back, so its snapshot is
+    # not a merge base — it is the record of what the page currently says, which
+    # is what makes "the annex is stale" answerable without fetching Notion.
+    for t in d.topics:
+        for label, url, apath, ax in topic_annexes(d, t):
+            if ax is None or annex_problems(d, strict=True):
+                continue
+            sp = annex_snapshot_path(d.cycle_id, label)
+            with open(sp, 'w', encoding='utf-8') as fh:
+                fh.write(render_annex(d, t, label, url, ax))
+            print('snapshot recorded: %s' % sp)
     return 0
 
 
@@ -1141,22 +1326,33 @@ def parse_mirror_tasks(text):
     # future render or Notion's round-trip puts one here — CYC-15 forbids the
     # renderer from doing it, and this is the belt to that braces.
     scope_re = re.compile(r'^####\s+(.+?)\s+[—-]\s*`?(\w+)`?(?:\s*\{[^}]*\})?\s*$')
-    out, cur = {}, None
+    out, cur, kind = {}, None, None
     for raw in text.split('\n'):
         # Notion escapes brackets on the way out (\[fio\]); undo before matching.
         ln = unautolink(raw.replace('\\[', '[').replace('\\]', ']')).rstrip()
         m = scope_re.match(ln)
         if m:
             cur = m.group(1)
+            kind = None      # a group label never carries across a scope boundary
             out.setdefault(cur, [])
+            continue
+        lb = KIND_LABEL_RE.match(ln)
+        if lb and cur is not None:
+            # CYC-15b: the kind lives on the group label now. A task the
+            # maintainer types under a label inherits that label's kind, which is
+            # the behaviour they'd expect from where they put it.
+            kind = 'self' if lb.group(1).lower().startswith('mine') else 'jira'
             continue
         k = TASK_RE.match(ln)
         if k and cur is not None:
             body = k.group(3)
+            # An inline `self:` is still honoured: it is the local file's syntax
+            # (CYC-7) and the maintainer may well type it into Notion by hand. A
+            # task above any label falls back to CYC-7's default, Jira-bound.
             m_self = SELF_RE.match(body)
             out[cur].append({
                 'done': k.group(1).lower() == 'x', 'nice': bool(k.group(2)),
-                'kind': 'self' if m_self else 'jira',
+                'kind': 'self' if m_self else (kind or 'jira'),
                 'text': m_self.group(1) if m_self else body,
             })
     return out
@@ -1225,7 +1421,18 @@ def cmd_reconcile(a):
                     mark = 'x' if th['done'] else ' '
                     pre = '~ ' if th['nice'] else ''
                     kind = 'self: ' if th['kind'] == 'self' else ''
-                    insert_at = (sc['tasks'][-1]['line'] if sc['tasks'] else sc['line'])
+                    # Land it at the end of its OWN kind group, not the end of the
+                    # scope. CYC-15b requires the kinds to stay contiguous, and the
+                    # re-validate below would otherwise reject the maintainer's own
+                    # added task — a task typed into Notion must never be the thing
+                    # that makes the doc non-conforming.
+                    same = [k for k in sc['tasks'] if k['kind'] == th['kind']]
+                    if same:
+                        insert_at = same[-1]['line']
+                    elif th['kind'] == 'self' and sc['tasks']:
+                        insert_at = sc['tasks'][0]['line'] - 1   # research group goes first
+                    else:
+                        insert_at = (sc['tasks'][-1]['line'] if sc['tasks'] else sc['line'])
                     lines.insert(insert_at, '- [%s] %s%s%s' % (mark, pre, kind, th['text']))
                     for t2 in d.topics:
                         for s2 in t2['scopes']:
@@ -1322,6 +1529,381 @@ def cmd_questions(a):
     return 0
 
 
+
+# ---------------------------------------------------------------------------
+# Annexes (CYC-16)
+# ---------------------------------------------------------------------------
+#
+# An annex is a supporting document for one topic — a ticket write-up, a list of
+# questions for a call. Until v3.0.0 of the standard it was hand-authored
+# straight into Notion and merely linked from the cycle doc, which meant it went
+# stale the moment a ticket was added and nothing could tell: the maintainer hit
+# exactly that, an annex still saying "Three tickets" over a topic that had four.
+#
+# So an annex is now generated output like the cycle page itself. Its content
+# lives in a local sidecar file beside the cycle doc, one section per Jira-bound
+# task, and `validate` fails while the doc and the sidecar disagree about which
+# tickets exist. The prose is still written by a human or an agent reading the
+# code — CYC-14 forbids generating acceptance criteria, and a generated write-up
+# would be exactly the filler that rule exists to prevent. What is enforced is
+# the structure, the coverage and the links; never the words.
+
+ANNEX_HEAD_RE = re.compile(r'^# Annex:\s*(.+?)\s*$')
+ANNEX_META_RE = re.compile(r'^Cycle:\s*(\S+)\s*·\s*Topic:\s*(.+?)\s*$')
+ANNEX_SECTION_RE = re.compile(r'^##\s+(.+?)\s*$')
+ANNEX_TASK_RE = re.compile(r'^Task:\s*(.+?)\s*$')
+
+# The one line a stub must lose before the annex may be published. Deliberately
+# not a subtle marker: it has to be obvious in the file that nobody wrote this.
+ANNEX_STUB = 'TODO — write this up from the code (references/tickets.md): what it is · what to build · done when · criteria.'
+
+
+def annex_slug(label):
+    """Filename-safe key for an annex label.
+
+    The label in the doc's `Annex:` line is the identity; this is only how it
+    reaches the filesystem. Renaming a label therefore orphans its sidecar — on
+    purpose, and loudly: `validate` reports the missing file rather than
+    silently starting a second one.
+    """
+    s = re.sub(r'[^a-z0-9]+', '-', (label or '').lower()).strip('-')
+    return s or 'annex'
+
+
+def annex_path(cycle_id, label):
+    return os.path.join(state_dir(), '%s.annex.%s.md' % (cycle_id, annex_slug(label)))
+
+
+def jira_tasks(topic):
+    """Every Jira-bound task under a topic, in doc order.
+
+    Includes done ones and `~` nice-to-haves: a shipped ticket still needs its
+    write-up findable, and a nice-to-have that gets built needs one too.
+    """
+    out = []
+    for sc in topic['scopes']:
+        for k in sc['tasks']:
+            if k['kind'] == 'jira':
+                out.append({'text': k['text'], 'scope': sc['name'], 'hill': sc['hill'],
+                            'done': k['done'], 'nice': k['nice']})
+    return out
+
+
+class Annex:
+    """Parsed view of an annex sidecar.
+
+    Line 1 is `# Annex: <label>`, matching the doc's `Annex:` line exactly.
+    Line 2 is `Cycle: <id> · Topic: <topic name>`.
+    Anything before the first `##` is shared background, rendered as written.
+    A `##` section is ticket-bound when its first non-blank line is `Task: <the
+    task text, verbatim from the cycle doc>`; every other section (background,
+    an ordering note) is free-form and carries no `Task:` line.
+    """
+
+    def __init__(self, path):
+        self.path = path
+        self.lines = read(path).split('\n')
+        self.label = None
+        self.cycle_id = None
+        self.topic = None
+        self.preamble = []
+        self.sections = []      # {title, task, line, body[]}
+        self.problems = []
+        self._parse()
+
+    def _parse(self):
+        m = ANNEX_HEAD_RE.match(self.lines[0] if self.lines else '')
+        if m:
+            self.label = m.group(1)
+        else:
+            self.problems.append('CYC-16: line 1 of %s must be "# Annex: <label>"'
+                                 % os.path.basename(self.path))
+        for ln in self.lines[1:4]:
+            mm = ANNEX_META_RE.match(ln)
+            if mm:
+                self.cycle_id, self.topic = mm.group(1), mm.group(2)
+                break
+        if self.topic is None:
+            self.problems.append('CYC-16: %s must carry "Cycle: <id> · Topic: <topic name>" '
+                                 'in its first lines' % os.path.basename(self.path))
+
+        cur = None
+        for i, raw in enumerate(self.lines, start=1):
+            if i <= 2:
+                continue
+            s = ANNEX_SECTION_RE.match(raw)
+            if s:
+                cur = {'title': s.group(1), 'task': None, 'line': i, 'body': []}
+                self.sections.append(cur)
+                continue
+            if cur is None:
+                self.preamble.append(raw)
+                continue
+            t = ANNEX_TASK_RE.match(raw)
+            if t and cur['task'] is None and not [x for x in cur['body'] if x.strip()]:
+                cur['task'] = t.group(1)
+                continue
+            cur['body'].append(raw)
+
+    @property
+    def ticket_sections(self):
+        return [s for s in self.sections if s['task'] is not None]
+
+    def stubs(self):
+        return [s for s in self.ticket_sections
+                if ANNEX_STUB[:20] in '\n'.join(s['body'])
+                or not [x for x in s['body'] if x.strip()]]
+
+
+def topic_annexes(d, topic):
+    """(label, url, path, Annex|None) for each annex declared on a topic."""
+    out = []
+    for label, url in parse_annexes(topic['fields'].get('Annex:')):
+        p = annex_path(d.cycle_id, label)
+        a = Annex(p) if os.path.isfile(p) else None
+        out.append((label, url, p, a))
+    return out
+
+
+def annex_problems(d, strict=False):
+    """CYC-16 conformance: every annex has a sidecar, and the sidecar's ticket
+    sections match the topic's Jira-bound tasks exactly.
+
+    `strict` additionally refuses unwritten stubs. Structure is checked always,
+    because it is cheap to fix and a drifting annex is the whole defect; the
+    prose is only demanded when the page is about to be published, so that
+    adding a ticket never blocks an unrelated local snapshot.
+    """
+    p = []
+    for t in d.topics:
+        entries = topic_annexes(d, t)
+        if not entries:
+            continue
+        want = [k['text'] for k in jira_tasks(t)]
+        for label, url, path, a in entries:
+            where = 'annex "%s" (topic "%s")' % (label, t['name'])
+            if a is None:
+                p.append('%s: CYC-16 — no sidecar at %s. The annex is generated from a local '
+                         'file; run "cycle.py annex sync" to create it.'
+                         % (where, os.path.basename(path)))
+                continue
+            p.extend(a.problems)
+            if a.label and a.label != label:
+                p.append('%s: CYC-16 — sidecar says "# Annex: %s"; the doc says %r. '
+                         'The label is the identity — make them match.' % (where, a.label, label))
+            if a.cycle_id and a.cycle_id != d.cycle_id:
+                p.append('%s: CYC-16 — sidecar belongs to cycle %r, not %r'
+                         % (where, a.cycle_id, d.cycle_id))
+            if a.topic and a.topic != t['name']:
+                p.append('%s: CYC-16 — sidecar names topic %r; it is linked from %r'
+                         % (where, a.topic, t['name']))
+
+            have = [s['task'] for s in a.ticket_sections]
+            for task in want:
+                if task not in have:
+                    p.append('%s: CYC-16 — no section covers the ticket %r. Every Jira-bound '
+                             'task in the topic needs one; run "cycle.py annex sync" to insert '
+                             'the stub, then write it.' % (where, task[:70]))
+            for task in have:
+                if task not in want:
+                    p.append('%s: CYC-16 — a section covers %r, which is no longer a Jira-bound '
+                             'task in this topic. Delete the section or restore the task.'
+                             % (where, task[:70]))
+            dupes = [x for x in set(have) if have.count(x) > 1]
+            for x in dupes:
+                p.append('%s: CYC-16 — %d sections claim the same ticket %r; one section per '
+                         'ticket' % (where, have.count(x), x[:70]))
+            if strict:
+                for s in a.stubs():
+                    p.append('%s: CYC-16 — section "%s" (line %d) is still a stub. An annex is '
+                             'published only once its write-up is written — the structure is '
+                             'generated, the words are not (CYC-14).'
+                             % (where, s['title'][:50], s['line']))
+    return p
+
+
+ANNEX_SKELETON = """# Annex: %(label)s
+Cycle: %(cycle)s · Topic: %(topic)s
+
+%(intro)s
+"""
+
+
+def cmd_annex(a):
+    if a.action == 'list':
+        return annex_list(a)
+    if a.action == 'sync':
+        return annex_sync(a)
+    if a.action == 'render':
+        return annex_render(a)
+    die('unknown annex action %r' % a.action)
+
+
+def annex_list(a):
+    d = Doc(resolve(a.id))
+    n = 0
+    for t in d.topics:
+        entries = topic_annexes(d, t)
+        if not entries:
+            continue
+        want = [k['text'] for k in jira_tasks(t)]
+        for label, url, path, ax in entries:
+            n += 1
+            print('%s  [%s] %s' % (label, ','.join(t['repos']), t['name']))
+            print('  sidecar: %s%s' % (os.path.basename(path), '' if ax else '  (MISSING)'))
+            print('  page:    %s' % url)
+            if ax:
+                have = [s['task'] for s in ax.ticket_sections]
+                stubs = ax.stubs()
+                print('  covers:  %d of %d ticket(s)%s'
+                      % (len([x for x in want if x in have]), len(want),
+                         ', %d still a stub' % len(stubs) if stubs else ''))
+                for task in want:
+                    if task not in have:
+                        print('    missing: %s' % task[:70])
+                for task in have:
+                    if task not in want:
+                        print('    orphan:  %s' % task[:70])
+            print('')
+    if not n:
+        print('no annexes declared in %s' % os.path.basename(d.path))
+    return 0
+
+
+def annex_sync(a):
+    """Create missing sidecars and insert a stub section per uncovered ticket.
+
+    Never deletes and never rewrites prose: an orphaned section is reported, not
+    removed, for the same reason `reconcile` never deletes a task.
+    """
+    d = Doc(resolve(a.id))
+    touched, made = [], 0
+    for t in d.topics:
+        entries = topic_annexes(d, t)
+        if not entries:
+            continue
+        want = jira_tasks(t)
+        for label, url, path, ax in entries:
+            if ax is None:
+                with open(path, 'w', encoding='utf-8') as fh:
+                    fh.write(ANNEX_SKELETON % {
+                        'label': label, 'cycle': d.cycle_id, 'topic': t['name'],
+                        'intro': '<!-- Shared background goes here: what the system is in plain '
+                                 'terms, what is settled, what is open. Once, never per ticket '
+                                 '(references/tickets.md). -->',
+                    })
+                print('created %s' % os.path.basename(path))
+                made += 1
+                ax = Annex(path)
+            have = [s['task'] for s in ax.ticket_sections]
+            add = [k for k in want if k['text'] not in have]
+            if not add:
+                continue
+            body = read(path).rstrip('\n')
+            for k in add:
+                body += '\n\n## %s\nTask: %s\n%s\n' % (k['text'], k['text'], ANNEX_STUB)
+            with open(path, 'w', encoding='utf-8') as fh:
+                fh.write(body.rstrip('\n') + '\n')
+            print('%s: +%d stub section(s)' % (os.path.basename(path), len(add)))
+            for k in add:
+                print('    %s' % k['text'][:70])
+            touched.append(path)
+    probs = annex_problems(d)
+    if probs:
+        print('\nstill not conforming:')
+        for x in probs:
+            print('  - %s' % x)
+        return 1
+    if not (touched or made):
+        print('every annex already covers its tickets')
+    else:
+        print('\nwrite the stub sections before mirroring — the structure is generated, '
+              'the write-up is not.')
+    return 0
+
+
+def mirror_json():
+    p = os.path.join(cycle_home(), '.state', 'mirror.json')
+    if not os.path.isfile(p):
+        return {}
+    try:
+        return json.loads(read(p))
+    except ValueError:
+        return {}
+
+
+def cycle_page_url(cycle_id):
+    return ((mirror_json().get('cycles') or {}).get(cycle_id) or {}).get('url')
+
+
+def annex_snapshot_path(cycle_id, label):
+    d = os.path.join(cycle_home(), '.state')
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, '%s.annex.%s.mirror.md' % (cycle_id, annex_slug(label)))
+
+
+def render_annex(d, topic, label, url, ax):
+    """The Notion body for one annex page.
+
+    The backlink is derived from `.state/mirror.json`, never typed: the first
+    hand-written annex pointed at a page that was not the cycle's, and nothing
+    in the system could notice.
+    """
+    out = []
+    back = cycle_page_url(d.cycle_id)
+    who = '[%s](%s)' % (d.cycle_id, back) if back else d.cycle_id
+    tickets = ax.ticket_sections
+    out.append('%d ticket%s. %s owns the scopes and their state; this is only what goes in the '
+               'tickets. {color="gray"}' % (len(tickets), '' if len(tickets) == 1 else 's', who))
+    out.append('Generated from `%s` — edit there, not here. {color="gray"}'
+               % os.path.basename(ax.path))
+    out.append('')
+    pre = '\n'.join(ax.preamble).strip('\n')
+    if pre:
+        out.append(pre)
+        out.append('')
+    n = 0
+    for s in ax.sections:
+        if s['task'] is None:
+            out.append('## %s' % s['title'])
+        else:
+            n += 1
+            out.append('## %d. %s' % (n, s['title']))
+        body = '\n'.join(s['body']).strip('\n')
+        if body:
+            out.append(body)
+        out.append('')
+    return '\n'.join(out).rstrip('\n') + '\n'
+
+
+def annex_render(a):
+    d = Doc(resolve(a.id))
+    probs = d.check() + annex_problems(d, strict=True)
+    if probs:
+        print('not rendering a non-conforming annex - fix these first:')
+        for x in probs:
+            print('  - %s' % x)
+        return 1
+    hits = []
+    for t in d.topics:
+        for label, url, path, ax in topic_annexes(d, t):
+            if a.label and a.label != label:
+                continue
+            hits.append((t, label, url, ax))
+    if not hits:
+        die('no annex matching %r' % a.label if a.label else 'no annexes declared')
+    for t, label, url, ax in hits:
+        body = render_annex(d, t, label, url, ax)
+        if a.json:
+            print(json.dumps({'label': label, 'url': url, 'body': body}, ensure_ascii=False))
+        else:
+            print('--- annex: %s' % label)
+            print('--- page:  %s' % url)
+            print('')
+            print(body)
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(prog='cycle.py', description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1382,6 +1964,15 @@ def main():
     q = sub.add_parser('questions', help='list open questions, numbered per topic')
     q.add_argument('--id')
     q.set_defaults(fn=cmd_questions)
+
+    ax = sub.add_parser('annex', help='ticket write-ups: the local sidecar behind an Annex: link')
+    ax.add_argument('action', choices=('list', 'sync', 'render'),
+                    help='list: coverage per annex · sync: create sidecars and stub the '
+                         'uncovered tickets · render: the Notion body for an annex page')
+    ax.add_argument('--label', help='render one annex by its label; default is all of them')
+    ax.add_argument('--json', action='store_true')
+    ax.add_argument('--id')
+    ax.set_defaults(fn=cmd_annex)
 
     z = sub.add_parser('close', help='close preflight, then flip status')
     z.add_argument('--id')

@@ -45,7 +45,8 @@ Done when: merged
 | Topic | `## [<repo>] <name> — shaping\|shaped` — the state is required (CYC-3). Two tags for a cross-repo topic: `## [fio][ripley] <name> — shaped` |
 | Fields | **shaped**: `Outcome:` `Appetite:` `No-gos:` `Done when:` all required. **shaping**: only `Appetite:` (may be `(provisional)`) and `Open questions:`; `Open questions:` when there are any; `Shipped:` / `Cut:` added at close |
 | Scope | `### scope: <name> — <hill>` (em dash or hyphen both parse) |
-| Task | `- [ ] <text>` / `- [x] <text>`; nice-to-have: `- [ ] ~ <text>`; personal (not Jira): `- [ ] self: <text>` |
+| Task | `- [ ] <text>` / `- [x] <text>`; nice-to-have: `- [ ] ~ <text>`; personal (not Jira): `- [ ] self: <text>`. A completed `self:` task carries `→ answer: <…>` at the end of its text (CYC-7). Under one scope, `self:` tasks come first and the two kinds stay contiguous — the mirror renders the kind as a group label and preserves this order (CYC-15b) |
+| Annex | `Annex: <label> → <url>`, several separated by ` · `. Optional, topic level. Links a supporting document — a ticket write-up, a question list — that is too long to live in the topic |
 | Log line | `- <YYYY-MM-DD> [<repo>] <scope> → <what changed>` |
 
 Order is fixed: header, then topics, then exactly one `## Dev log` — **nothing after the log.**
@@ -72,10 +73,73 @@ task-count and percentage status can't show uncertainty.
 - Half a day to two days. Bigger is a scope; smaller isn't worth tracking.
 - **Two kinds.** Unmarked = implementation, becomes a Jira ticket. `self:` = yours alone (research,
   conceptualising) and never a ticket — its outcome is usually *producing* the tickets (CYC-7).
+- **A `self:` task records its answer when it closes** — append `→ answer: <what was decided or found
+  out>` to the task text (CYC-7). The task is the question; ticking it silently throws away the only
+  thing it produced. The dev-log line still goes in where CYC-8 admits one: the log is chronological,
+  the inline answer is findable from the question.
 - **Must-have by default.** `~` marks a nice-to-have: it never blocks `done`, and marking it **is**
   the scope-hammering action — so it earns a dev-log line as a *decision*.
 - A scope may legitimately have **no tasks** — it marks work known to be needed whose steps aren't
   discovered yet. Write `(no tasks yet — …)` as plain text so the section isn't empty.
+
+## Annexes
+
+A topic may need a supporting document that has no business inside the cycle doc: a ticket write-up
+with a section per ticket, a list of questions for a call, a piece of research. Those are referenced
+with an `Annex:` line on the topic — and, since CYC-16, they are **generated pages like every other**,
+not hand-written in Notion.
+
+**The content lives in a local sidecar** next to the cycle doc:
+
+```
+SHAPEUP-CYCLES/
+  Cycle-11.md                                              <- the cycle doc
+  Cycle-11.annex.tickets-to-write-shape-1-gtm-plumbing.md  <- the annex, authoritative
+```
+
+The filename's slug is derived from the label, so the label in the `Annex:` line is the identity.
+Renaming it orphans the sidecar — reported loudly by `validate`, never silently duplicated.
+
+```markdown
+# Annex: Tickets to write — Shape 1 (GTM plumbing)
+Cycle: Cycle-11 · Topic: GTM analytics — plumbing
+
+## What this is
+Shared background, once. Never repeated per ticket.
+
+## Build the "send an event" call
+Task: the track() call and its typed event contract, with a recording transport for tests
+What it is · what to build · done when · criteria — the shape in `tickets.md`.
+```
+
+- A section is **ticket-bound** when its first line is `Task: <the task text, verbatim from the cycle
+  doc>`. That quote is the link between the two files, which is why it has to match exactly.
+- **Every Jira-bound task in the topic needs exactly one section.** Missing, orphaned or duplicated —
+  all three fail `cycle.py validate` on the *cycle doc*, so adding a ticket makes the doc
+  non-conforming until the annex accounts for it. That is the enforcement, and it is the point.
+- Sections with no `Task:` line — background, an ordering note — are free-form.
+
+```bash
+python3 scripts/cycle.py annex list     # coverage per annex: what is missing, orphaned, still a stub
+python3 scripts/cycle.py annex sync     # create the sidecar, stub every uncovered ticket
+python3 scripts/cycle.py annex render   # the Notion body, backlink derived from mirror.json
+```
+
+**`sync` writes structure; you write the words.** The stub it inserts is deliberately unpublishable —
+`annex render` refuses while any section still holds one. A generated write-up would be exactly the
+filler CYC-14 bans acceptance criteria for: it reads finished and tests nothing. Read the code, then
+write it.
+
+The mirror renders each annex as a grey link directly under the topic's last scope, which is the
+point on the page where the reader has just read the task lines and wants the detail behind them.
+
+**The annex page is never read back.** It has no writable surface, so CYC-10's three-way merge does
+not apply and a Notion-side edit to one is lost on the next render — the rendered page says so in its
+own header. Edit the sidecar.
+
+**Where the page lives** is the `Cycle <n> - Annexes` home under the cycle's own page in Notion; a
+generated annex goes there as a row with a `Status`. Never create one as a parentless page — Notion
+files those under the maintainer's private area, which is theirs, not a place for generated output.
 
 ## Dev log
 

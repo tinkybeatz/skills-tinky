@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 2.3.0 |
+| **Version** | 3.0.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
-| **Effective date** | 2026-08-20 |
+| **Effective date** | 2026-08-24 |
 | **Applies to** | The per-cycle work doc for Foleon cycles — the local markdown file that is its source of truth, stored in the maintainer's own cycle directory (**not** in `skills-tinky`, see CYC-1), and the single Notion page that mirrors it — written and maintained by the `foleon-cycle` skill across every repo a cycle touches (`ripley`, `fio`, and any future Foleon repo) |
 
 **Reference implementation** — `foleon/foleon-cycle` (to be built against this standard; no
@@ -317,6 +317,10 @@ inference path to disable.
 - A personal task completing and **adding new tasks to its scope is expected**, not scope creep — that
   is what resolving an unknown does, and CYC-5 already allows a scope to exist before its tasks are
   known. `[SRC-013]`
+- A **personal task MUST carry its answer inline when it completes**, appended to the task text as
+  `→ answer: <what was decided or found out>`. The task is the question; leaving it ticked and silent
+  discards the only thing it produced. The dev-log line stays required where CYC-8 admits one, but the
+  log is chronological and the answer belongs where the question is. `[SRC-020]`
 - Marking a task `~` **IS** the scope-hammering action and **MUST** be recorded as such — it is a
   decision, not bookkeeping, and therefore earns a dev-log line under CYC-8 gate 2. `[SRC-004]`
 - A scope reaches `done` when every must-have under it is complete; outstanding `~` tasks **MAY**
@@ -566,6 +570,11 @@ placeholder; code-grounding is a review judgement at proposal time.
 
 ### CYC-15 The mirror's visual hierarchy
 
+The general rules — heading meaning, the workspace colour mapping, callout and table discipline,
+the parsed-back-renders-plain exclusion — now live in [`NOTION_STYLE.md`](NOTION_STYLE.md) (NST), which
+binds every generated page in the workspace. The mirror **MUST** conform to NST; what follows is what is
+specific to *this* page and is not derivable from NST alone.
+
 - The mirror **MUST** answer the doc's four questions — what am I building, how much time is it worth,
   where are the unknowns, what gets cut first — **from the top of the page**, without reading a topic
   through. `[SRC-017]`
@@ -620,6 +629,132 @@ would hand the merge corrupted input, which is a data-loss bug wearing a styling
 `render` rather than in a test, so a failing body cannot reach Notion at all. The read side is
 covered by normalising Notion's transformations in `parse_mirror_tasks` before any comparison.
 
+### CYC-15a Page sections, numbered shapes, and the project frame
+
+- The mirror **MUST** be divided into **page-level sections at `#`**: a `Preview` section, one section
+  per project the cycle touches, and `Dev log` — in that order. No content block may sit outside a
+  section. `[SRC-019]` (NST-2)
+- `Preview` **MUST** hold the header callout, the hill board and the bet, each as an `##` block within
+  it. Those blocks answer the doc's four questions, and grouping them under one named section is what
+  makes the page's shape readable before its content is.
+- A topic heading **MUST** be an `##` inside its project section and **MUST** carry a **shape
+  ordinal**: `## <state icon> Shape N: <topic name>`. The separator **MUST** be a colon, not an em
+  dash — topic names contain em dashes (`GTM analytics — plumbing`), and `Shape 1 — GTM analytics —
+  plumbing` is unparseable by the eye.
+- The ordinal **MUST** be assigned in doc order across the **whole cycle**, not restarted per project,
+  so `Shape 2` names one topic unambiguously on a multi-project page.
+- The ordinal is **derived and positional**. It **MUST NOT** be written into the local doc, a dev-log
+  line, a ticket, or anything the skill says in conversation — topics and scopes are referred to by
+  **name**, which is stable, while an ordinal renumbers the moment a topic is added, split (CYC-3) or
+  reordered.
+- The scope heading **MUST** stay at `####`. `reconcile` keys on that level and already-mirrored pages
+  carry it, so the page uses `#` / `##` / `####` and leaves `###` unused. This is the skipped-level
+  exception NST-2 permits, recorded here as NST-2 requires.
+- Every `#` section **MUST** be followed, before its first block, by the orientation NST-11 requires.
+  For `Preview` the **header callout is that orientation** — NST-11 accepts a callout in place of the
+  line, and a second grey line under it would say the same thing twice. For `Dev log` the line is
+  derived: how many entries, over what span.
+- A **project** section's orientation line **MUST** be built from **derived** facts only — how many
+  topics the project carries this cycle, how many of its scopes are not yet downhill, how much of the
+  dev window it books — optionally preceded by a gloss **quoted** from that project's project-context
+  skill (`foleon-fio`, `foleon-ripley`; see [`PROJECT_CONTEXT_SKILL.md`](PROJECT_CONTEXT_SKILL.md)).
+  A gloss the renderer composed itself **MUST NOT** be emitted: a bare repo name is unhelpful, but an
+  invented sentence about the repo is worse, because it reads like a fact.
+
+**Rationale:** the second round of feedback on the mirror was not about colour. Three shapes rendered
+as three bare titles under a bare `## fio`, with the whole top half of the page unframed, and the
+maintainer's reading of it was *"i want to have a clear 'Shape 1 : ...' for each shape. just make more
+visible sections … why is 'fio' just here like that without any context???"* `[SRC-019]`. Sections
+give the page a shape; the ordinal turns three peers into `Shape 1` of three; the orientation line
+answers the question a bare project name assumes the reader has already answered. The ban on using
+the ordinal as an identifier is the price of having it — a number that renumbers must never be
+something a log line points at.
+
+**Enforcement:** a layout assertion inside `cycle.py render`, fail-closed on the same terms as the
+round-trip check: the body's first line is `# Preview`, every project and `Dev log` is a `#`, every
+topic heading matches `^## .* Shape \d+: `, every `#` section is followed by an orientation line, and
+no `###` is emitted. The derived-or-quoted requirement is structural — the renderer has no code path
+that composes a gloss.
+
+### CYC-15b Task kind is a labelled group, never a line prefix
+
+- `self:` **MUST NOT** appear as a prefix on a mirrored task line. Under a scope, tasks **MUST** be
+  rendered in **kind groups**, each opened by a label line stating what the group is to the reader —
+  research and decisions that are the maintainer's own and will never be a ticket, versus work that
+  becomes a Jira ticket (CYC-7). `[SRC-019]` (NST-6)
+- The label line **MUST** be coloured per the NST-3 mapping — research groups orange (unknowns),
+  ticket groups blue (execution) — and **MUST NOT** be parseable as a task line or a scope heading.
+  It is not read back, which is exactly why it may carry the colour the task line may not.
+- When both kinds are present under one scope, the research group **MUST** come first. Unknowns before
+  execution is the ordering CYC-14 already requires of the work list.
+- Tasks of one kind under one scope **MUST** be contiguous in the local doc, so that rendering them as
+  a group preserves task order and the CYC-15 round-trip stays byte-identical. This is a validation
+  rule on the local file, checked with the rest of CYC-7's task syntax.
+- The local doc **MUST** keep the `self:` prefix as its own syntax (CYC-7 is unchanged). This rule
+  binds the rendered page only.
+- `parse_mirror_tasks` **MUST** derive a task's kind from the group label above it, and **MUST** still
+  accept an inline `self:` prefix on a line — a task the maintainer types into Notion by hand may
+  carry one, and it must not be read as part of the task's text. A task added **above** any label
+  takes CYC-7's default and is Jira-bound.
+- The round-trip check **MUST** compare kind alongside text, done and nice-to-have state. Losing a
+  task's kind silently promotes a research task into a Jira ticket.
+- The task line itself stays plain. CYC-15's hard exclusion is unchanged and this rule does not bend
+  it: the grouping carries the attribute precisely *because* the line cannot.
+
+**Rationale:** `self:` on forty consecutive lines was the maintainer's third complaint and the most
+clear-cut — *"'self:' -> this is not aesthetic, instead you could just use color codes, pills or
+borders"* `[SRC-019]`. The prefix spends forty lines conveying a grouping the eye could read for free,
+and conveys it only to a reader who already knows the code. The mechanism matters as much as the
+result: the obvious fix — a colour on the checkbox — is the one thing CYC-15 forbids, because that
+attribute becomes the task's text on the next read. A group label is the rendering that gets the
+visual weight without touching the writable surface, and the contiguity requirement is what keeps
+the render order identical to the file's so the round-trip check still passes byte-for-byte.
+
+**Enforcement:** the CYC-15 round-trip check, extended to kind (already compared in
+`roundtrip_problems`); a contiguity check in `cycle.py validate`; and a grep over the rendered body
+asserting no task line begins with `self:`.
+
+---
+
+### CYC-16 An annex is generated from a local sidecar, never authored in Notion
+
+- A topic **MAY** carry an `Annex:` line linking a supporting document — a ticket write-up, a list of
+  questions for a call — that is too long to live in the topic. Annexes stay optional.
+- Where one exists, its content **MUST** live in a **local sidecar file** in the cycle directory,
+  named `<cycle-id>.annex.<slug>.md`, and that file **MUST** be the source of truth. The Notion page
+  is generated output, exactly as the cycle page is (CYC-1, CYC-10). `[SRC-021]`
+- The sidecar **MUST** open with `# Annex: <label>` matching the doc's `Annex:` label verbatim, and
+  **MUST** name its cycle and topic on the following line. The label is the identity; a renamed label
+  orphans its sidecar, which **MUST** be reported rather than silently starting a second one.
+- Every **Jira-bound task** under the topic **MUST** be covered by exactly one section of the sidecar,
+  and every ticket-bound section **MUST** declare which task it covers by quoting the task text. A
+  section covering a task that no longer exists, a task with no section, and two sections claiming one
+  task are all **validation errors on the cycle doc**, not warnings. This is the rule's whole point:
+  adding a ticket makes the doc non-conforming until the annex accounts for it.
+- Sections that carry no task — shared background, an ordering note — are free-form and unconstrained.
+  Background **MUST** sit once at the top, never per ticket (CYC-14).
+- `foleon-cycle` **MUST** be able to insert a **stub** section for an uncovered ticket, and the stub
+  **MUST** be visibly unwritten. A stub **MUST NOT** be publishable: rendering an annex for Notion
+  **MUST** fail while any of its sections is still a stub.
+- The write-up itself **MUST NOT** be generated. CYC-14 already forbids generated acceptance criteria
+  on the grounds that filler which looks finished is worse than an admitted blank, and a generated
+  annex is that failure at page scale. What this rule automates is **structure, coverage and links**;
+  the words are written by a human or by an agent that has read the code.
+- The annex page **MUST** carry a link back to its cycle page, and that link **MUST** be **derived**
+  from the recorded page id, never typed. The first hand-authored annex pointed at a page that was not
+  its cycle's, and nothing in the system could notice. `[SRC-021]`
+- An annex **MUST NOT** be read back from Notion. It is generated output with no writable surface, so
+  CYC-10's three-way merge does not apply to it and a Notion-side edit to an annex is lost on the next
+  render — which the page **MUST** say, on the page.
+- The consent position is CYC-10's: refreshing a generated annex needs no permission; creating its
+  page the first time does (CYC-11).
+
+**Enforcement:** `annex_problems` in `cycle.py`, folded into `Doc.check()` so `validate`, `snapshot`
+and `render` all carry it; the strict variant additionally refuses stubs and gates
+`cycle.py annex render`. `cycle.py annex list` reports coverage, `cycle.py annex sync` creates
+sidecars and stubs the uncovered tickets, and `cycle.py mirrored` records an annex snapshot alongside
+the cycle's.
+
 ---
 
 ## Documented overrides
@@ -661,6 +796,18 @@ A cycle doc is conforming when **all** are true:
 - [ ] Within a topic the outcome and done signal are the most prominent block; constraints render subordinate (CYC-15)
 - [ ] Open questions are numbered as `cycle.py questions` numbers them; topic state is stated once (CYC-15)
 - [ ] Scope headings and task lines render plain — nothing `reconcile` parses back carries a rendering attribute (CYC-15)
+- [ ] The mirror conforms to [`NOTION_STYLE.md`](NOTION_STYLE.md) (NST-1…NST-11) (CYC-15)
+- [ ] Every `Annex:` link has a local sidecar that is its source of truth; the Notion annex page is generated (CYC-16)
+- [ ] Every Jira-bound task is covered by exactly one annex section, and every annex section covers a task that still exists (CYC-16)
+- [ ] No annex is published while any of its sections is still a stub; no annex write-up was generated (CYC-16, CYC-14)
+- [ ] Every annex page links back to its cycle page by a derived id, and says it is generated (CYC-16)
+- [ ] Page-level sections at `#` — `Preview`, one per project, `Dev log` — with no block outside a section (CYC-15a)
+- [ ] Every topic heading is `## <icon> Shape N: <name>`, numbered across the whole cycle, colon-separated, and the ordinal is never used as an identifier (CYC-15a)
+- [ ] Scope headings stay `####`; `###` is unused (the recorded NST-2 exception) (CYC-15a)
+- [ ] Every `#` section opens with a one-line grey orientation built from derived facts or a quoted project-context gloss — never an invented one (CYC-15a)
+- [ ] No mirrored task line begins with `self:`; kind is a coloured group label, research group first (CYC-15b)
+- [ ] Tasks of one kind are contiguous under a scope in the local doc; the round-trip compares kind (CYC-15b)
+- [ ] The parser derives kind from the group label and still accepts a hand-typed inline `self:` (CYC-15b)
 - [ ] Every dev-log line passes a state-change / decision / surprise gate; nothing restates git; append-only (CYC-8)
 - [ ] Topics repo-tagged; cross-repo topics written once; mirror nested by project (CYC-9)
 - [ ] Mirror is one page per cycle, regenerated whole from local, refreshed at the end of every flow that changed the doc (CYC-10)
@@ -687,6 +834,10 @@ A cycle doc is conforming when **all** are true:
 | Description carries no phrase triggers | CYC-11 | Yes — `concierge` audit |
 | Durable-vs-time-bound routing judgement | CYC-12 | No — judgement, by design |
 | Close routine requires shipped/cut record before flipping status | CYC-13 | Yes |
+| Round-trip check inside `render` — render → parse → byte-identical, fail-closed | CYC-15, CYC-15b | Yes |
+| Layout assertion inside `render` — section levels, `Shape N:` headings, orientation lines, no `###` | CYC-15a | Yes |
+| Task-kind contiguity check in `validate`; `self:`-prefix grep over the rendered body | CYC-15b | Yes |
+| No renderer code path composes an unsourced project gloss | CYC-15a | Structural |
 
 ## Exceptions
 
@@ -719,11 +870,14 @@ None standing.
 - `[SRC-007]` Internal — [`CHEAT_SHEET.md`](CHEAT_SHEET.md) (CHS 2.4.0). Page-not-database (v2.0.0 reversal), CHS-9a project nesting, CHS-9b write-once for cross-project facts, CHS-9 conversational review gate. Reused rather than re-derived.
 - `[SRC-008]` Internal — [`PROJECT_CONTEXT_SKILL.md`](PROJECT_CONTEXT_SKILL.md) (PCS). PCS-6 discoveries log as the home of durable facts; PCS-9a silo-versus-checkout boundary; PCS-11 single external mirror.
 - `[SRC-016]` Internal — the maintainer's requirement after a partial scoping call, 2026-08-19: *"i would like to re-evaluate the current state and from there take a decision (if too many left over open questions, push on waiting for more answers, if a few answers help working on a first part of the shape, then the skill should be able to ask me if agree)"*, and on the mis-filed entry: *"3 is a fair point, it's not a question. make sure this doesnt happen anymore."* Also the observation that this is the general case, not a special one: *"shapeup IS about figuring out solutions"* — under Scrum a PO and scrum master pre-prepared the tasks; here that work is the developer's.
+- `[SRC-019]` Internal — the maintainer's second reading of the rendered Cycle-11 mirror, 2026-08-20, verbatim: *"i want to have a clear 'Shape 1 : ...' for each shape. just make more visible sections (the whole first part before 'fio' could have a 'preview' category). why is 'fio' just here like that without any context??? … same for the questions : 'self:' -> this is not aesthetic, instead you could just use color codes, pills or borders i dont know just something better"*, and on the page as a whole: *"this is a bit pathetic. i've seen so many good looking notion pages in my life!! add a real rule-set for that maybe?"* The "rule-set" request is what produced [`NOTION_STYLE.md`](NOTION_STYLE.md); the three specific complaints are CYC-15a and CYC-15b.
 - `[SRC-018]` Internal — the maintainer's decision, 2026-08-20, on whether loops or hooks suit this system. Loops were rejected on three grounds: every flow ends at a consent gate a loop cannot satisfy, `/loop` only runs while a session is open and there is nothing to poll during one, and the cycle directory is local-only with no remote (CYC-1) so a scheduled cloud agent cannot read it. The gap found instead was time: `cycle.py`'s `shaping_overrun` and `week_of` are computed only on an explicit `status` call, so a topic can pass its escalate threshold unannounced. Their constraint on the fix, verbatim: *"don't overcomplicate it tho."*
 - `[SRC-017]` Internal — the maintainer's judgement on the first rendered mirror, 2026-08-20: *"content-wise im pretty happy with it, but the doc is like so boring to look at"* — a complete page that is not read is a reporting surface that has failed at the only thing it is for.
 - `[SRC-015]` Internal — the maintainer's requirement, 2026-08-19: *"for notion, i want to both be able to read and edit (the local should then change too based on that automatically): if i want to say i finished a task i dont want to go through claude to tell it that i did it. i want to update and then claude would be aware the next time i use the cycles tool for something"*, and on the hill: *"we'll see for hills later, for now no editing the hills within notion."*
 - `[SRC-014]` Internal — the deadlock, observed live 2026-08-19. Asked for the outcome of an unshaped topic, the maintainer answered: *"I don't understand the question... I don't have a wanted outcome yet! this afternoon i'll be in a call to discuss this with PO, Data Engineer, etc... For now unknown like mentionned everywhere"*, and on the first cut: *"I feel like we can discuss bout this later on."* Their requirement: *"the cycle tasks could start by being 'make research and ask questions blablabla...' and then once i have more info i give everything to the skill and it would mark those tasks as done and create new ones"* — *"I want to have a system that helps me get through those steps and to adapt to what i can/cannot/know/dont know."*
 - `[SRC-013]` Internal — the maintainer's clarifications, 2026-08-19: *"a cycle is always 8 weeks, but the first 6 weeks are the dev session. the 2 last weeks are just 'cooldown' in which we do bug-fixing/research etc"*; that the point of the system is *"a list of priorised tickets generated for me (or at least a proposition) that i could then add into Jira (by-hand for now)"*; that not everything is a ticket — *"if i add a brand new feature i need to conceptualize... this won't be a ticket in JIRA, this will be a task for me -> the task could be 'research on how to implement, expected outcome of the task : make tickets to implement after research'"*; and that proposals should be code-grounded — *"it could be worth it having a technical skill read through the code of the mentionned repos"*.
+- `[SRC-021]` Internal — the maintainer's requirement, 2026-08-24, on the shape-1 ticket annex, verbatim: *"this should be deeply-linked! automatically updated once we add a new ticket! can you enforce that rule please? … i mean enforce this as a global thing for the whole cycle system! not just for that cycle."* Raised on an annex whose page still read *"Three tickets"* over a topic that had four, and whose own "Cycle 11" backlink pointed at a page that was not the cycle's. Both defects follow from the same v2.x position — that where an annex lives *"is not this skill's call to invent"* — which left the annex as the one hand-authored surface in a system whose every other page is generated.
+- `[SRC-020]` Internal — the maintainer's request, 2026-08-21: *"can we make the answer to points being written down next to them when answered? it would be easier than just having them mixed up in the logs."* Raised on a shape-1 research task whose answer already sat four rows up the dev-log table, unfindable from the task that asked for it.
 - `[SRC-012]` Internal — the maintainer's decision, 2026-08-19: *"i would like the cycles to be in the database 'Cycles' i just created (same location as Docs, in Foleon)"*, and on properties: *"i don't mind properties!! if they make sense obvs."* Their workspace files documents as rows in a `Docs` database (the cheat-sheet hub is one), so a `Cycles` database is the native shape there.
 - `[SRC-011]` Internal — the maintainer's authorisation, 2026-08-19, verbatim: *"SHAPEUP-CYCLES may auto-commit"*, given after asking for a system that needs no repo handling: *"i am just scared of the handling of the repo. how often do we push? can you make a system that is 100% independant?"* The answer that satisfied it — no remote, so no pushing is possible, and commits made by the tool rather than by hand — is what CYC-1 now requires.
 - `[SRC-010]` Internal — the maintainer's correction, 2026-08-19: *"we are completely going out of scope on skills-tinky repo! it's supposed to be a repo for skills and things that revolve around that, not to keep track of my cycles. this repo is used by me for both pro and perso."* The v1.0.0 placement (the skill's own `state/` directory) was wrong on both counts — off-topic for that repo, and pushed to GitHub.
@@ -733,6 +887,9 @@ None standing.
 
 | Version | Date | Change |
 |---|---|---|
+| **3.0.0** | 2026-08-24 | **Annexes become generated output.** v1.x through v2.5.0 linked an annex and deliberately said nothing about it — *"where the annex itself lives is not this skill's call to invent"* — which made it the only page in the system authored by hand in Notion. The consequence was visible on the first one: a ticket added to the cycle doc left the annex reading "Three tickets" over four, and the annex's own backlink pointed at a page that was not its cycle's, with nothing able to notice either `[SRC-021]`. New **CYC-16** moves an annex's content into a **local sidecar** beside the cycle doc, makes that file authoritative, and requires **exactly one section per Jira-bound task** — a missing, orphaned or duplicated section is a validation error on the cycle doc, so adding a ticket makes the doc non-conforming until the annex accounts for it. The backlink is derived from the recorded page id rather than typed. The load-bearing exclusion is what is *not* automated: the write-up itself **MUST NOT** be generated. CYC-14 already forbids generated acceptance criteria because filler that looks finished beats an admitted blank at being wrong, and a generated annex is that failure at page scale — so the tooling inserts a **stub** that cannot be published, and a human or a code-reading agent writes the words. Annexes are not read back from Notion: they have no writable surface, CYC-10's merge does not apply, and the page says so. MAJOR: a doc that conformed at 2.5.0 with an `Annex:` line and no sidecar no longer conforms; migration is one `cycle.py annex sync` plus moving the existing page's prose into the sidecar. |
+| **2.5.0** | 2026-08-21 | **A closed research task records its own answer.** CYC-7 gave personal tasks a purpose — *finding out* — and no place to put what was found, so the answer went to the dev log and only there. The dev log is chronological, which is right for a narrative and wrong for a lookup: the maintainer hit this on a shape-1 task whose answer sat four rows up the same table, invisible from the question that produced it `[SRC-020]`. CYC-7 now requires the answer inline on the task, `→ answer: <…>`, when a personal task completes. The dev-log line is unaffected where CYC-8 admits one — the two are not redundant, they are indexed differently. Mechanically free: task text is already free-form and Notion-authoritative under CYC-10 v2.0.0, so the appended clause round-trips through `reconcile` with no renderer or parser change. MINOR: additive, and no existing doc stops conforming — untouched historic tasks simply carry no answer clause. |
+| **2.4.0** | 2026-08-20 | **The page gets a shape, and `self:` stops being text.** v2.2.0's CYC-15 fixed *what is loudest* and left the page's structure alone, which the second reading found immediately: the whole top half was unframed, three topics rendered as three bare titles under a bare `## fio`, and `self:` repeated as a prefix on forty consecutive lines `[SRC-019]`. Two additions. **CYC-15a** makes the page's sections normative — `#` for `Preview` / each project / `Dev log`, topics as `## <icon> Shape N: <name>` numbered across the whole cycle (colon-separated, because topic names already contain em dashes), and a one-line grey orientation under every section that must be **derived or quoted**, never composed, so a project section explains itself without the renderer inventing a sentence about the repo. The ordinal is derived-only and explicitly banned as an identifier — it renumbers on every split. **CYC-15b** bans `self:` as a rendered prefix and replaces it with a coloured **group label** per scope, research group first. The mechanism is the interesting part: the obvious fix (a colour on the checkbox) is exactly what CYC-15's hard exclusion forbids, since that attribute becomes the task's text on the next read — so the label line, which nothing parses, carries the weight the task line cannot, and a new **contiguity** requirement on the local file keeps render order identical to file order so the round-trip still passes byte-for-byte. Also: the general page-styling rules were **extracted** into [`NOTION_STYLE.md`](NOTION_STYLE.md) (NST 1.0.0) so the cheat sheet and `notion-knowledge-capture` inherit them instead of re-deriving them; CYC-15 now layers only the cycle-specific rules on top. MINOR: additive, and the extraction moves no rule's meaning. |
 | **2.3.0** | 2026-08-20 | **The hook remit covers the calendar, not just unlogged work.** v2.2.0's CYC-11 authorised a hook to detect *unlogged work* and nothing else, which left the one signal no edit can ever produce unowned: `cycle.py` already computes the shaping circuit breaker (`shaping_overrun`, added in v1.6.0) and the dev-window week, but only when `status` is run — so a topic could pass its escalate threshold in silence and the system's own warning arrive too late to act on `[SRC-018]`. CYC-11 now lets a hook **report** a time-based signal on the same report-only terms as the queue. The load-bearing clause is the exclusion: such a nudge **MUST NOT** imply or propose a hill position, because CYC-6 names *elapsed time* among the things a hill may never be derived from — a "14 days shaping, probably still uphill" nudge would launder precisely the inference CYC-6 exists to prevent. Loops were considered and rejected in the same pass, for reasons recorded in `[SRC-018]`. MINOR: additive, and no v2.2.0 implementation stops conforming. |
 | **2.2.0** | 2026-08-20 | **The mirror gets a visual contract.** v2.0.0 settled *what* the mirror carries and said nothing about how it reads, and the first real page showed why that is not a cosmetic gap: every required fact was present and none of it was findable `[SRC-017]`. New CYC-15 makes the reading order normative — a **hill board** covering every scope first on the page, one fixed colour per hill value, the outcome as the loudest block in a topic with the constraints subordinate to it, open questions **numbered** to match `cycle.py questions`, and topic state stated once instead of three times. The load-bearing clause is the exclusion: **anything `reconcile` parses back renders plain**. A `{color=}` attribute on a task line is swallowed into the task text, and task text is Notion-authoritative under v2.0.0 — so decorating the writable surface would feed the three-way merge corrupted input, which is a data-loss bug dressed as a styling change. Enforced by a round-trip check (render → `parse_mirror_tasks` → assert byte-identical to local) that must pass before any mirror write. MINOR: additive, and no v2.1.0 doc stops conforming. |
 | **2.1.0** | 2026-08-19 | **Shaping becomes a decision, and a topic can be split.** v1.6.0 gave topics two states but only one transition — apply the answers and flip — which broke on the first real partial call: some questions answered, some not, and no way to express *"the plumbing is knowable, the event list isn't"* because state is per-topic `[SRC-016]`. CYC-3 now requires answers to be **re-evaluated**: remaining questions are classified **blocking** (can the outcome or done signal be written without it?) or non-blocking, and one of **hold / split / shape** is proposed with reasoning and agreed before anything changes. A **split** produces one shaped half — independently shippable, no open questions — and one shaping half carrying the questions, with the appetite divided rather than duplicated. Holding on a non-blocking question is forbidden, as is downgrading a blocking one to get moving. `status` now reports total appetite booked against the dev window. Also: an `Open questions:` entry must actually ask something, with caveats and inferences moved to a new `Assumptions:` field (rendered as a callout) — the first version of that check demanded a trailing `?` and rejected six good questions carrying a "why this matters" clause, so it now accepts a question mark anywhere or a clause opening with an interrogative. |

@@ -65,6 +65,45 @@ Write them from the code. For the ticket above, that might be: *a table row spli
 renders its continuation with the header repeated*, and *no cell content is clipped at the boundary*.
 Both are checkable; neither could have been written from the topic title.
 
+## Ticket write-ups — short, and written for a newcomer
+
+When a topic's tickets need more than one line each, they get an **annex** (see
+`doc-format.md`): a local sidecar file, one section per ticket, rendered to its own Notion page.
+`cycle.py annex sync` creates the section the moment a Jira-bound task appears and the cycle doc
+stops validating until it is written — so the annex cannot fall behind the ticket list (CYC-16).
+What it will not do is write it: a generated write-up is the same failure as generated acceptance
+criteria, one page larger. That page has a hard budget.
+
+**Roughly ten lines per ticket, and no more than one screen of shared background.** A 145-line
+document about three tickets does not get read, and an unread document is worth less than no
+document. Length is not thoroughness; it is a failure to decide what matters.
+
+Per ticket, in this order and nothing else:
+
+1. **What it is** — one or two sentences. What the thing does, in words that survive being read by
+   someone who has never opened this repo.
+2. **What to build** — three to six terse bullets. No sub-bullets, no rationale paragraphs.
+3. **Done when** — one sentence, observable.
+4. **Criteria** — the testable statements, run together on one line separated by `·`, not a bulleted
+   list of full sentences.
+5. Anything genuinely undecided, marked **Ask first**.
+
+Shared background sits once at the top: what the system is in plain terms, what is already settled,
+what is still open. Never repeated per ticket.
+
+**Cut on sight:**
+
+- "Why it is its own ticket", "why this matters", "what exists now" as separate headed paragraphs —
+  fold the load-bearing half into the first sentence and delete the rest.
+- Restating a decision that the settled-list at the top already carries.
+- Explaining a concept the reader will meet in the code anyway.
+- Priority, estimate and dependency lines repeated per ticket when a two-line **Order** section at the
+  end says the same thing once.
+
+**Assume no prior knowledge, not no intelligence.** Name the file and the function that already solve
+the problem — `rum.ts`, `identifyEditorUser`, `monitoringEnabled()` — instead of describing at length
+what they do. A path is shorter than a paragraph and more useful.
+
 ## The list is disposable
 
 It is regenerated from the doc every time and is never a second source of truth (CYC-14). Don't store

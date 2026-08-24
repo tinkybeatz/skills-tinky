@@ -13,9 +13,12 @@ content, sectioned by repo (CYC-9).
 🔁 Cycles (database)          collection://8ef91e3a-d35c-44d2-91ba-9c895b545dbe
                               https://app.notion.com/p/52a92abebbdf407ba1d6b63f46412cc9
 ├── 2026-C4    In progress   2026-08-18 → 2026-09-26   fio, ripley
-│     ## fio
-│     ### PDF export          ← topic, with its shaped fields
-│     ## ripley
+│     # Preview                   ← header callout, hill board, the bet (CYC-15a)
+│     # fio                       ← project section + a derived orientation line
+│     ## 🎯 Shape 1: PDF export   ← topic, numbered across the whole cycle
+│     #### page breaks — `uphill` ← scope (stays h4: `reconcile` keys on it)
+│     # ripley
+│     # Dev log
 └── 2026-C3    Done          …
 ```
 
@@ -50,6 +53,7 @@ never properties** — that is the boundary this shape is allowed to exist insid
 | a task's checked state | topic fields (outcome, no-gos, done when) |
 | a task's text | appetite, topic state (`shaping`/`shaped`) |
 | new task lines under an existing scope | **hill positions**, scopes themselves, the dev log |
+| a task's **kind**, from the group label it sits under | — |
 
 The hill is excluded on purpose. The maintainer moving it in Notion would satisfy CYC-6 — it is still a
 human setting it — but it renders inline in text rather than as a property, so reading it back is
@@ -83,6 +87,12 @@ The renderer owns all of this; it is written down here so a change to it is a de
 | Appetite, first cut, no-gos in **grey**, below it | Constraints matter and still lose to what the topic *is* |
 | Open questions **numbered**, matching `cycle.py questions` | So "3 and 5 are settled" is sayable straight off the page |
 | Topic state stated **once** (in the callout) | It used to be in the heading, the icon and the counter — three renderings of one fact |
+| **Page-level sections at `#`** — `Preview`, one per project, `Dev log`; nothing outside a section | The top half used to be three unframed blocks, so the page's shape had to be inferred from its contents |
+| Topics as **`## <icon> Shape N: <name>`**, numbered across the whole cycle | Three shapes rendered as three bare titles read as one column. Colon, not em dash — topic names already contain em dashes |
+| The ordinal is **derived only** — never in the local doc, a log line, a ticket, or anything the skill says | It renumbers the moment a topic is added or split. Topics and scopes are referred to by **name** |
+| A one-line grey **orientation** under every `#` section; for a project, derived counts only | *"why is 'fio' just here like that without any context???"* — and an invented sentence about the repo would read like a fact |
+| Task kind as a **coloured group label** per scope (research orange, first; ticket work blue) — never a `self:` prefix | Forty lines of `self:` spent forty lines on a grouping the eye reads for free. The label carries the colour the task line never may |
+| `###` unused — scopes stay `####` | `reconcile` keys on that level and mirrored pages already carry it (the skipped-level exception NST-2 permits, recorded in CYC-15a) |
 | Dev log as a table: when · scope · what changed | Fine as four bullets, unreadable as forty |
 | Completion as a count (`2 of 7`), never a percentage | CYC-6 |
 | **The bet** table + a mermaid bar chart: appetite per topic against the 6w window, with the unbooked remainder | "How much time is it worth" was only answerable by reading three topics and adding up |
@@ -94,7 +104,14 @@ headings (`#### name — \`hill\``) and task lines render plain, with no `{color
 A colour attribute on a task line is swallowed into the task's *text*, and task text is
 Notion-authoritative under CYC-10 v2.0.0 — so styling the writable surface hands the three-way merge
 corrupted input. That is a data-loss bug wearing a styling change's clothes. The hill gets its colour
-in the board instead, which is derived output nothing reads back.
+in the board instead, which is derived output nothing reads back — and the task's kind gets its
+colour on the **group label**, which is not parsed either. That is the whole trick of CYC-15b: the
+label line can be as loud as it likes because nothing reads it back, so the writable line stays bare.
+
+The general rules behind all of this — heading meaning, the workspace colour mapping, callout and
+table discipline, "a repeated literal prefix is a grouping, not text", parsed-back-renders-plain —
+live in [`docs/stds/NOTION_STYLE.md`](../../../docs/stds/NOTION_STYLE.md) (NST) and bind every
+generated page in the workspace. This table is only what is specific to the cycle mirror.
 
 ## Sequence
 
@@ -165,10 +182,30 @@ mcp__notion__notion-update-data-source
 If that ever fails, fall back to mirroring **without** `Repos` and say which option is missing. Never
 let a select option abort a mirror — the body is the point, the property is a convenience.
 
+**5b. Annex pages, same write path.** Any topic with an `Annex:` line has a local sidecar that is
+its source of truth (CYC-16), and its page is regenerated from that file on every mirror:
+
+```bash
+python3 scripts/cycle.py annex list                    # coverage; is anything missing or a stub?
+python3 scripts/cycle.py annex render --json           # {"label", "url", "body"} per annex
+```
+
+Write each one with `replace_content` to the `url` the sidecar's `Annex:` line carries. The body
+already contains the backlink to the cycle page — derived from `mirror.json`, never typed, because
+the first hand-written annex pointed at the wrong page and nothing could tell.
+
+`annex render` **refuses while any section is still a stub.** That is not an obstacle to work around:
+the structure is generated, the write-up is not (CYC-14). Write it, then render.
+
+Annexes are **never reconciled**. They have no writable surface, so a Notion-side edit to one is lost
+on the next render — which the page says on itself. Nothing to merge, nothing to lose.
+
 **6. Record the snapshot — always, and only after the write succeeded:**
 ```bash
 python3 scripts/cycle.py mirrored
 ```
+This records the cycle page's snapshot — the merge base for the next reconcile — and one snapshot per
+annex, which is what makes "is the annex stale?" answerable without fetching Notion.
 This is what makes the next read a three-way merge rather than a guess. Without a current snapshot,
 a task unticked in Notion is indistinguishable from one that was never ticked, and one side wins
 silently.
