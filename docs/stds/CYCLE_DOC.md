@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 5.1.0 |
+| **Version** | 6.0.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
 | **Effective date** | 2026-08-24 |
@@ -778,7 +778,7 @@ the cycle's.
   |---|---|---|
   | `**Expected outcome**` | **MUST** | What the ticket must achieve, observable from outside the change |
   | `**Environment**` | if applicable | Settled facts the implementer must respect but did not choose — an id, a gate, an existing pattern to copy, a sequencing constraint |
-  | `**Parameters**` | if applicable | The surface the ticket exposes: the call, its arguments, the pieces that ship — **a bullet list, each item with the reason it is there** |
+  | `**Build constraints**` | if applicable | What the implementation must respect and did not get to choose — **a bullet list carrying its fixed gloss, each item with what it buys** |
   | `**Open questions**` | if applicable | What is still undecided inside this ticket, and who settles it |
   | `**Done when**` | **MUST** | The one-sentence finish signal, observable |
   | `**Criteria**` | **MUST** | The testable statements about this change, run together on one line separated by `·` |
@@ -788,9 +788,27 @@ the cycle's.
 - `**Done when**` and `**Criteria**` are **two slots, not two lines inside one**. They answer different
   questions — *how do I know I am finished* and *what would fail if I were not* — and nesting the
   second inside the first buried the only half a reviewer can check. `[SRC-024]`
-- `**Parameters**` **MUST** be a bullet list, one item per line under the header, never a run-on
-  behind `·`. Its items are independent constraints; running them together makes the reader do the
-  separating that punctuation should have done for them. `[SRC-024]`
+- `**Build constraints**` **MUST** be a bullet list, one item per line under the header, never a
+  run-on behind `·`. Its items are independent constraints; running them together makes the reader do
+  the separating that punctuation should have done for them. `[SRC-024]`
+- `**Build constraints**` **MUST** carry a fixed gloss on its header line, verbatim: *what the
+  implementation must respect, and what each one buys.* The slot was called `Parameters` through
+  v5.x, and the first developer to read a slotted ticket took it for the function's argument list and
+  asked which three arguments were meant `[SRC-026]` — a collision the old name makes inevitable in a
+  ticket whose subject *is* writing a function. The rename removes the collision; the gloss carries
+  what no name can, because "constraints the implementer did not choose" is not derivable from a
+  header, and "what each one buys" is the clause that stops the slot decaying back into the banned
+  implementation checklist. It is a **fixed string**, not a per-ticket sentence, so it is machine-
+  checkable and cannot drift into forty different explanations of the same slot.
+- A ticket-bound section **MUST NOT** identify another ticket by its position — no *"ticket 2"*, no
+  *"the first three tickets"*. Two reasons, both fatal to the reference: a ticket is read **alone**,
+  in the tracker, with none of the annex around it, so a positional pointer resolves to nothing; and
+  the position is the annex's running order, which changes the moment a ticket is added, split or
+  dropped, so the pointer is wrong from the first reordering with nothing able to notice `[SRC-026]`.
+  State what happens instead — *"the real transport lands later"* — and put sequencing in the annex's
+  own ordering section, which is free-form, is never pasted into Jira, and is the one place a running
+  order is correct by construction. Background sections may name a ticket by its **title**, never by
+  its number.
 
 - A conditional slot that does not apply **MUST** be **omitted**, never left as an empty header. An
   empty slot is CYC-14's failure in miniature: it looks answered and says nothing.
@@ -802,7 +820,7 @@ the cycle's.
   deleted exactly that from the first ticket pasted into Jira: a list of what to build, with no reason
   attached to any item, which reads as noise to whoever picks the ticket up and duplicates what the
   code will say anyway. `[SRC-023]` Where a step genuinely constrains the implementation it belongs in
-  `**Parameters**` **with its reason**; where it does not, it does not belong in the ticket.
+  `**Build constraints**` **with what it buys**; where it does not, it does not belong in the ticket.
 - Slot **order** is enforced, not merely recommended: the value of a fixed shape is that a reader
   finds the same thing in the same place across forty tickets, and a section carrying every slot in
   its own order defeats exactly that.
@@ -812,9 +830,13 @@ the cycle's.
 - CYC-16's exclusion still governs the words. This rule fixes the **shape**; the content of each slot
   is written by a human or by an agent that has read the code, never generated (CYC-14).
 
-**Enforcement:** `slot_problems` in `cycle.py`, called from `annex_problems` for every ticket-bound
-section, so `validate`, `snapshot` and `annex render` all carry it. It runs on written sections only —
-an unwritten stub is already caught as a stub, and reporting both would bury the one that matters.
+**Enforcement:** `slot_problems` and `cross_ref_problems` in `cycle.py`, called from `annex_problems`
+for every ticket-bound section, so `validate`, `snapshot` and `annex render` all carry it. A bold
+header that is **not** a slot is reported by name rather than ignored: every conditional slot is
+optional, so an unrecognised header would otherwise pass in silence — which is precisely how a
+`**Parameters**` block survived the rename in the one annex that had one.
+
+It runs on written sections only — an unwritten stub is already caught as a stub, and reporting both would bury the one that matters.
 `cycle.py annex sync` emits the required slots as its stub, so a new ticket starts in the right shape.
 
 ---
@@ -864,8 +886,9 @@ A cycle doc is conforming when **all** are true:
 - [ ] Every Jira-bound task is covered by exactly one annex section, and every annex section covers a task that still exists (CYC-16)
 - [ ] No annex is published while any of its sections is still a stub; no annex write-up was generated (CYC-16, CYC-14)
 - [ ] Every annex page links back to its cycle page by a derived id, and says it is generated (CYC-16)
-- [ ] Every ticket-bound annex section carries the required slots — expected outcome, done when, criteria, expected testing — in the standard's order, with conditional slots omitted rather than left empty and `Parameters` written as a bullet list (CYC-17)
-- [ ] No ticket write-up carries a bare implementation checklist; a constraining step sits in `Parameters` with its reason (CYC-17)
+- [ ] Every ticket-bound annex section carries the required slots — expected outcome, done when, criteria, expected testing — in the standard's order, with conditional slots omitted rather than left empty and `Build constraints` written as a bullet list under its verbatim gloss (CYC-17)
+- [ ] No ticket write-up carries a bare implementation checklist; a constraining step sits in `Build constraints` with what it buys (CYC-17)
+- [ ] No ticket-bound section points at another ticket by position; sequencing lives in the annex's ordering section (CYC-17)
 - [ ] Page-level sections at `#` — `Preview`, one per project, `Dev log` — with no block outside a section (CYC-15a)
 - [ ] Every topic heading is `## <icon> Shape N: <name>`, numbered across the whole cycle, colon-separated, and the ordinal is never used as an identifier (CYC-15a)
 - [ ] Scope headings stay `####`; `###` is unused (the recorded NST-2 exception) (CYC-15a)
@@ -926,6 +949,8 @@ None standing.
 
 ## Sources
 
+- `[SRC-026]` Internal — the maintainer's two corrections, 2026-08-24, on the first slotted ticket taken to Jira. On the slot name, reading its three bullets as the function's signature: *"so this means those 3 things will be the params in my function? … or is it not 3 params? its just not clear it kinda feels like i am missing context"*, then *"Rename AND explain briefly what value each line brings."* On the cross-reference: *"i'm not too sure about referencing ticket 2 in ticket 1. feel me? maybe can just say 'will be covered later'"* — and on scope, *"both need to be done enforced for the whole system, not just for this current cycle."* The first is a name collision the standard created for itself by calling a constraints list `Parameters` in tickets that are largely about writing functions; the second is a pointer that cannot resolve, since a Jira reader has no annex in front of them and the number moves whenever the annex does.
+
 - `[SRC-001]` Singer, R. — *Shape Up*, ch. 3 "Set Boundaries". https://basecamp.com/shapeup/1.2-chapter-03 — appetite as a time budget; *"an appetite is completely different from an estimate"*; fixed time / variable scope; the "2.0" grab-bag and not knowing what done looks like.
 - `[SRC-002]` Singer, R. — *Shape Up*, ch. 12 "Map the Scopes". https://basecamp.com/shapeup/3.3-chapter-12 — scopes as integrated slices finishable independently, *"a few days or less"*; scopes as the project's language; reporting at scope level; layer cakes as the default and icebergs as the reason to factor out a UI-only scope.
 - `[SRC-003]` Singer, R. — *Shape Up*, ch. 13 "Show Progress". https://basecamp.com/shapeup/3.4-chapter-13 — to-do counts cannot show status; *"estimates don't show uncertainty"*; the hill metaphor, uphill as unknowns and downhill as execution; a scope may exist before its tasks are discovered.
@@ -956,6 +981,7 @@ None standing.
 
 | Version | Date | Change |
 |---|---|---|
+| **6.0.0** | 2026-08-24 | **`Parameters` becomes `Build constraints`, and a ticket stops pointing at its neighbours.** v5.0.0 made the slot a bullet list and left its name alone; the first developer to read one took it for the function's argument list and asked which three arguments were meant `[SRC-026]` — a collision guaranteed by naming a constraints list `Parameters` in tickets whose subject is writing a function. Renamed, and given a **fixed verbatim gloss** on the header line, because the two things a reader needs — that these are constraints the implementer did not choose, and that each line states what it buys — are derivable from no name at all. Fixed string rather than per-ticket prose, so it is machine-checked and cannot become forty explanations of one slot. Second change: a ticket-bound section **MUST NOT** name another ticket by position. A ticket is read alone in the tracker, where *"ticket 2"* resolves to nothing, and the number is the annex's running order, so the reference is wrong from the first reordering with nothing able to notice; sequencing belongs in the annex's ordering section, which is free-form and never pasted into a tracker. Also: an unrecognised bold header is now reported instead of ignored — every conditional slot is optional, so a slot under an old or mistyped name passed in silence, which is exactly how the renamed block survived in the one live annex. MAJOR: every 5.x annex carrying the old slot name is non-conforming; migration is a rename plus the gloss line, which `validate` names precisely. |
 | **5.1.0** | 2026-08-24 | **A shaped topic with tickets owes an annex.** CYC-17's slots only reach ticket write-ups, and write-ups only exist inside an annex, which CYC-16 had left optional — so the whole ticket standard could be skipped by not linking one `[SRC-025]`. CYC-16 now **requires** an annex on any shaped topic carrying at least one Jira-bound task. The optionality dated from v2.x, when an annex was hand-authored in Notion and creating one cost real effort; generated from a sidecar it costs one `annex sync`. Shaping topics need no exemption clause — they hold only `self:` tasks, so there is nothing to write up. MINOR: additive, and the only shaped topic in the only live cycle already carries its annex. |
 | **5.0.0** | 2026-08-24 | **The slots, corrected by first use.** 4.0.0's shape survived one reading. `Acceptance criteria` nested `Done when` and `Criteria` as two lines under one header, and the maintainer's report was that it *"looks weird"* — the criteria line disappeared into the block above it, which is the half a reviewer actually checks `[SRC-024]`. They are now two sibling slots. `Parameters` is now a **bullet list**, enforced: its items are independent constraints and a run-on behind `·` makes the reader separate them by hand. Added a ban on **padding a slot to look justified** — the first slotted ticket's outcome argued for itself and asserted something trivially true of the code as it stood, which is CYC-14's filler failure in the one slot the coverage rules cannot see. MAJOR: every 4.0.0 annex is non-conforming; migration is splitting one slot and bulleting another. |
 | **4.0.0** | 2026-08-24 | **A ticket write-up gets a fixed shape.** v3.1.0 fixed the annex's structure — one section per ticket, a Jira name on each — and left the section body as free prose, so every ticket invented its own arrangement. The maintainer pasted the first one into Jira and cut most of it: what survived was outcome, done signal, criteria and location; what went was a three-bullet list of what to build with no reason attached to any item `[SRC-023]`. New **CYC-17** replaces free prose with seven named slots in a fixed order — three required (`Expected outcome`, `Acceptance criteria` as done-when plus criteria, `Expected testing`), four conditional (`Environment`, `Parameters`, `Open questions`, `Lives under`) — bans the bare implementation checklist, and requires a reason on anything kept in `Parameters`. `Expected testing` is required even when the answer is `none`, because the alternative is that answer being made silently. Order is enforced for the reason the shape exists: the same thing in the same place across forty tickets. MAJOR: every annex conforming at 3.1.0 is now non-conforming; migration is rewriting each ticket section into the slots, which cannot be automated for the same reason the write-up cannot (CYC-14). |

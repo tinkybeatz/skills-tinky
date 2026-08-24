@@ -116,9 +116,9 @@ Task: the track() call and its typed event contract, with a recording transport 
 ### Jira ticket name: Add the editor's analytics track() call and typed event contract
 **Expected outcome** — …
 **Environment** — …
-**Parameters**
-- … — the reason it is there
-- … — the reason it is there
+**Build constraints** — what the implementation must respect, and what each one buys.
+- … — what it buys
+- … — what it buys
 **Open questions** — …
 **Done when** — …
 **Criteria** — … · … · …
@@ -128,10 +128,11 @@ Task: the track() call and its typed event contract, with a recording transport 
 
 **The body is eight named slots in a fixed order (CYC-17)**, not free prose. Required:
 `Expected outcome`, `Done when`, `Criteria` and `Expected testing` — the last one even when the
-answer is the literal `none`. Conditional: `Environment`, `Parameters`, `Open questions`,
+answer is the literal `none`. Conditional: `Environment`, `Build constraints`, `Open questions`,
 `Lives under`, each **omitted** when it does not apply rather than left as an empty header.
-`Parameters` is a bullet list; the rest are inline. Order is enforced. The full contract, and why the old
-"what to build" bullet list is banned, is in [`tickets.md`](tickets.md).
+`Build constraints` is a bullet list under its fixed gloss, quoted verbatim; the rest are inline.
+Order is enforced. The full contract — the gloss, the ban on the old "what to build" bullet list, and
+the ban on pointing at another ticket by position — is in [`tickets.md`](tickets.md).
 
 - A section is **ticket-bound** when its first line is `Task: <the task text, verbatim from the cycle
   doc>`. That quote is the link between the two files, which is why it has to match exactly.

@@ -1576,21 +1576,36 @@ ANNEX_JIRA_TODO = 'TODO — a short imperative summary, readable out of context 
 ANNEX_SLOTS = [
     ('Expected outcome', True),
     ('Environment', False),
-    ('Parameters', False),
+    ('Build constraints', False),
     ('Open questions', False),
     ('Done when', True),
     ('Criteria', True),
     ('Lives under', False),
     ('Expected testing', True),
 ]
-# Slots whose content is a bullet list rather than inline prose. `Parameters` is
-# a set of independent constraints, and running them together behind `·` makes
-# the reader do the separating that punctuation should have done for them.
-ANNEX_LIST_SLOTS = {'Parameters'}
+# Slots whose content is a bullet list rather than inline prose. `Build
+# constraints` is a set of independent constraints, and running them together
+# behind `·` makes the reader do the separating that punctuation should have
+# done for them.
+ANNEX_LIST_SLOTS = {'Build constraints'}
+# The gloss a list slot MUST carry on its header line, verbatim. The slot was
+# called `Parameters` until a developer read it as the function's argument list
+# and asked what the three items were meant to be — a collision the name makes
+# inevitable in a ticket about writing a function. Renaming it fixes the name;
+# the gloss fixes the rest, because "what the implementation must respect" is
+# not self-evident from any name, and "what each one buys" is the requirement
+# that stops the slot decaying back into the banned checklist.
+ANNEX_SLOT_GLOSS = {
+    'Build constraints':
+        'what the implementation must respect, and what each one buys.',
+}
 ANNEX_SLOT_NAMES = [n for n, _ in ANNEX_SLOTS]
 ANNEX_SLOT_REQUIRED = [n for n, r in ANNEX_SLOTS if r]
 ANNEX_SLOT_RE = re.compile(r'^\*\*(%s)\*\*\s*(.*)$' % '|'.join(
     re.escape(n) for n in ANNEX_SLOT_NAMES))
+# A line opening with a bold run and nothing before it: the shape of a slot
+# header, whatever it is called. Used to catch a header that is not a slot.
+ANNEX_STRAY_SLOT_RE = re.compile(r'^\*\*([^*]{1,60})\*\*(?:\s|$)')
 # `Done when` and `Criteria` are two slots, not two lines inside one. They answer
 # different questions — "how do I know I am finished" and "what would fail if I
 # were not" — and nesting the second inside the first buried it.
@@ -1620,8 +1635,18 @@ def slot_problems(section):
     p = []
     seen = []
     for raw in section['body']:
-        m = ANNEX_SLOT_RE.match(raw.strip())
+        line = raw.strip()
+        m = ANNEX_SLOT_RE.match(line)
         if not m:
+            # A bold header at the start of a line that is not a known slot is
+            # almost always a slot under its old or a mistyped name. Left
+            # unreported it passes silently, because every slot it could be is
+            # conditional — which is exactly how `Parameters` survived being
+            # renamed. Name it instead.
+            stray = ANNEX_STRAY_SLOT_RE.match(line)
+            if stray:
+                p.append('"**%s**" is not a slot — the slots are: %s'
+                         % (stray.group(1).strip(), ' · '.join(ANNEX_SLOT_NAMES)))
             continue
         name, rest = m.group(1), m.group(2).strip(' —-·')
         if name in [x[0] for x in seen]:
@@ -1657,15 +1682,56 @@ def slot_problems(section):
     for name, rest in seen:
         run = [x for x in content_after(name) if x.strip()]
         if name in ANNEX_LIST_SLOTS:
-            if rest:
+            gloss = ANNEX_SLOT_GLOSS.get(name)
+            if gloss and rest != gloss:
+                p.append('slot "%s" must carry its gloss on the header line, verbatim — '
+                         '"**%s** — %s" — with the items on "- " lines below it'
+                         % (name, name, gloss))
+            elif not gloss and rest:
                 p.append('slot "%s" is a list — put its items on "- " lines under the header, '
                          'not inline' % name)
-            elif not run:
+            if not run:
                 p.append('slot "%s" is empty — omit it rather than leaving a header' % name)
             elif [x for x in run if not x.strip().startswith('- ')]:
                 p.append('slot "%s" is a list — every line under it must start with "- "' % name)
         elif not rest and not run:
             p.append('slot "%s" is empty — omit it rather than leaving a header' % name)
+    return p
+
+
+ANNEX_CROSS_REF_RES = [
+    re.compile(r'\btickets?\s+(?:#\s*)?'
+               r'(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b', re.I),
+    re.compile(r'\b(?:first|second|third|fourth|fifth|next|previous|last|other|preceding|'
+               r'remaining)\s+(?:\w+\s+){0,2}tickets?\b', re.I),
+]
+
+
+def cross_ref_problems(section):
+    """CYC-17: a ticket-bound section MUST NOT point at another ticket by
+    position.
+
+    A ticket is read alone, in a tracker, with none of the annex around it, so
+    "ticket 2 adds the real one" tells its reader nothing. Worse, the number is
+    the annex's running order, which changes whenever a ticket is added, split
+    or dropped — so the reference is wrong from the first reordering and nothing
+    can notice. Sequencing belongs in the annex's own free-form ordering
+    section, which no ticket carries into Jira; inside a ticket, say what
+    happens ("the real transport lands later") and name nothing.
+    """
+    p = []
+    for raw in section['body']:
+        line = raw.strip()
+        if line.startswith('### Jira ticket name:'):
+            continue
+        for rx in ANNEX_CROSS_REF_RES:
+            m = rx.search(line)
+            if m:
+                p.append('points at another ticket by position — %r. A ticket is read alone in '
+                         'the tracker, and the number changes whenever a ticket is added or '
+                         'split; say what happens instead, and put sequencing in the annex\'s '
+                         'ordering section' % m.group(0))
+                break
     return p
 
 
@@ -1853,6 +1919,9 @@ def annex_problems(d, strict=False):
                 for why in slot_problems(sec):
                     p.append('%s: CYC-17 — section "%s" (line %d): %s. A ticket write-up is a '
                              'fixed set of slots in a fixed order; see references/tickets.md.'
+                             % (where, sec['title'][:50], sec['line'], why))
+                for why in cross_ref_problems(sec):
+                    p.append('%s: CYC-17 — section "%s" (line %d): %s.'
                              % (where, sec['title'][:50], sec['line'], why))
             if strict:
                 for s, why in a.stubs():

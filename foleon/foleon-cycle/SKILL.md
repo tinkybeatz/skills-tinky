@@ -245,10 +245,13 @@ reason acceptance criteria are never generated (CYC-14). An unwritten stub canno
 
 Every ticket section is **eight named slots in a fixed order** (CYC-17), not free prose: required are
 `Expected outcome`, `Done when`, `Criteria` and `Expected testing` — that last one even when the
-answer is the literal `none`. Conditional are `Environment`, `Parameters`, `Open questions` and
-`Lives under`, omitted rather than left empty. `Parameters` is a bullet list, one constraint per line.
-**There is no "what to build" bullet list**: a step that constrains the implementation goes in
-`Parameters` *with its reason*, and one that does not is not the ticket's business. Contract:
+answer is the literal `none`. Conditional are `Environment`, `Build constraints`, `Open questions`
+and `Lives under`, omitted rather than left empty. `Build constraints` is a bullet list under its
+fixed verbatim gloss — *what the implementation must respect, and what each one buys.*
+— one constraint per line. **There is no "what to build" bullet list**: a step that constrains the
+implementation goes in `Build constraints` *with what it buys*, and one that does not is not the
+ticket's business. **A ticket never points at another by position** — no "ticket 2"; say what happens
+instead and leave sequencing to the annex's ordering section. Contract:
 [`references/tickets.md`](references/tickets.md) § The slots.
 
 Edit the markdown directly, then always:
@@ -416,7 +419,7 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | Held a topic on a non-blocking question | A topic sat shaping for a week over something discoverable later | Apply the blocking test (`references/shaping.md`). Split it and start the shapeable half. |
 | Split into halves that aren't independent | The "shaped" half only makes sense once the other lands | Then it is not a split — it is one topic still shaping. Revert it. |
 | Cooldown work pushed through intake | A "topic" with no real appetite, e.g. "bug fixing" | Cooldown is off-book (CYC-2). Don't shape it; it doesn't belong in the doc. |
-| Ticket write-up is free prose, or a bare "what to build" list | A section without the CYC-17 slots, or with implementation bullets carrying no reason | `validate` fails on it. Rewrite into the slots; a constraining step goes in `Parameters` with its reason, the rest is deleted. |
+| Ticket write-up is free prose, or a bare "what to build" list | A section without the CYC-17 slots, or with implementation bullets carrying no reason | `validate` fails on it. Rewrite into the slots; a constraining step goes in `Build constraints` with what it buys, the rest is deleted. |
 | Shaped topic with tickets and no annex | `validate` names the topic and its ticket count | Add the `Annex:` line, then `cycle.py annex sync`. Optional annexes date from when they were hand-written (CYC-16 v5.1.0). |
 | Annex drifted from the ticket list | A ticket was added and the annex still describes the old set | `cycle.py validate` now fails on it (CYC-16). `annex sync` inserts the stub; write it before mirroring. |
 | Wrote an annex write-up from the task title | A section that could have been written without opening the repo | Same failure as generated acceptance criteria, one page larger. Read the code (CYC-14), or leave the stub and say it is unwritten. |

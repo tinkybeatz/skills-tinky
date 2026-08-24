@@ -89,7 +89,7 @@ only when they apply and **omitted** — never left as an empty header — when 
 |---|---|---|
 | `**Expected outcome**` | required | One or two sentences: what this ticket must achieve, observable from outside the change, in words that survive being read by someone who has never opened the repo. |
 | `**Environment**` | if applicable | Settled facts the implementer must respect but did not choose — an id, a gate, a pattern to copy, a sequencing constraint. |
-| `**Parameters**` | if applicable | The surface the ticket exposes: the call, its arguments, the pieces that ship. **A bullet list — one item per line under the header, each carrying the reason it is there.** |
+| `**Build constraints**` | if applicable | What the implementation must respect and did not get to choose. **A bullet list, one item per line, each carrying what it buys — under the fixed gloss, verbatim: `— what the implementation must respect, and what each one buys.`** |
 | `**Open questions**` | if applicable | What is still undecided inside this ticket, and who settles it. (This replaces the old **Ask first**.) |
 | `**Done when**` | required | One sentence, observable: the signal that the ticket is finished. |
 | `**Criteria**` | required | The testable statements about this change, run together on one line separated by `·`, never a bulleted list of full sentences. |
@@ -100,8 +100,24 @@ only when they apply and **omitted** — never left as an empty header — when 
 *how do I know I am finished* and *what would fail if I were not* — and the first version of this
 standard nested the second inside the first, which buried the only half a reviewer can check.
 
-`Parameters` is a **list** because its items are independent constraints. Run together behind `·`
-they make the reader do the separating that punctuation should have done for them.
+`Build constraints` is a **list** because its items are independent constraints. Run together behind
+`·` they make the reader do the separating that punctuation should have done for them.
+
+**Why it carries a gloss, and why the gloss is fixed.** The slot was called `Parameters` until the
+first developer to read a slotted ticket took its three bullets for the function's argument list and
+asked which three arguments were meant. The name invited it — half these tickets *are* about writing a
+function. So: renamed, and glossed, because the two things the reader needs are derivable from no
+header at all — that these are constraints the implementer did not get to choose, and that every line
+states what it buys. The gloss is a **fixed string**, not a sentence you write per ticket: that makes
+it machine-checked, and stops one slot acquiring forty different explanations of itself.
+
+**Never point at another ticket by position.** No "ticket 2 adds the real one", no "the first three
+tickets". The reader has the tracker open and none of this page, so the number resolves to nothing —
+and it is the annex's running order, so it is wrong the moment a ticket is added or split, with
+nothing able to notice. Say what happens instead: *"which is what lets the real transport land later
+without reopening any feature code"*. Sequencing goes in the **Order** section at the end of the
+annex, which is free-form, never pasted into Jira, and the one place a running order is correct by
+construction. A background section may name a ticket by its **title**; never by its number.
 
 **Why `Expected testing` is required even when the answer is `none`:** unstated testing is how "no
 tests" gets decided by whoever is in a hurry rather than by whoever wrote the ticket. Where a
@@ -110,7 +126,7 @@ criterion cannot be tested — vendor behaviour, prose — say so in the slot an
 **There is no "what to build" list.** The maintainer pasted the first ticket into Jira and deleted
 exactly that: three bullets of implementation steps with no reason attached to any of them, which
 reads as noise to whoever picks the ticket up and duplicates what the code will say anyway. A step
-that genuinely constrains the implementation goes in `**Parameters**` **with its reason**; a step that
+that genuinely constrains the implementation goes in `**Build constraints**` **with what it buys**; a step that
 does not is not the ticket's business. `cycle.py validate` enforces the slots, their order and the
 two lines under `Acceptance criteria`.
 
@@ -130,7 +146,9 @@ what is still open. Never repeated per ticket.
 - Explaining a concept the reader will meet in the code anyway.
 - Priority, estimate and dependency lines repeated per ticket when a two-line **Order** section at the
   end says the same thing once.
-- A `**Parameters**` item with no reason attached — that is the banned checklist wearing a slot name.
+- A `**Build constraints**` item with no reason attached — that is the banned checklist wearing a slot name.
+- A reference to another ticket by number or position — it resolves to nothing in the tracker and rots
+  on the next reorder.
 - A slot padded to look justified: an `Expected outcome` that argues for itself, or states something
   trivially true of the code as it stands. Write the outcome and stop.
 
