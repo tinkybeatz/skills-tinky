@@ -3,11 +3,11 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 2.4.0 |
+| **Version** | 2.5.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
-| **Effective date** | 2026-08-05 |
-| **Applies to** | The human-facing Notion hub page, its project pages (including the optional single `Foleon - Shared` pseudo-project page, CHS-9b), and their category child pages, maintained for the maintainer across one or more project-context skills (reference implementation: `Foleon - Cheat Sheet`) |
+| **Effective date** | 2026-08-24 |
+| **Applies to** | The human-facing Notion hub page, its project pages (including the optional single `Foleon - Shared` pseudo-project page, CHS-9b), the optional single `Workflows` process page (CHS-9c), and their category child pages, maintained for the maintainer across one or more project-context skills (reference implementation: `Foleon - Cheat Sheet`) |
 
 > **v2.0.0 replaces the entire v1.x architecture.** v1.x built a Notion *database* with one row per
 > admitted finding. In Notion, every database row **is a page** — so "one row per finding" is
@@ -24,13 +24,15 @@ each, no database: `Foleon - Cheat Sheet` (the hub) links to `Ripley` (a project
 `Ripley - Debugging` — each a child of `Ripley`, each fact its own `##` heading (or grouped under a
 `##` sub-heading, e.g. `Ripley - Commands` → `Building`).
 
-`Fio` **will join** as the second project page under the same hub (not yet created at v2.4.0), with
-`Fio - <Category>` pages created **lazily** as the first fact for each is admitted — CHS-8 forbids
-creating a category empty "to complete the taxonomy," which applies to the project page itself: do not
-create `Fio` until there is a first `Fio` fact to put under it. This needs no new rule; CHS-9a already
-specifies the nesting and the title prefix.
-What a second project *does* add is the question of where a fact true of **both** projects goes — see
-[CHS-9b](#chs-9b-cross-project-facts).
+`Fio` is the second project page under the same hub, with `Fio - <Category>` pages created **lazily**
+as the first fact for each is admitted — CHS-8 forbids creating a category empty "to complete the
+taxonomy," which applies to the project page itself: do not create a project page until there is a
+first fact to put under it. This needs no new rule; CHS-9a already specifies the nesting and the title
+prefix. What a second project *does* add is the question of where a fact true of **both** projects
+goes — see [CHS-9b](#chs-9b-cross-project-facts).
+Alongside the project pages, the hub carries one **`Workflows`** page for the repeatable processes that
+belong to the maintainer's way of working rather than to any single repo — see
+[CHS-9c](#chs-9c-the-workflows-process-page).
 
 ---
 
@@ -282,6 +284,37 @@ happened to be in."
 **Enforcement:** reviewed at proposal time — the proposal states which project page (or the shared page)
 the entry targets, and why. The hub's line count makes a second shared page immediately visible.
 
+### CHS-9c The `Workflows` process page
+
+- Not everything worth re-looking-up belongs to a repo. A **repeatable process the maintainer follows**
+  — how cycle tickets get created in Jira, how a release goes out, how a hand-off is done — is a fact
+  about the way of working, not about `ripley` or `fio`. It **MUST NOT** be filed under a project page,
+  and it **MUST NOT** go on the `Foleon - Shared` page either: that page is for shared *infrastructure*
+  facts (CHS-9b), and mixing processes into it makes both harder to scan.
+- Such facts go on a single **`Workflows`** page nested directly under the hub. It is one more line on
+  the bare index (CHS-9a), not a special section.
+- The page obeys every rule a project page obeys: 4–8 categories, each fact its own heading, created
+  lazily, no database. While the set is small, each workflow is a `##` heading on the `Workflows` page
+  itself; when one workflow's steps outgrow a heading, or the page passes roughly 8 workflows, it splits
+  into child pages titled `Workflows - <Name>` (CHS-8, CHS-9a's prefix rule).
+- At most **one** `Workflows` page **MAY** exist, for the same reason CHS-9b caps the shared page at one.
+- Steps **MAY** be a numbered list — a workflow is a sequence, and CHS-5's "one entry per fact" is
+  satisfied by the workflow being one heading, not by flattening its steps into one line.
+- Where a process is **mandatory in part and free in part**, the entry **MUST** say which is which. A
+  process written as if every step were binding is wrong in the same way a missing step is: the reader
+  cannot tell what they are actually required to do.
+
+**Rationale:** the maintainer's own case, on a cheat sheet that had only project pages: *"this something
+is some instruction for when creating cycles tasks/tickets in Jira... mostly free to do what I prefer,
+and still DO the points that say 'add, assign, do, etc...'"* There was nowhere for it to go — a Jira
+ticket routine is not a `ripley` fact, not a `fio` fact, and not shared infrastructure. Forcing it onto a
+project page would have made that project page a dumping ground for anything that didn't fit, which is
+how flat hubs decay. The mandatory-versus-free distinction is explicit because it is the actual content
+of a startup-style process: the value is knowing which steps are not negotiable.
+
+**Enforcement:** reviewed at proposal time — the proposal states that the entry is a process rather than
+a project fact, and why. The hub's line count makes a second `Workflows` page immediately visible.
+
 ### CHS-9 Review gate — conversational, not a status field
 
 - A proposed bullet **MUST** be shown to the maintainer — exact wording, exact heading — **before**
@@ -358,6 +391,7 @@ A cheat-sheet bullet is conforming when **all** are true:
 - [ ] Placed under one of ~4–8 categories (pages or headings); no category exceeds ~10 entries (CHS-8)
 - [ ] If the hub serves multiple projects: the entry's category page is nested under its project page, titled `<Project> - <Category>` (CHS-9a)
 - [ ] If the fact is true of more than one project: written once — under the surfacing project, or on the single `Foleon - Shared` page when it would outlive that project — never duplicated across project pages (CHS-9b)
+- [ ] If the fact is a repeatable process rather than a project fact: on the single `Workflows` page, one `##` heading per workflow, stating which steps are mandatory and which are free (CHS-9c)
 - [ ] Shown to the maintainer, exact wording, and approved **before** the write (CHS-9)
 - [ ] The full page was freshly read immediately before proposing — plus the `Foleon - Shared` page, if one exists, since a shared fact may already be recorded there (CHS-10, CHS-9b)
 
@@ -413,6 +447,7 @@ the exception.
 
 | Version | Date | Change |
 |---|---|---|
+| **2.5.0** | 2026-08-24 | **Processes get a home: the `Workflows` page.** The maintainer brought a fact the hub had no slot for — the routine for creating a cycle's tasks/tickets in Jira from the cycle epic. It is not a `ripley` fact, not a `fio` fact, and not shared infrastructure either, so CHS-9a (project pages) and CHS-9b (the `Foleon - Shared` page) both excluded it, and filing it under a project page would have turned that page into the place where anything unclassifiable lands. New rule **CHS-9c**: a single `Workflows` page nested directly under the hub, one more line on the bare index, obeying every project-page rule — 4–8 categories, one `##` heading per workflow while the set is small, splitting into `Workflows - <Name>` child pages when a workflow outgrows a heading or the page passes ~8 of them, capped at one such page. Two content rules come with it: steps **MAY** be a numbered list (a workflow is a sequence, and CHS-5 is satisfied by the workflow being one heading), and an entry **MUST** state which steps are mandatory and which are free, since that distinction is the actual content of a startup-style process. Checklist item added; `Applies to` extended. **Editorial:** the reference-implementation paragraph no longer says `Fio` is unbuilt — it exists as of this version. |
 | **2.4.0** | 2026-08-12 | **Second project (`Fio`) onboarded; one genuine gap closed.** The nesting itself needed **no new rule** — CHS-9a (v2.3.0) already specified project pages, `<Project> - <Category>` titles and lazy creation, and it was written in anticipation of exactly this. What a second project *did* create is a case that could not previously arise: a fact true of **both** projects (both are Foleon repos consuming the same private `@foleon/*` registry, so an auth or tooling fact belongs to neither alone). New rule **CHS-9b**: write it **once** under the surfacing project — never duplicated across project pages, because CHS-10's dedupe mechanism is "read the page" and a writer working in `fio` will not think to read `Ripley - Gotchas` first — or, when the fact is shared infrastructure that would outlive that project, on a single `Foleon - Shared` pseudo-project page obeying every project-page rule. Includes the decision test (*would this still be true if the surfacing project were deleted?*), a cap of one shared page, and a note that `sheet:` marking stays per-log so a shared fact does not spawn bookkeeping entries in the other project's log. CHS-10 checklist item extended to include the shared page in the pre-proposal read. **Editorial fix:** restored CHS-8's `Enforcement` block, which the v2.3.0 CHS-9a insertion had left orphaned under CHS-9a (which carried two, the second describing category counts — CHS-8's). No normative change from that fix. |
 | 1.0.0 | 2026-08-03 | Initial standard: database, per-finding rows, closed field set, `Status`/`Dedupe key` properties, 90-day decay. |
 | 1.1.0 | 2026-08-03 | Corrections from building the reference implementation (title property naming, `ID` field, formula-based staleness, `Status` as `select`). |

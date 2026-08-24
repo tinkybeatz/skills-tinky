@@ -3,9 +3,9 @@ name: foleon-cheatsheet
 description: >-
   Moves genuinely useful Foleon findings from a project-context skill's
   discoveries log onto the maintainer's own Notion cheat sheet — a bare hub page
-  linking to one page per project, with a small fixed set of category pages
-  nested under each (Ripley - Commands, Fio - Gotchas, ...), each fact
-  its own heading — proposed in conversation and written only after an
+  linking to one page per project plus a single Workflows page for repeatable
+  processes, with a small fixed set of category pages nested under each
+  (Ripley - Commands, Fio - Gotchas, ...), each fact its own heading — proposed in conversation and written only after an
   explicit yes. Never a database, never a new page per finding: category
   pages are a small fixed set the maintainer chose, not one per fact. Use
   whenever: a finding was just appended to any project log
@@ -13,7 +13,7 @@ description: >-
   findings at session start or as a turn ends; the queue needs draining. Trigger phrases: "sync the Foleon cheat sheet", "update the
   Foleon cheat sheet", "add this to the Foleon cheat sheet", "my Foleon cheat
   sheet", "drain the cheatsheet queue", or explicit `/foleon-cheatsheet`.
-  Requires the Notion MCP. Enforces `docs/stds/CHEAT_SHEET.md` v2.4.0: most
+  Requires the Notion MCP. Enforces `docs/stds/CHEAT_SHEET.md` v2.5.0: most
   findings are correctly REJECTED, an entry is rewritten never copied, nothing
   is written to Notion without the maintainer's explicit go-ahead in that same
   conversation, and it never creates a new page or database row per finding.
@@ -64,6 +64,13 @@ with this file.
 > projects are added; the title prefix keeps pages unambiguous in Notion's search, which shows titles
 > but not nesting. Never add a project's categories as siblings at the hub level.
 
+> **v2.5.0:** the hub also carries a single **`Workflows`** page, nested directly under it, for
+> repeatable processes that belong to the maintainer's way of working rather than to any repo (how
+> cycle tickets are created in Jira, and so on). A process is neither a project fact nor shared
+> infrastructure: never file one under a project page or on `Foleon - Shared`. One `##` heading per
+> workflow, its steps **MAY** be a numbered list, and the entry **MUST** say which steps are mandatory
+> and which are free (CHS-9c).
+
 > **v2.4.0:** `Fio` is the second project. The queue now records **which project** each finding
 > came from, and every `scripts/log.py` call takes a required `--project`. A fact true of *both*
 > projects is written **once** — under the project that surfaced it, or on a single `Foleon - Shared`
@@ -73,10 +80,11 @@ with this file.
 
 | Thing | Value |
 |---|---|
-| Hub page | `Foleon - Cheat Sheet` — `https://app.notion.com/p/3aae7f9407e780df888df6c667a4f4e1` — a **bare index**, one line per project (CHS-9a) |
-| Project pages | `Ripley` · `Fio` — each a child of the hub. `Fio` does **not exist yet**: create it with the first Fio fact that clears the gates, never in advance (CHS-8) |
+| Hub page | `Foleon - Cheat Sheet` — `https://app.notion.com/p/3aae7f9407e780df888df6c667a4f4e1` — a **bare index**, one line per project plus one for `Workflows` (CHS-9a, CHS-9c) |
+| Project pages | `Ripley` · `Fio` — each a child of the hub. A further project page is created with the first fact that clears the gates, never in advance (CHS-8) |
 | Category pages | `Ripley - Commands` · `Ripley - Packages` · `Ripley - Conventions` · `Ripley - Gotchas` · `Ripley - Debugging`, children of `Ripley`. Fio's (`Fio - <Category>`) are created lazily, one at a time |
 | Shared page (optional, max 1) | `Foleon - Shared` — for facts true of several projects, e.g. `@foleon/*` registry auth. Not created yet (CHS-9b) |
+| Workflows page (max 1) | `Workflows` — `https://app.notion.com/p/3c6e7f9407e7813685c4dc4bf762c096` — a child of the hub, one `##` heading per repeatable process. Not for project facts (CHS-9c) |
 | Queue | `hooks/state/cheatsheet-queue.jsonl` (repo-relative); each entry carries a `project` field |
 | Logs | `foleon/foleon-ripley/references/knowledge.md` · `foleon/foleon-fio/references/knowledge.md` |
 | Local mirrors | `foleon/<skill>/references/cheatsheet-approved.md` — one per project, holding **only that project's** pages (PCS-11) |
@@ -100,7 +108,9 @@ truncating, so a crash between the two loses nothing.
 Fetch the hub for the current project list. **Which project a finding belongs to comes from the
 queue entry's `project` field** (or, for a hand-fed finding, from which log it was written to) — do
 not infer it from the content. If the fact is true of more than one project, apply CHS-9b: write it
-once, under the surfacing project, or on `Foleon - Shared` if it would outlive that project. Fetch
+once, under the surfacing project, or on `Foleon - Shared` if it would outlive that project. If the
+finding is a repeatable process rather than a project fact, it goes on the `Workflows` page instead
+(CHS-9c) — fetch that page and skip the project-page step. Fetch
 that project page
 for its current category-page list and pick the one the finding belongs to (or note if none fits —
 seeing the live list is also what tells you whether a new category is truly warranted). Then fetch
