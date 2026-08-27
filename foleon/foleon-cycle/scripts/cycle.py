@@ -1131,6 +1131,21 @@ def cmd_render_for(d, a):
         out.append('</table>')
     else:
         out.append('*nothing logged yet*')
+
+    # Every annex page is a *child* of the cycle page in Notion, and the inline
+    # 📎 link above is only a link — it does not tell Notion the child is still
+    # there. `replace_content` reads the new body as the page's whole contents,
+    # so without these tags it concludes the annexes were deleted and refuses the
+    # write with `validation_error` (or, with allow_deleting_content, actually
+    # deletes them). One tag per annex, last, mirroring where Notion itself emits
+    # them on read.
+    tags = [(label, url) for t in d.topics
+            for label, url in parse_annexes(t['fields'].get('Annex:'))]
+    if tags:
+        out.append('')
+        for label, url in tags:
+            out.append('<page url="%s">%s</page>' % (url, label))
+
     body = '\n'.join(out).rstrip() + '\n'
 
     lay = layout_problems(body, repos, n_topic_headings)
