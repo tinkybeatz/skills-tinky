@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 6.0.0 |
+| **Version** | 6.1.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
-| **Effective date** | 2026-08-24 |
+| **Effective date** | 2026-08-27 |
 | **Applies to** | The per-cycle work doc for Foleon cycles — the local markdown file that is its source of truth, stored in the maintainer's own cycle directory (**not** in `skills-tinky`, see CYC-1), and the single Notion page that mirrors it — written and maintained by the `foleon-cycle` skill across every repo a cycle touches (`ripley`, `fio`, and any future Foleon repo) |
 
 **Reference implementation** — `foleon/foleon-cycle` (to be built against this standard; no
@@ -404,6 +404,10 @@ sections; reviewed at mirror time (CYC-11).
 - Exactly **three things MAY be edited in Notion** and taken as authoritative on the next read: a
   task's **checked state**, a task's **text**, and **new task lines** added under an existing scope.
   `[SRC-015]`
+- A task that carries a **Jira key** (CYC-18) is **excluded from all three**. Its checked state and its
+  text come from the tracker, so a Notion-side change to either **MUST** be reported and ignored rather
+  than applied. Without this exclusion the key buys nothing: the maintainer would still be maintaining
+  a status in two places, and the two would be free to disagree. `[SRC-027]`
 - Everything else **MUST** stay local-authoritative, and a Notion-side edit to it **MUST** be reported
   and ignored: topic fields, appetite, no-gos, topic state, **hill positions**, scopes themselves, and
   the dev log. Those either need a gate (the log's three gates) or a human statement that a text box
@@ -841,6 +845,79 @@ It runs on written sections only — an unwritten stub is already caught as a st
 
 ---
 
+### CYC-18 A task that exists in Jira takes its title and status from Jira
+
+- A Jira-bound task **MAY** carry the key of the ticket that implements it, written at the **end of the
+  task line** as `[<KEY>]`, optionally with the last-synced status: `[<KEY> · <Status>]`. The key
+  **MUST NOT** appear anywhere else on the line, because the rest of the line is the task text that an
+  annex quotes and the mirror round-trips. `[SRC-027]`
+- The key **MUST** be recorded by the maintainer, from a ticket they have already created. It **MUST
+  NOT** be inferred from a title match: the maintainer trims, rewords, splits and merges on the way
+  into the tracker, which is the whole reason the divergence exists, so a title match is wrong exactly
+  when it matters. `[SRC-027]`
+- A **`self:` task MUST NOT** carry a key. Research and decisions never become tickets (CYC-7), and a
+  key on one claims otherwise.
+- A key **MUST** identify exactly one task in the doc. Two tasks sharing a key is a validation error,
+  not a warning: one sync would silently write the same ticket over both.
+- From the moment a task carries a key, **Jira owns its title and its completion state**, and both
+  **MUST** be taken from the tracker rather than edited locally or in Notion (CYC-10). The cycle doc
+  keeps everything Jira has no concept of: the **scope** the task sits under, the **hill position**
+  (CYC-6), the **appetite** (CYC-4), the `~` **nice-to-have** mark (CYC-7), and the ordering.
+- Completion **MUST** be decided by the ticket's **`statusCategory`** (`new` / `indeterminate` /
+  `done`), never by its status **name**. Status names are per-project — one live board carries `To Do`,
+  `Doing`, `Review`, `QA`, `Funnel` and `Done` — so a name test breaks silently on any project that
+  renames a column, and breaks in the direction that reports unfinished work as finished. `[SRC-027]`
+- A keyed task **MUST NOT** be mirrored as a to-do item. Its checkbox is not a control — Jira owns
+  completion — so rendering one offers the reader a switch that does nothing. It renders as a **table
+  row instead**, key first, then status, then summary: the key is what a reader copies into the tracker
+  or a branch name, and a trailing `[KEY · Status]` on a wrapped title is the last thing the eye
+  reaches. The table is also the only place the status may carry a **colour**, since CYC-15 forbids an
+  attribute on any line parsed back out of Notion and a table cell is not one. `[SRC-027]`
+- On the **annex page**, a ticket-bound section whose task carries a key **MUST** render the live
+  ticket — key, status, real summary — **in place of** its proposed `Jira ticket name` line. The
+  proposal is the summary to paste into the tracker (CYC-16); once the ticket exists it is spent, and
+  what the reader needs is the key to open, the state it is in, and the title it actually got, which
+  is rarely the one proposed. The **sidecar keeps the proposal untouched** — it is the source of
+  truth, and this is only its rendering.
+- The status colour **MUST** be derived from `statusCategory` under NST-3's mapping — `new` grey,
+  `indeterminate` blue, `done` green — and **MUST NOT** be keyed on the status name, for the same
+  reason completion is not: a board that adds or renames a column would otherwise go uncoloured or,
+  worse, wrongly coloured.
+- The status **name MAY** be cached on the task line and shown in the mirror and in `status`. It is a
+  **cache, not a source**: `2 in Review` and `2 not started` are the same checkbox count and a
+  completely different Wednesday, so the name earns its place — but only `statusCategory` decides the
+  checkbox.
+- When Jira's summary differs from the task text, the sync **MUST** update **both** the task line and
+  the `Task:` line of the annex section covering it (CYC-16). Updating only one orphans the write-up
+  and fails validation on the maintainer's next command, for a rename they made in another tool.
+- **Nothing in this system may write to Jira.** No ticket creation, no field edit, no transition, no
+  comment — the maintainer writes every ticket themselves. This **MUST** be structural rather than
+  instructional: the tooling **MUST NOT** be able to reach the tracker at all, taking fetched issues
+  as a **local file** that someone else produced. A rule an agent is asked to respect is a promise; a
+  process with no network path to Jira is a guarantee. `[SRC-027]`
+- Keys and statuses that the payload and the doc disagree about — a key on a task but absent from the
+  payload, a key in the payload on no task — **MUST** be reported and **MUST NOT** be guessed at. A
+  partial sync is a normal thing to run, so neither is an error.
+
+**Rationale:** the maintainer's workflow already ends in Jira — the annex proposes the tickets, they
+create them by hand, and the two diverge on contact `[SRC-027]`. Before this rule the cycle doc did not
+know the ticket existed, so the same status was maintained in the doc, in Notion and in Jira, and only
+the last one was real. Giving the ticket's identity to the key rather than to its title is what makes
+the divergence survivable: the maintainer can reword freely in the tracker without the local file
+losing track of which work the ticket is.
+
+**Enforcement:** `jira_render_problems`, checked inside `render` alongside CYC-15's round-trip and fail-closed for the same reason — the renderer is the only path a body takes to Notion, so a regression there ships silently and looks fine. `ticket_table` in the renderer, and keyed tasks excluded from `roundtrip_problems`
+and from `reconcile` — they have deliberately stopped being a writable surface, so demanding a
+round-trip for them would be enforcing a contract the rule removed. `split_jira`/`join_jira` and the
+CYC-18 block in `Doc.check()` (uniqueness, and no key
+on a `self:` task); `cycle.py jira link` records a key, `cycle.py jira sync --from <file>` applies a
+fetched payload, `cycle.py jira list` shows what is linked and what is not. The read-only guarantee is
+structural in two independent layers: `cycle.py` opens no sockets, and the Atlassian connector in use
+is authorised with read scopes only (`read:jira-work`), exposing no create, edit, transition or comment
+tool to call.
+
+---
+
 ## Documented overrides
 
 | # | Source rule | Override | Justification |
@@ -889,6 +966,13 @@ A cycle doc is conforming when **all** are true:
 - [ ] Every ticket-bound annex section carries the required slots — expected outcome, done when, criteria, expected testing — in the standard's order, with conditional slots omitted rather than left empty and `Build constraints` written as a bullet list under its verbatim gloss (CYC-17)
 - [ ] No ticket write-up carries a bare implementation checklist; a constraining step sits in `Build constraints` with what it buys (CYC-17)
 - [ ] No ticket-bound section points at another ticket by position; sequencing lives in the annex's ordering section (CYC-17)
+- [ ] Every Jira key sits at the end of its task line, is unique in the doc, and is on no `self:` task (CYC-18)
+- [ ] Every key was recorded from a ticket the maintainer created, never inferred from a title match (CYC-18)
+- [ ] A keyed task's title and checkbox come from Jira; a Notion-side edit to either is reported and ignored (CYC-18, CYC-10)
+- [ ] Completion is read from `statusCategory`, never from the status name (CYC-18)
+- [ ] A Jira rename updated both the task line and its annex `Task:` line (CYC-18, CYC-16)
+- [ ] Keyed tasks render as a table — key, status, summary — never as to-do items, and the status colour comes from `statusCategory` (CYC-18, NST-3)
+- [ ] Nothing in the system can write to Jira: fetched issues arrive as a local file, and the connector carries read scopes only (CYC-18)
 - [ ] Page-level sections at `#` — `Preview`, one per project, `Dev log` — with no block outside a section (CYC-15a)
 - [ ] Every topic heading is `## <icon> Shape N: <name>`, numbered across the whole cycle, colon-separated, and the ordinal is never used as an identifier (CYC-15a)
 - [ ] Scope headings stay `####`; `###` is unused (the recorded NST-2 exception) (CYC-15a)
@@ -926,6 +1010,11 @@ A cycle doc is conforming when **all** are true:
 | Layout assertion inside `render` — section levels, `Shape N:` headings, orientation lines, no `###` | CYC-15a | Yes |
 | Task-kind contiguity check in `validate`; `self:`-prefix grep over the rendered body | CYC-15b | Yes |
 | No renderer code path composes an unsourced project gloss | CYC-15a | Structural |
+| Key uniqueness, and no key on a `self:` task, checked in `validate` | CYC-18 | Yes |
+| Completion read from `statusCategory`; no code path reads a status name | CYC-18 | Structural |
+| Keyed task rendered as a to-do item, or dropped, aborts `render` | CYC-18 | Yes, fail-closed |
+| `cycle.py` opens no sockets — fetched issues arrive as a local file | CYC-18 | Structural |
+| Atlassian connector authorised read-only; no write tool exists to call | CYC-18 | Structural |
 
 ## Exceptions
 
@@ -948,6 +1037,8 @@ None standing.
 | **Consultation** | the maintainer opens the doc to answer "where is this", instead of reconstructing it | Self-report |
 
 ## Sources
+
+- `[SRC-027]` Internal — the maintainer's written brief on connecting Jira to the cycle system, 2026-08-27, and the decisions taken from it in the same session. The problem as stated: *"when I write the ticket in Jira, I don't keep everything the annex proposed. I trim it, reword it, sometimes split or merge. So the moment the ticket exists, the annex and Jira have already diverged — and the cycle doc has no idea the ticket exists at all."* The hard constraint, stated twice: *"I write everything in Jira. AI never writes to Jira"*, and when asked how that should be enforced, *"whatever the most reliable method is. i don't want AI to write in Jira for me."* The workflow they described: *"Cycle planning creates tickets → i read them in notion annex → i add them on Jira (the way I want them to be on Jira) → once on Jira, i give the ticket url to claude code → claude goes to re-update the whole cycle docs + annex → Jira becomes the source of truth for what is related to tickets (just tickets related)."* On what Jira owns, they chose title and status over status alone; on Notion, that a keyed task's checkbox is rendered from Jira and no longer writable; and on the scope of the work, *"i want this to be a generic system, not just for this case here"* — which is why the rule is written against Jira's schema and not against the cycle that prompted it. The `statusCategory` requirement comes from their own board, read live in the same session: its columns are `To Do`, `Doing`, `Review`, `QA`, `Done`, plus `Funnel` on the epic workflow — none of which a status-name test could be written against safely. The read-only layers were verified rather than assumed: the connector's granted scopes are `read:jira-work` and Confluence reads, with no create, edit, transition or comment tool exposed.
 
 - `[SRC-026]` Internal — the maintainer's two corrections, 2026-08-24, on the first slotted ticket taken to Jira. On the slot name, reading its three bullets as the function's signature: *"so this means those 3 things will be the params in my function? … or is it not 3 params? its just not clear it kinda feels like i am missing context"*, then *"Rename AND explain briefly what value each line brings."* On the cross-reference: *"i'm not too sure about referencing ticket 2 in ticket 1. feel me? maybe can just say 'will be covered later'"* — and on scope, *"both need to be done enforced for the whole system, not just for this current cycle."* The first is a name collision the standard created for itself by calling a constraints list `Parameters` in tickets that are largely about writing functions; the second is a pointer that cannot resolve, since a Jira reader has no annex in front of them and the number moves whenever the annex does.
 
@@ -981,6 +1072,7 @@ None standing.
 
 | Version | Date | Change |
 |---|---|---|
+| **6.1.0** | 2026-08-27 | **A ticket that exists in Jira is owned by Jira.** The annex proposes tickets; the maintainer creates them by hand, trimming and rewording as they go — so from the moment a ticket existed, the write-up and the tracker had already diverged, and the cycle doc did not know the ticket existed at all `[SRC-027]`. The same status was then maintained in three places, of which only Jira was real. New **CYC-18** lets a task carry its ticket's key, and hands Jira the title and completion state from that point on; the doc keeps what Jira has no concept of — scope, hill, appetite, the `~` mark, ordering. Two details carry most of the weight. Identity moves to the **key**, not the title, which is what lets the maintainer reword freely in the tracker without the doc losing track of which work the ticket is; and completion is read from **`statusCategory`**, never a status name, because names are per-project — `Doing`, `Review`, `QA` and `Funnel` all exist on the live board — and a name test fails in the direction that reports unfinished work as finished. CYC-10 gains the matching exclusion: a keyed task's checkbox is no longer read back from Notion, or the key would have bought nothing. The read-only guarantee is deliberately **structural rather than instructional** — the tooling takes fetched issues as a local file and opens no sockets, and the connector in use carries read scopes only, so there is no create, edit, transition or comment tool to call. One rendering consequence follows from the ownership: a keyed task stops being a to-do item in the mirror and becomes a **table row** — key first, then a status coloured from `statusCategory` under NST-3's mapping. A checkbox Jira owns is a control that does nothing, and the table is the only place the status may carry a colour at all, since CYC-15 forbids an attribute on anything parsed back out of Notion. MINOR: additive. A doc with no keys conforms unchanged, and keys arrive one `jira link` at a time. |
 | **6.0.0** | 2026-08-24 | **`Parameters` becomes `Build constraints`, and a ticket stops pointing at its neighbours.** v5.0.0 made the slot a bullet list and left its name alone; the first developer to read one took it for the function's argument list and asked which three arguments were meant `[SRC-026]` — a collision guaranteed by naming a constraints list `Parameters` in tickets whose subject is writing a function. Renamed, and given a **fixed verbatim gloss** on the header line, because the two things a reader needs — that these are constraints the implementer did not choose, and that each line states what it buys — are derivable from no name at all. Fixed string rather than per-ticket prose, so it is machine-checked and cannot become forty explanations of one slot. Second change: a ticket-bound section **MUST NOT** name another ticket by position. A ticket is read alone in the tracker, where *"ticket 2"* resolves to nothing, and the number is the annex's running order, so the reference is wrong from the first reordering with nothing able to notice; sequencing belongs in the annex's ordering section, which is free-form and never pasted into a tracker. Also: an unrecognised bold header is now reported instead of ignored — every conditional slot is optional, so a slot under an old or mistyped name passed in silence, which is exactly how the renamed block survived in the one live annex. MAJOR: every 5.x annex carrying the old slot name is non-conforming; migration is a rename plus the gloss line, which `validate` names precisely. |
 | **5.1.0** | 2026-08-24 | **A shaped topic with tickets owes an annex.** CYC-17's slots only reach ticket write-ups, and write-ups only exist inside an annex, which CYC-16 had left optional — so the whole ticket standard could be skipped by not linking one `[SRC-025]`. CYC-16 now **requires** an annex on any shaped topic carrying at least one Jira-bound task. The optionality dated from v2.x, when an annex was hand-authored in Notion and creating one cost real effort; generated from a sidecar it costs one `annex sync`. Shaping topics need no exemption clause — they hold only `self:` tasks, so there is nothing to write up. MINOR: additive, and the only shaped topic in the only live cycle already carries its annex. |
 | **5.0.0** | 2026-08-24 | **The slots, corrected by first use.** 4.0.0's shape survived one reading. `Acceptance criteria` nested `Done when` and `Criteria` as two lines under one header, and the maintainer's report was that it *"looks weird"* — the criteria line disappeared into the block above it, which is the half a reviewer actually checks `[SRC-024]`. They are now two sibling slots. `Parameters` is now a **bullet list**, enforced: its items are independent constraints and a run-on behind `·` makes the reader separate them by hand. Added a ban on **padding a slot to look justified** — the first slotted ticket's outcome argued for itself and asserted something trivially true of the code as it stood, which is CYC-14's filler failure in the one slot the coverage rules cannot see. MAJOR: every 4.0.0 annex is non-conforming; migration is splitting one slot and bulleting another. |

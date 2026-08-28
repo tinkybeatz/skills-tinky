@@ -46,6 +46,7 @@ Done when: merged
 | Fields | **shaped**: `Outcome:` `Appetite:` `No-gos:` `Done when:` all required. **shaping**: only `Appetite:` (may be `(provisional)`) and `Open questions:`; `Open questions:` when there are any; `Shipped:` / `Cut:` added at close |
 | Scope | `### scope: <name> — <hill>` (em dash or hyphen both parse) |
 | Task | `- [ ] <text>` / `- [x] <text>`; nice-to-have: `- [ ] ~ <text>`; personal (not Jira): `- [ ] self: <text>`. A completed `self:` task carries `→ answer: <…>` at the end of its text (CYC-7). Under one scope, `self:` tasks come first and the two kinds stay contiguous — the mirror renders the kind as a group label and preserves this order (CYC-15b) |
+| Jira key | `- [ ] <text> [<KEY>]`, or `- [ ] <text> [<KEY> · <Status>]` once synced — at the **end** of the task line, never elsewhere on it (CYC-18). Only on a Jira-bound task: a `self:` task carrying one is a validation error, as is the same key on two tasks |
 | Annex | `Annex: <label> → <url>`, several separated by ` · `. Optional, topic level. Links a supporting document — a ticket write-up, a question list — that is too long to live in the topic |
 | Log line | `- <YYYY-MM-DD> [<repo>] <scope> → <what changed>` |
 
@@ -79,6 +80,12 @@ task-count and percentage status can't show uncertainty.
   the inline answer is findable from the question.
 - **Must-have by default.** `~` marks a nice-to-have: it never blocks `done`, and marking it **is**
   the scope-hammering action — so it earns a dev-log line as a *decision*.
+- **A task that exists in Jira carries its key**, and from that point Jira owns its title and its
+  checkbox — the doc keeps the scope, hill, appetite, `~` mark and ordering (CYC-18). The key, not
+  the title, is the identity: the maintainer rewords tickets on the way into Jira, and a title match
+  would break exactly there. Completion is read from Jira's `statusCategory`, never a status name.
+  Link with `cycle.py jira link`, refresh with `cycle.py jira sync`; see
+  [`jira.md`](jira.md). **Nothing writes to Jira, ever.**
 - A scope may legitimately have **no tasks** — it marks work known to be needed whose steps aren't
   discovered yet. Write `(no tasks yet — …)` as plain text so the section isn't empty.
 

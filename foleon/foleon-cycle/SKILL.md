@@ -10,7 +10,7 @@ description: >-
   in `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES/` is the source of truth; in Notion
   you may tick, rename and add tasks, and the next run reconciles that back.
   Covers every Foleon repo a cycle touches — `ripley`, `fio`, and any added later.
-  Enforces `docs/stds/CYCLE_DOC.md` (CYC-1…CYC-17).
+  Enforces `docs/stds/CYCLE_DOC.md` (CYC-1…CYC-18).
   **Explicit invocation only — `/foleon-cycle`.** Per CYC-11 this skill
   deliberately carries no trigger phrases and must not auto-load: do not invoke
   it because a message mentions a cycle, a topic, an estimate, planning, or
@@ -28,7 +28,7 @@ The maintainer's team hands over a cycle as **topics with an estimated time each
 a development plan — and knowing on any given Wednesday where the work actually stands — is the
 developer's job. This skill is that job, done in one file per cycle.
 
-Governed by [`docs/stds/CYCLE_DOC.md`](../../docs/stds/CYCLE_DOC.md) (CYC-1…CYC-17). The standard wins
+Governed by [`docs/stds/CYCLE_DOC.md`](../../docs/stds/CYCLE_DOC.md) (CYC-1…CYC-18). The standard wins
 any disagreement with this file. The Notion mirror also conforms to
 [`docs/stds/NOTION_STYLE.md`](../../docs/stds/NOTION_STYLE.md) (NST-1…NST-11), which carries the
 workspace-wide page rules — section framing, colour meanings, and the ban on styling anything the
@@ -54,6 +54,7 @@ whether the number of outstanding tasks will go down or up.
 | Annexes | `<cycle-id>.annex.<slug>.md` beside the cycle doc — **the sidecar is the source of truth**; its Notion page is generated, one section per Jira-bound task, and the cycle doc stops validating when the two disagree (CYC-16) |
 | Queue | `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES/.state/cycle-queue.jsonl` — dates on which a Foleon repo was edited. Evidence work happened, not log lines |
 | History | local-only git in the cycle directory — **no remote, never pushed**. `new`, `log` and `close` commit on their own; `snapshot --why "..."` records a hand-edit (CYC-1 v1.2.0) |
+| Jira | Read-only. A task may carry its ticket's key at the end of its line, `[PROD-1234 · Review]`, and Jira then owns that task's title and checkbox (CYC-18). **Nothing here ever writes to Jira** |
 | Mechanics | `scripts/cycle.py` (skeleton, hill, tasks, log patterns, annex coverage, close preflight), `scripts/queue.sh` |
 
 The Notion mirror requires the **Notion MCP**. If a call fails because it is not connected, say so and
@@ -78,6 +79,8 @@ likely next step and offer the rest only if they ask:
 | Shaping topics, and they've pasted something that reads like answers | **shape** — re-evaluate |
 | Shaping topics, nothing new | **questions** — show what's open, ask if anything got answered |
 | All shaped, no scopes or tasks | **plan** — factor scopes, read the code |
+| A ticket URL was pasted | **jira link** — record the key on the task they name |
+| Keyed tasks whose status is stale, or none synced yet | **jira sync** — fetch the keys and refresh |
 | Tasks exist, queue has unlogged days | **log** — propose lines for those days |
 | Tasks exist, queue empty | **status**, then offer the work list |
 | Past the dev window end | **close** |
@@ -91,6 +94,7 @@ Reconcile from Notion before any of it (flow 6) — they may have ticked things 
 | `questions` | **1c. Open questions**, numbered |
 | `plan` | **2. Scopes and tasks** for a shaped topic |
 | `tickets` | **3. Work list** — Jira tickets + personal tasks |
+| `jira` | **3b. Jira** — link a created ticket, refresh titles and statuses (read-only) |
 | `status` | **4. Status** — where every scope sits |
 | `log` | **5. Log** what happened |
 | `mirror` | **6. Mirror** to Notion |
@@ -279,6 +283,43 @@ after reading the code — one or two testable statements about *that* change. N
 outcome: it reads like a criterion and tests nothing, which is worse than a blank because it looks
 finished (CYC-14). Full contract: [`references/tickets.md`](references/tickets.md).
 
+### 3b. Once a ticket exists in Jira
+
+**You never write to Jira.** Not a ticket, not a field, not a transition, not a comment — the
+maintainer writes every one of them themselves. The tooling here cannot reach Jira at all: it takes
+fetched issues as a local file, and the connector in use is authorised read-only. Full contract and
+failure modes: [`references/jira.md`](references/jira.md) (CYC-18).
+
+They create the ticket, then hand you its URL:
+
+```bash
+python3 scripts/cycle.py jira link --url <ticket-url> --task "<enough of the task text>"
+```
+Never guess which task a URL belongs to. They reword tickets on the way into Jira — that divergence is
+the reason this exists — so a title match is confident and wrong. `link` lists the candidates and stops
+if the fragment is ambiguous.
+
+**From then on Jira owns that task's title and its checkbox**, and the doc keeps what Jira has no
+concept of: scope, hill, appetite, the `~` mark, ordering. Refresh it by fetching and feeding the
+payload in:
+
+```bash
+# fetch with searchJiraIssuesUsingJql — key in (…), fields summary + status — save the payload, then:
+python3 scripts/cycle.py jira sync --from /tmp/jira.json
+python3 scripts/cycle.py jira list                  # what is linked, what is not, current statuses
+```
+
+Two things worth knowing before you touch any of it. **Completion comes from `statusCategory`
+(`new`/`indeterminate`/`done`), never a status name** — names are per-project, the maintainer's board
+carries `To Do`, `Doing`, `Review`, `QA`, `Done` and `Funnel`, and a name test fails in the direction
+that calls unfinished work finished. And **a Jira rename rewrites the annex too**: `sync` updates the
+section's `Task:` line, because CYC-16 identifies a section by the task text it quotes. The write-up
+body is never regenerated.
+
+A keyed task leaves the checkbox list entirely and renders as a **table row** — key, coloured status,
+summary — because a checkbox Jira owns is a control that does nothing. `reconcile` reports a Notion-side
+change to one and ignores it. That is the payoff: one status, in one place.
+
 ### 4. Status
 
 ```bash
@@ -378,6 +419,10 @@ retrospection. Details: [`references/close.md`](references/close.md).
 - **Never write an annex by hand in Notion, and never generate its write-up.** The sidecar is the
   source of truth (CYC-16); the page is output. The structure is automated, the words are not — a
   generated ticket write-up is a generated acceptance criterion one page larger (CYC-14).
+- **Never write to Jira** — no ticket, field, transition or comment, however the request is phrased.
+  The maintainer writes every ticket themselves (CYC-18). Reading is the point; writing is not on offer.
+- **Never infer which task a Jira key belongs to.** The maintainer names it. A title match is wrong
+  exactly where it matters, because rewording on the way into Jira is what the key exists to survive.
 - **Never edit a closed doc.** Follow-on work belongs to the next cycle.
 - **Never give the cycle directory a git remote**, and never push it. The maintainer authorised
   auto-commit *because* the history stays on the laptop; a remote would silently convert a private
@@ -393,6 +438,7 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | [`references/doc-format.md`](references/doc-format.md) § Annexes | Ticket write-ups — the sidecar, the coverage rule, `annex sync`/`render` |
 | [`references/shaping.md`](references/shaping.md) | Re-evaluating a shaping topic — the blocking test, and the hold/split/shape decision |
 | [`references/tickets.md`](references/tickets.md) | Producing the work list — ticket shape, ordering, code-grounding |
+| [`references/jira.md`](references/jira.md) | A ticket now exists in Jira — linking it, refreshing it, and why nothing here may write |
 | [`references/close.md`](references/close.md) | Closing a cycle and handing off to `sprint-review` |
 
 ## Failure modes
@@ -424,6 +470,9 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | Annex drifted from the ticket list | A ticket was added and the annex still describes the old set | `cycle.py validate` now fails on it (CYC-16). `annex sync` inserts the stub; write it before mirroring. |
 | Wrote an annex write-up from the task title | A section that could have been written without opening the repo | Same failure as generated acceptance criteria, one page larger. Read the code (CYC-14), or leave the stub and say it is unwritten. |
 | Edited an annex in Notion | Content on the annex page that is not in the sidecar | It is lost on the next render — annexes have no writable surface. Move it into the sidecar before re-rendering, and say so. |
+| Wrote to Jira | Any ticket, field, transition or comment changed by this skill | The worst failure it can produce, worse than an unapproved Notion write, because the maintainer's own tracker now says something they did not write. Say so immediately and name exactly what changed. Nothing in the design was supposed to make it reachable (CYC-18). |
+| Guessed which task a Jira key belongs to | A key linked without the maintainer naming the task | Unlink it and ask. Rewording on the way into Jira is the whole reason keys exist; a title match is confident and wrong. |
+| Read completion from a status name | A `Review` or `QA` ticket showing as done | Read `statusCategory` (CYC-18). Status names are per-project, and the name test fails in the direction that calls unfinished work finished. |
 | Notion MCP unavailable | An MCP call errors on connection | Carry on locally — the local doc is authoritative, so the only cost is a stale mirror. Say so, and refresh next time. |
 | Mirrored but forgot `mirrored` | Next reconcile reports changes the maintainer already made, or misses ticks | The snapshot is the merge's only reference point. Run it after every successful write, never before. |
 | Reconcile wanted to delete a task | A task vanished from Notion | It is reported, not deleted (CYC-10). Deleting the maintainer's work automatically is never right; they can remove it locally if they meant it. |

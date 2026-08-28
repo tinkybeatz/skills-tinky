@@ -50,7 +50,8 @@ never properties** — that is the boundary this shape is allowed to exist insid
 
 | Editable in Notion, wins on read | Local-authoritative, Notion edits reported and ignored |
 |---|---|
-| a task's checked state | topic fields (outcome, no-gos, done when) |
+| a task's checked state | **every Jira-keyed task** — it renders as a table row, not a to-do item (CYC-18) |
+| — | topic fields (outcome, no-gos, done when) |
 | a task's text | appetite, topic state (`shaping`/`shaped`) |
 | new task lines under an existing scope | **hill positions**, scopes themselves, the dev log |
 | a task's **kind**, from the group label it sits under | — |

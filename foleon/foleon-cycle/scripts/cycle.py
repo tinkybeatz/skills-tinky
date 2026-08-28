@@ -75,6 +75,43 @@ STATES = ('shaping', 'shaped')
 SCOPE_RE = re.compile(r'^### scope:\s*(.+?)\s+[—-]\s*([a-z]+)\s*$')
 TASK_RE = re.compile(r'^- \[([ xX])\]\s*(~\s*)?(.+?)\s*$')
 LOG_RE = re.compile(r'^- (\d{4}-\d{2}-\d{2})\s+\[([a-z0-9._-]+)\]\s+(.+?)\s+(?:→|->)\s+(.+?)\s*$')
+
+# CYC-18: a task that exists in Jira carries its key at the end of the line, with
+# the last-synced status beside it. The key is the identity from that point on —
+# Jira owns the summary, so matching on the text would break the moment the
+# ticket is reworded, which is the whole reason the rule exists. The status is a
+# cache, not a source: it is what `jira sync` last read, stored so the mirror and
+# `status` can show "Review" without a network call.
+JIRA_RE = re.compile(r'\s*\[([A-Z][A-Z0-9]*-\d+)(?:\s*·\s*([^\]]*))?\]\s*$')
+JIRA_KEY_RE = re.compile(r'^[A-Z][A-Z0-9]*-\d+$')
+JIRA_URL_RE = re.compile(r'/browse/([A-Z][A-Z0-9]*-\d+)\b')
+# `statusCategory` is the only status vocabulary Jira fixes across sites: every
+# workflow maps its own columns onto new / indeterminate / done. Status NAMES are
+# per-project — "Doing", "Review", "QA" and "Funnel" all exist on the
+# maintainer's board — so deciding "is this finished" from a name would silently
+# break on any project that renamed a column.
+JIRA_DONE_CATEGORY = 'done'
+
+
+def split_jira(text):
+    """`("write the docs", "PROD-1", "Review")` from `"write the docs [PROD-1 · Review]"`.
+
+    Returns `(text, None, None)` when the line carries no key. Key and status are
+    held apart from the text everywhere: the text is what an annex quotes and what
+    the mirror round-trip compares, so leaving the key inside it would make every
+    Jira rename look like a task the maintainer had deleted.
+    """
+    m = JIRA_RE.search(text)
+    if not m:
+        return text, None, None
+    return text[:m.start()].rstrip(), m.group(1), (m.group(2) or '').strip() or None
+
+
+def join_jira(text, key, status=None):
+    """Inverse of `split_jira` — the one place a keyed task line is composed."""
+    if not key:
+        return text
+    return '%s [%s]' % (text, key if not status else '%s · %s' % (key, status))
 FIELDS = ('Outcome:', 'Appetite:', 'No-gos:', 'Done when:')
 EXTRA_FIELDS = ('Open questions:', 'Assumptions:', 'Annex:', 'Shipped:', 'Cut:')
 
@@ -326,12 +363,13 @@ class Doc:
                     self.problems.append(
                         f'line {i}: CYC-7 — a task must sit under a scope, not directly under a topic')
                     continue
-                text = k.group(3)
+                text, key, jstatus = split_jira(k.group(3))
                 m_self = SELF_RE.match(text)
                 scope['tasks'].append({
                     'done': k.group(1).lower() == 'x', 'nice': bool(k.group(2)),
                     'text': m_self.group(1) if m_self else text,
                     'kind': 'self' if m_self else 'jira', 'line': i,
+                    'jira': key, 'jira_status': jstatus,
                 })
                 continue
 
@@ -441,6 +479,26 @@ class Doc:
                         p.append(f'scope "{s["name"]}" (line {s["line"]}): CYC-7 — marked done with '
                                  f'{len(open_must)} must-have task(s) open (a "~" nice-to-have may '
                                  f'stay open, a must-have may not)')
+
+        # CYC-18: a Jira key is an identity, so it has to be unique and it has to
+        # sit on a task that can actually become a ticket. Both failures are
+        # silent otherwise — a duplicated key makes one sync overwrite two tasks,
+        # and a key on a `self:` task claims research work is tracked work.
+        seen_keys = {}
+        for t in self.topics:
+            for s in t['scopes']:
+                for k in s['tasks']:
+                    if not k['jira']:
+                        continue
+                    if k['kind'] == 'self':
+                        p.append(f'line {k["line"]}: CYC-18 — a "self:" task carries the Jira key '
+                                 f'{k["jira"]}, but research and decisions never become tickets '
+                                 f'(CYC-7). Drop the key, or drop the "self:" prefix')
+                    if k['jira'] in seen_keys:
+                        p.append(f'line {k["line"]}: CYC-18 — {k["jira"]} is already on line '
+                                 f'{seen_keys[k["jira"]]}; a key identifies exactly one task')
+                    else:
+                        seen_keys[k['jira']] = k['line']
 
         for lineno, raw, m in self.log:
             if not m:
@@ -587,6 +645,20 @@ def cmd_status(a):
             if nice:
                 bits += f', {len(nice)} nice-to-have open'
             print(f'  {s["hill"]:<9} {s["name"]}  ({bits})')
+            # CYC-18: the tracker's own column names are worth showing, because
+            # "2 in Review" and "2 not started" are the same checkbox count and a
+            # completely different Wednesday. The hill above is still the status
+            # that matters; this is detail underneath it, never a substitute.
+            keyed = [k for k in s['tasks'] if k['jira']]
+            if keyed:
+                by_status = {}
+                for k in keyed:
+                    by_status.setdefault(k['jira_status'] or 'not yet synced', []).append(k['jira'])
+                print('            jira: ' + ' · '.join(
+                    '%s %s' % (st, ', '.join(keys)) for st, keys in by_status.items()))
+            unlinked = [k for k in s['tasks'] if k['kind'] == 'jira' and not k['jira']]
+            if unlinked:
+                print('            jira: %d ticket task(s) not yet in Jira' % len(unlinked))
         oq = t['fields'].get('Open questions:')
         if oq:
             print(f'  open: {oq}')
@@ -750,6 +822,84 @@ def must_have_line(scope):
     return bits
 
 
+def jira_base():
+    """The Jira site's `/browse/` prefix, learned from the first URL that was linked.
+
+    Recorded rather than configured: the maintainer already pastes a ticket URL to
+    link one, so asking for the site separately would be asking for something we
+    were handed. Returns None before any URL has been seen, and the table then
+    renders the key as plain text instead of a link — a missing link is a smaller
+    failure than a guessed one pointing at the wrong site.
+    """
+    import json
+    p = os.path.join(cycle_home(), '.state', 'jira.json')
+    if not os.path.isfile(p):
+        return None
+    try:
+        return (json.loads(read(p)) or {}).get('browse_base')
+    except ValueError:
+        return None
+
+
+def remember_jira_base(url):
+    """Record the site prefix from a ticket URL, once. Never overwrites."""
+    import json
+    m = re.match(r'^(https?://[^/]+/browse)/', url.strip())
+    if not m or jira_base():
+        return
+    p = os.path.join(cycle_home(), '.state', 'jira.json')
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p, 'w', encoding='utf-8') as fh:
+        json.dump({'browse_base': m.group(1)}, fh, indent=1)
+
+
+# NST-3's mapping, applied to the only status vocabulary Jira fixes across sites
+# (CYC-18). Deliberately not keyed on the status NAME: this way a board that adds
+# a column, or renames one, needs no change here and cannot go uncoloured.
+STATUS_COLOR = {
+    'new': 'gray',            # agreed work, not started — true and outranked by what is above
+    'indeterminate': 'blue',  # settled and executing, which is what Doing/Review/QA all are
+    'done': 'green',
+}
+# `sync` stores the status name, not its category, because the name is what the
+# reader wants to see. The category is recoverable from the checkbox for `done`;
+# for the rest, an unticked box with a name means it is somewhere in flight.
+def status_color(task):
+    if task['done']:
+        return STATUS_COLOR['done']
+    st = (task['jira_status'] or '').strip().lower()
+    return STATUS_COLOR['new'] if st in ('', 'to do', 'todo', 'backlog', 'open') \
+        else STATUS_COLOR['indeterminate']
+
+
+def ticket_table(scope):
+    """The scope's Jira-backed tasks, as a table rather than as to-do items.
+
+    Three reasons it is not a checkbox list. The checkbox would do nothing — Jira
+    owns completion (CYC-18). The key belongs first, because it is what the reader
+    copies into Jira or a branch name, and a trailing `[PROD-1234 · Review]` on a
+    wrapped title is the last thing the eye reaches. And a status is worth a
+    colour, which CYC-15 forbids on any line parsed back out of Notion but permits
+    in a table cell, since nothing reads one.
+    """
+    rows = [k for k in scope['tasks'] if k['jira']]
+    if not rows:
+        return []
+    base = jira_base()
+    out = ['**Tickets — Jira owns these; status is read-only here** {color="blue"}',
+           '<table fit-page-width="true" header-row="true">',
+           '\t<tr><td>**Ticket**</td><td>**Status**</td><td>**Summary**</td></tr>']
+    for k in rows:
+        key = ('[%s](%s/%s)' % (k['jira'], base, k['jira'])) if base else '`%s`' % k['jira']
+        status = k['jira_status'] or 'not synced'
+        nice = '~ ' if k['nice'] else ''
+        out.append('\t<tr><td>%s</td><td color="%s_bg">**%s**</td><td>%s%s</td></tr>'
+                   % (key, status_color(k), cell(status), nice, cell(k['text'])))
+    out.append('</table>')
+    out.append('')
+    return out
+
+
 def cell(s):
     """Table cells take rich text only; the angle brackets are what would break the XML."""
     return (s or '').replace('<', '\\<').replace('>', '\\>')
@@ -772,8 +922,14 @@ def roundtrip_problems(d, body):
                 probs.append('scope %r does not parse back out of the render — every task under it '
                              'would be reported as missing from Notion' % s['name'])
                 continue
-            mine = [(k['text'], k['done'], k['nice'], k['kind']) for k in s['tasks']]
-            theirs = [(k['text'], k['done'], k['nice'], k['kind']) for k in parsed[s['name']]]
+            # Keyed tasks are excluded: they render as a table, not as to-do
+            # items, precisely because Jira owns them and Notion may not write
+            # them back (CYC-18). Comparing them here would demand a round-trip
+            # for content that has deliberately stopped being a writable surface.
+            mine = [(k['text'], k['done'], k['nice'], k['kind'])
+                    for k in s['tasks'] if not k['jira']]
+            theirs = [(k['text'], k['done'], k['nice'], k['kind'])
+                      for k in parsed[s['name']] if not k['jira']]
             if mine == theirs:
                 continue
             for a, b in zip(mine, theirs):
@@ -782,6 +938,31 @@ def roundtrip_problems(d, body):
             if len(mine) != len(theirs):
                 probs.append('scope %r has %d task(s) locally and %d in the render'
                              % (s['name'], len(mine), len(theirs)))
+    return probs
+
+
+def jira_render_problems(d, body):
+    """CYC-18's enforcement: no keyed task reaches Notion as a to-do item.
+
+    Fail-closed inside `render`, for the same reason CYC-15's round-trip is: the
+    renderer is the only path a body takes to Notion, so a regression here ships
+    silently and looks fine. Two failures it catches — a keyed task emitted as a
+    checkbox (offering a control Jira owns), and one that never renders at all.
+    """
+    probs = []
+    parsed = parse_mirror_tasks(body)
+    for t in d.topics:
+        for s in t['scopes']:
+            for k in s['tasks']:
+                if not k['jira']:
+                    continue
+                if any(x['text'] == k['text'] for x in parsed.get(s['name'], [])):
+                    probs.append('%s renders as a to-do item under %r; a task Jira owns must render '
+                                 'in the ticket table, or Notion offers a checkbox that does nothing'
+                                 % (k['jira'], s['name']))
+                elif k['jira'] not in body:
+                    probs.append('%s does not appear in the rendered body at all — the ticket table '
+                                 'dropped it' % k['jira'])
     return probs
 
 
@@ -1078,8 +1259,16 @@ def cmd_render_for(d, a):
                 # line takes the colour instead: nothing parses it back. Groups
                 # are emitted in file order (validate guarantees they are already
                 # contiguous and research-first) so the round-trip stays exact.
+                # CYC-18: a task that lives in Jira is no longer an input surface —
+                # its checkbox and title come from the tracker — so rendering it as
+                # a to-do item offers a control that does nothing. It becomes a
+                # table instead, which is also the only place the status can carry
+                # a colour: CYC-15 forbids an attribute on anything parsed back,
+                # and a table cell is not.
                 last = None
                 for k in sc['tasks']:
+                    if k['jira']:
+                        continue
                     if k['kind'] != last:
                         out.append('')
                         out.append('%s {color="%s"}'
@@ -1093,6 +1282,7 @@ def cmd_render_for(d, a):
                     # of the task on the next reconcile.
                     out.append('- [%s] %s%s' % (mark, pre, k['text']))
                 out.append('')
+                out.extend(ticket_table(sc))
 
             # Annexes render once per topic, directly under its last scope's
             # tasks — the point in the page where the reader has just seen the
@@ -1152,6 +1342,13 @@ def cmd_render_for(d, a):
     if lay:
         print('render aborted — the page layout does not conform (CYC-15a/CYC-15b):')
         for x in lay:
+            print('  - %s' % x)
+        return 1
+
+    jr = jira_render_problems(d, body)
+    if jr:
+        print('render aborted — a Jira-owned task is not rendered as the standard requires (CYC-18):')
+        for x in jr:
             print('  - %s' % x)
         return 1
 
@@ -1360,7 +1557,10 @@ def parse_mirror_tasks(text):
             continue
         k = TASK_RE.match(ln)
         if k and cur is not None:
-            body = k.group(3)
+            # Strip the `[KEY · Status]` suffix with the same rule the local
+            # parser uses, so a keyed task round-trips as its text rather than as
+            # its text plus a key that would then be appended a second time.
+            body, key, jstatus = split_jira(k.group(3))
             # An inline `self:` is still honoured: it is the local file's syntax
             # (CYC-7) and the maintainer may well type it into Notion by hand. A
             # task above any label falls back to CYC-7's default, Jira-bound.
@@ -1369,6 +1569,7 @@ def parse_mirror_tasks(text):
                 'done': k.group(1).lower() == 'x', 'nice': bool(k.group(2)),
                 'kind': 'self' if m_self else (kind or 'jira'),
                 'text': m_self.group(1) if m_self else body,
+                'jira': key, 'jira_status': jstatus,
             })
     return out
 
@@ -1412,7 +1613,26 @@ def cmd_reconcile(a):
         retitled_from = set()   # snapshot texts a retitle consumed — not disappearances
         local_by_text = {k['text']: k for k in sc['tasks']}
 
+        keyed_local = {k['text'] for k in sc['tasks'] if k['jira']}
+
         for th in their_list:
+            # CYC-18: once a task exists in Jira, Jira owns its title and its
+            # checkbox. Reading either back from Notion would let a tick there
+            # silently disagree with the ticket's real status, which is exactly
+            # the two-places-to-maintain problem the key was added to remove.
+            if th['jira'] or th['text'] in keyed_local:
+                was = snap_by_text.get(th['text'])
+                # Only say so when they actually changed something. Reporting
+                # every keyed task on every run would bury the handful of lines
+                # that describe a real edit.
+                if was is None or was['done'] != th['done']:
+                    key = th['jira'] or next(k['jira'] for k in sc['tasks']
+                                             if k['text'] == th['text'])
+                    ignored.append(f'{scope_name}: {th["text"]!r} is {key}; its title and status '
+                                   f'come from Jira, so the Notion-side change was not applied '
+                                   f'(run "cycle.py jira sync" to refresh it)')
+                continue
+
             was = snap_by_text.get(th['text'])
             if was is None:
                 near = difflib.get_close_matches(th['text'], list(snap_by_text), 1, 0.8)
@@ -1479,6 +1699,12 @@ def cmd_reconcile(a):
         for was_text in snap_by_text:
             if was_text in retitled_from:
                 continue
+            # A keyed task renamed in Notion leaves its old text "missing" from
+            # the page. That is the rename already reported above, not a deleted
+            # task, and saying so twice would train the maintainer to skim past
+            # the line that does mean something.
+            if was_text in keyed_local:
+                continue
             if was_text not in {x['text'] for x in their_list}:
                 ignored.append(f'{scope_name}: {was_text!r} disappeared from Notion; left in place '
                                f'locally (deleting work is never automatic)')
@@ -1513,6 +1739,271 @@ def cmd_reconcile(a):
         return 1
     snapshot(cycle_home(), '%s: reconciled from Notion (%d change(s))'
              % (d.cycle_id, len(applied) + len(added)))
+    return 0
+
+
+def all_tasks(d):
+    """(topic, scope, task) for every task in the doc, in document order."""
+    for t in d.topics:
+        for s in t['scopes']:
+            for k in s['tasks']:
+                yield t, s, k
+
+
+def normalize_issue(raw):
+    """One fetched Jira issue reduced to the four things the cycle doc uses.
+
+    Accepts either the flat shape this tool documents or the nested REST shape a
+    Jira API returns verbatim, because the caller pastes whatever their fetch gave
+    them and a transcription step is a transcription bug. Everything else Jira
+    knows — assignee, sprint, links, parent — is deliberately dropped: the cycle
+    doc has no field that would show it, and mirroring data nothing reads is how a
+    sync acquires maintenance cost for no benefit.
+    """
+    f = raw.get('fields') or {}
+    key = raw.get('key')
+    summary = raw.get('summary') or f.get('summary')
+    st = raw.get('status') or f.get('status') or {}
+    if isinstance(st, str):
+        name, cat = st, raw.get('statusCategory')
+        if isinstance(cat, dict):
+            cat = cat.get('key')
+    else:
+        name = st.get('name')
+        cat = (st.get('statusCategory') or {}).get('key') or raw.get('statusCategory')
+    if isinstance(cat, dict):
+        cat = cat.get('key')
+    return {'key': key, 'summary': summary, 'status': name, 'category': cat}
+
+
+def load_issues(path):
+    """Parse a fetched-issues file into `{key: normalized issue}`.
+
+    The file is written by whoever ran the fetch; `cycle.py` never opens a socket.
+    That is not a stylistic choice — it is half of the read-only guarantee. A tool
+    that cannot reach Jira cannot write to Jira, whatever it is asked to do.
+    """
+    import json
+    try:
+        data = json.loads(read(path))
+    except ValueError as e:
+        die('%s is not valid JSON (%s). Expected {"issues": [{"key", "summary", "status", '
+            '"statusCategory"}]}, or the raw REST payload.' % (path, e))
+    if isinstance(data, dict):
+        data = (data.get('issues') if not isinstance(data.get('issues'), dict)
+                else data['issues'].get('nodes')) or data.get('nodes') or [data]
+    if not isinstance(data, list):
+        die('%s: expected a list of issues, or an object with an "issues" list' % path)
+    out = {}
+    for raw in data:
+        if not isinstance(raw, dict):
+            continue
+        iss = normalize_issue(raw)
+        if not iss['key']:
+            continue
+        if not iss['summary'] or not iss['category']:
+            die('%s: issue %s is missing a summary or a statusCategory. Fetch it with the '
+                'summary and status fields; the status CATEGORY is what decides the checkbox, '
+                'because status names are per-project.' % (path, iss['key']))
+        out[iss['key']] = iss
+    if not out:
+        die('%s holds no issues with a key' % path)
+    return out
+
+
+def annex_retitle(d, topic, old_text, new_text):
+    """Rewrite an annex section's `Task:` line after Jira renamed the ticket.
+
+    CYC-16 identifies a section by the task text it quotes, so a rename that
+    touched only the cycle doc would orphan the write-up and fail validation. The
+    section body is never touched — only the line that says which task it covers.
+    """
+    changed = []
+    for label, _url, path, ax in topic_annexes(d, topic):
+        if ax is None:
+            continue
+        for sec in ax.ticket_sections:
+            if sec['task'] != old_text:
+                continue
+            lines = list(ax.lines)
+            for i, raw in enumerate(lines):
+                if i + 1 > sec['line'] and ANNEX_TASK_RE.match(raw) \
+                        and ANNEX_TASK_RE.match(raw).group(1) == old_text:
+                    lines[i] = 'Task: %s' % new_text
+                    with open(path, 'w', encoding='utf-8') as fh:
+                        fh.write('\n'.join(lines).rstrip('\n') + '\n')
+                    changed.append(label)
+                    break
+    return changed
+
+
+def cmd_jira(a):
+    if a.action == 'list':
+        return jira_list(a)
+    if a.action == 'link':
+        if not (a.url and a.task):
+            die('jira link needs --url <ticket-url> and --task <enough of the task text>')
+        return jira_link(a)
+    if not a.source:
+        die('jira sync needs --from <file>, holding the issues you fetched. cycle.py never '
+            'talks to Jira itself; fetch them, save the payload, then point this at it.')
+    return jira_sync(a)
+
+
+def jira_list(a):
+    """Every Jira-bound task, and whether it has a ticket behind it yet."""
+    d = Doc(resolve(a.id))
+    linked, unlinked = [], []
+    for t, s, k in all_tasks(d):
+        if k['kind'] != 'jira':
+            continue
+        row = {'topic': t['name'], 'scope': s['name'], 'text': k['text'],
+               'key': k['jira'], 'status': k['jira_status'], 'done': k['done'],
+               'nice': k['nice'], 'line': k['line']}
+        (linked if k['jira'] else unlinked).append(row)
+    if a.json:
+        import json
+        print(json.dumps({'cycle': d.cycle_id, 'linked': linked, 'unlinked': unlinked,
+                          'keys': [r['key'] for r in linked]}, indent=2, ensure_ascii=False))
+        return 0
+    for r in linked:
+        print('%-12s %-10s %s' % (r['key'], r['status'] or '—', r['text'][:70]))
+    for r in unlinked:
+        print('%-12s %-10s %s' % ('(no ticket)', '—', r['text'][:70]))
+    if linked:
+        print('\nRefresh them: fetch %s, save the payload, then '
+              '"cycle.py jira sync --from <file>".' % ', '.join(r['key'] for r in linked))
+    if unlinked:
+        print('%d task(s) have no ticket yet. Create them in Jira yourself, then '
+              '"cycle.py jira link --url <ticket-url> --task <text>".' % len(unlinked))
+    return 0
+
+
+def jira_link(a):
+    """Record the key of a ticket the maintainer has already created in Jira.
+
+    Linking is a separate step from syncing on purpose: it is the only moment the
+    maintainer asserts "this local task and that Jira ticket are the same work",
+    and guessing that from a title match would be wrong exactly when it matters —
+    they reword tickets on the way into Jira, which is what started all this.
+    """
+    d = Doc(resolve(a.id))
+    m = JIRA_URL_RE.search(a.url) or (JIRA_KEY_RE.match(a.url.strip()) and
+                                      re.match(r'^(.+)$', a.url.strip()))
+    key = m.group(1).strip() if m else None
+    if not key or not JIRA_KEY_RE.match(key):
+        die('cannot read a Jira key out of %r — pass the ticket URL '
+            '(https://<site>.atlassian.net/browse/PROD-1234) or the bare key' % a.url)
+
+    needle = a.task.lower()
+    hits = [(t, s, k) for t, s, k in all_tasks(d)
+            if k['kind'] == 'jira' and needle in k['text'].lower()]
+    if not hits:
+        die('no Jira-bound task matches %r. "cycle.py jira list" shows them; a "self:" task '
+            'cannot take a key (CYC-7).' % a.task)
+    if len(hits) > 1:
+        print('%r matches %d tasks — narrow it:' % (a.task, len(hits)))
+        for _t, s, k in hits:
+            print('  · [%s] %s' % (s['name'], k['text']))
+        return 2
+    t, _s, k = hits[0]
+    if k['jira'] and k['jira'] != key:
+        die('that task is already %s. A task has one ticket; unlink by editing the line if the '
+            'ticket was replaced.' % k['jira'])
+
+    lines = list(d.lines)
+    lines[k['line'] - 1] = lines[k['line'] - 1].rstrip() + ' [%s]' % key
+    with open(d.path, 'w', encoding='utf-8') as fh:
+        fh.write('\n'.join(lines).rstrip('\n') + '\n')
+    remember_jira_base(a.url)
+    print('  ✓ %s → %s' % (key, k['text']))
+
+    d2 = Doc(d.path)
+    probs = d2.check()
+    if probs:
+        print('\nWARNING — the doc no longer validates:')
+        for x in probs:
+            print('  - %s' % x)
+        return 1
+    print('Now fetch %s and run "cycle.py jira sync --from <file>" to take its title and '
+          'status.' % key)
+    snapshot(cycle_home(), '%s: linked %s to "%s"' % (d.cycle_id, key, k['text'][:50]))
+    return 0
+
+
+def jira_sync(a):
+    """Take title, status and completion for every keyed task from a fetched payload.
+
+    This is the whole of CYC-18's write direction, and it only ever runs one way:
+    Jira into the doc. Nothing here can produce a Jira change, and the payload is
+    a file someone else fetched, so there is no code path from this command to a
+    tracker at all.
+    """
+    d = Doc(resolve(a.id))
+    issues = load_issues(a.source)
+    lines = list(d.lines)
+    applied, unchanged, missing, extra = [], 0, [], []
+    seen = set()
+
+    for t, _s, k in all_tasks(d):
+        if not k['jira']:
+            continue
+        iss = issues.get(k['jira'])
+        if iss is None:
+            missing.append(k['jira'])
+            continue
+        seen.add(k['jira'])
+        want_done = iss['category'] == JIRA_DONE_CATEGORY
+        if k['text'] == iss['summary'] and k['jira_status'] == iss['status'] \
+                and k['done'] == want_done:
+            unchanged += 1
+            continue
+        if k['text'] != iss['summary']:
+            for label in annex_retitle(d, t, k['text'], iss['summary']):
+                applied.append('%s: annex %r now covers the ticket under its Jira title'
+                               % (k['jira'], label))
+            applied.append('%s: retitled → %r' % (k['jira'], iss['summary']))
+        if k['jira_status'] != iss['status']:
+            applied.append('%s: %s → %s' % (k['jira'], k['jira_status'] or 'unknown',
+                                            iss['status']))
+        if k['done'] != want_done:
+            applied.append('%s: checkbox → %s (statusCategory %s)'
+                           % (k['jira'], 'done' if want_done else 'open', iss['category']))
+        pre = '~ ' if k['nice'] else ''
+        lines[k['line'] - 1] = '- [%s] %s%s' % ('x' if want_done else ' ', pre,
+                                                join_jira(iss['summary'], k['jira'],
+                                                          iss['status']))
+
+    extra = [key for key in issues if key not in seen and key not in missing]
+
+    if applied:
+        with open(d.path, 'w', encoding='utf-8') as fh:
+            fh.write('\n'.join(lines).rstrip('\n') + '\n')
+    for x in applied:
+        print('  ✓ %s' % x)
+    if unchanged:
+        print('  · %d keyed task(s) already matched Jira' % unchanged)
+    for key in missing:
+        print('  ! %s is on a task but not in the payload — it was not refreshed. Fetch it too, '
+              'or check the ticket still exists.' % key)
+    for key in extra:
+        print('  · %s is in the payload but on no task — link it with "cycle.py jira link", or '
+              'ignore it if it is not this cycle\'s work.' % key)
+    # A key the payload did not carry is reported but is not a failure: syncing a
+    # subset is a normal thing to do, and a non-zero exit after the doc was
+    # written correctly is the kind of signal that gets routed to /dev/null.
+    if not applied:
+        return 0
+
+    d2 = Doc(d.path)
+    probs = d2.check()
+    if probs:
+        print('\nWARNING — the synced doc no longer validates:')
+        for x in probs:
+            print('  - %s' % x)
+        print('Fix locally; not committed.')
+        return 1
+    snapshot(cycle_home(), '%s: synced %d change(s) from Jira' % (d.cycle_id, len(applied)))
     return 0
 
 
@@ -2067,6 +2558,34 @@ def annex_snapshot_path(cycle_id, label):
     return os.path.join(d, '%s.annex.%s.mirror.md' % (cycle_id, annex_slug(label)))
 
 
+def live_ticket_line(body, task):
+    """Swap a section's proposed Jira name for the ticket that now exists (CYC-18).
+
+    The `### Jira ticket name:` line is a *proposal* — the summary to paste into
+    the tracker. Once the ticket exists the proposal is spent, and what a reader
+    of this page needs instead is the key to open, the status it is in, and the
+    title it actually got, which is rarely the one proposed. The sidecar keeps the
+    proposal untouched: it is the source of truth, and this is its rendering.
+
+    Annexes are never parsed back (CYC-16), so the colour here is safe in a way it
+    would not be on the cycle page's task lines.
+    """
+    if not task or not task.get('jira'):
+        return body
+    base = jira_base()
+    key = ('[%s](%s/%s)' % (task['jira'], base, task['jira'])) if base else '`%s`' % task['jira']
+    status = task['jira_status'] or 'not synced'
+    # A one-row table, not a heading with an attribute: Notion's `{color=...}`
+    # colours the whole block, so a status "pill" on a heading would repaint the
+    # key and the summary with it. A table cell is the only device that colours
+    # one span, and it is the same one the cycle page's ticket table uses — so the
+    # two pages teach the reader the same vocabulary.
+    row = ('<table fit-page-width="true">\n'
+           '\t<tr><td>%s</td><td color="%s_bg">**%s**</td><td>%s</td></tr>\n'
+           '</table>' % (key, status_color(task), cell(status), cell(task['text'])))
+    return '\n'.join(row if ANNEX_JIRA_RE.match(ln) else ln for ln in body.split('\n'))
+
+
 def render_annex(d, topic, label, url, ax):
     """The Notion body for one annex page.
 
@@ -2087,6 +2606,7 @@ def render_annex(d, topic, label, url, ax):
     if pre:
         out.append(pre)
         out.append('')
+    by_text = {k['text']: k for sc in topic['scopes'] for k in sc['tasks']}
     n = 0
     for s in ax.sections:
         if s['task'] is None:
@@ -2096,7 +2616,7 @@ def render_annex(d, topic, label, url, ax):
             out.append('## %d. %s' % (n, s['title']))
         body = '\n'.join(s['body']).strip('\n')
         if body:
-            out.append(body)
+            out.append(live_ticket_line(body, by_text.get(s['task'])))
         out.append('')
     return '\n'.join(out).rstrip('\n') + '\n'
 
@@ -2185,6 +2705,17 @@ def main():
                     help='file holding the fetched Notion page body')
     rc.add_argument('--id')
     rc.set_defaults(fn=cmd_reconcile)
+
+    j = sub.add_parser('jira', help='tickets that exist in Jira: link them, refresh them (read-only)')
+    j.add_argument('action', choices=('list', 'link', 'sync'),
+                   help='list: every Jira-bound task and its key · link: record the key of a '
+                        'ticket you created · sync: take title and status from a fetched payload')
+    j.add_argument('--url', help='link: the ticket URL, or its bare key')
+    j.add_argument('--task', help='link: enough of the task text to identify it')
+    j.add_argument('--from', dest='source', help='sync: file holding the fetched Jira issues')
+    j.add_argument('--json', action='store_true')
+    j.add_argument('--id')
+    j.set_defaults(fn=cmd_jira)
 
     q = sub.add_parser('questions', help='list open questions, numbered per topic')
     q.add_argument('--id')

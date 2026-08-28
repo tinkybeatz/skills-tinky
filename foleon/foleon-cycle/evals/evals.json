@@ -18,6 +18,16 @@
       "prompt": "/foleon-cycle I found out that fio's vite config needs the fio-local host alias or the editor won't boot. Add that to the cycle doc.",
       "expected_output": "Declines to put it in the dev log: it is a durable project fact, so CYC-12 routes it to foleon-fio's references/knowledge.md, naming that skill. May note the discovery as a surprise-gate log line if it changed the cycle's work, but the fact itself does not live in the cycle doc.",
       "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "/foleon-cycle here's the ticket for the ambient context task: https://foleon.atlassian.net/browse/PROD-4360",
+      "expected_output": "Runs `cycle.py jira link --url https://foleon.atlassian.net/browse/PROD-4360 --task \"<fragment>\"` against the task the maintainer named. Does NOT guess which task the URL belongs to from a title match, and if the fragment is ambiguous, shows the candidates and asks. Then fetches the issue read-only (searchJiraIssuesUsingJql or getJiraIssue, fields summary + status), saves the payload to a file, and runs `cycle.py jira sync --from <file>` so the task takes Jira's title and status. Never calls a Jira write tool of any kind. Re-mirrors afterwards, since the doc changed. Reports the resulting title and status in one or two lines, without a menu of other flows."
+    },
+    {
+      "id": 5,
+      "prompt": "/foleon-cycle PROD-4357 is in QA now, can you tick it off in the doc and move it to Done in Jira?",
+      "expected_output": "Splits the request. Refuses the Jira half plainly and once — the maintainer writes every Jira transition themselves (CYC-18), and the connector exposes no transition tool to call — without moralising or offering a workaround. Does NOT tick the checkbox by hand either: a keyed task's completion comes from Jira's statusCategory, and QA is `indeterminate`, so the box stays unticked while the doc shows the status name QA. Offers to refresh via `cycle.py jira sync` after they move it in Jira. Does not treat 'QA' as done because it sounds late in the workflow."
     }
   ]
 }
