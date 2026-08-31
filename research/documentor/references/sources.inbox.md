@@ -280,3 +280,23 @@ For proposed new categories (🆕):
 | 2025-03-24 | 0 (pending)       | 🆕 Information Retrieval & source evaluation                                                                          | 0                |
 | 2026-03-25 | 0 (pending)       | 🆕 Consulting & strategic frameworks                                                                                  | 0                |
 | 2026-04-10 | 18 validated      | ✅ Information Retrieval & source evaluation · ✅ Consulting & strategic frameworks · 🆕 DevOps, SRE & Observability | 0                |
+
+### 🆕 Analytics & tag management (web instrumentation)
+> Rationale: fits neither "Artificial intelligence & tech" (not AI) nor "DevOps, SRE & Observability"
+> (this is product/marketing-analytics instrumentation, not service observability). Vendor technical
+> specs for tag management + the dataLayer contract.
+
+| Title | URL | Date | Score | Justification |
+|---|---|---|---|---|
+| The data layer (Tag Platform) | https://developers.google.com/tag-platform/tag-manager/datalayer | 2026-08-20 | 92 | Normative spec for dataLayer.push, the `event` key, FIFO processing, set/get/reset |
+| Install a web container | https://support.google.com/tagmanager/answer/14847097 | 2026-08-20 | 90 | Exact container snippet + placement rules; primary evidence for the `gtm.js` event |
+| Custom event trigger | https://support.google.com/tagmanager/answer/7679219 | 2026-08-20 | 88 | Defines the event-name contract between pushed events and tag firing |
+| History change trigger | https://support.google.com/tagmanager/answer/7679322 | 2026-08-20 | 88 | SPA navigation: pushState/replaceState/fragment + History Change Source variable |
+| Measure SPAs with GTM (GA4) | https://developers.google.com/analytics/devguides/collection/ga4/measure-spa-gtm | 2026-08-20 | 87 | Official SPA pattern incl. the `update: true` duplicate-suppression detail |
+| Consent APIs (GTM templates) | https://developers.google.com/tag-platform/tag-manager/templates/consent-apis | 2026-08-20 | 86 | The 7 consent types + setDefaultConsentState/updateConsentState signatures |
+| CSP and Tag Manager | https://developers.google.com/tag-platform/tag-manager/web/csp | 2026-08-20 | 86 | Exact directives/domains + nonce propagation; needed for any CSP-enabled app |
+| Event naming rules (GA4) | https://support.google.com/analytics/answer/13316687 | 2026-08-20 | 85 | Allowed characters, case sensitivity, reserved prefixes and event names |
+| Event collection limits (GA4) | https://support.google.com/analytics/answer/9267744 | 2026-08-20 | 85 | Hard numeric limits: 40-char names, 25 params/event, value length caps |
+| Environments (GTM) | https://support.google.com/tagmanager/answer/6311518 | 2026-08-20 | 84 | States environments are for non-production; standard snippet for live sites |
+| Page view triggers | https://support.google.com/tagmanager/answer/7679319 | 2026-08-20 | 82 | The 5 page-load trigger types and their firing order |
+| gtag.js parameter reference | https://developers.google.com/tag-platform/gtagjs/reference/parameters | 2026-08-20 | 80 | Confirms `event_callback`/`event_timeout` are the documented (gtag) spellings |
