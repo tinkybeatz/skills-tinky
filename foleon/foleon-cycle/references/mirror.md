@@ -116,8 +116,24 @@ generated page in the workspace. This table is only what is specific to the cycl
 
 ## Sequence
 
-**1. Validate first.** `python3 scripts/cycle.py validate` — never mirror a non-conforming doc, or the
-malformation gets a second home.
+**1. Validate first, then plan.** `python3 scripts/cycle.py validate` — never mirror a non-conforming
+doc, or the malformation gets a second home.
+
+```bash
+python3 scripts/cycle.py mirror plan            # which pages Notion is behind on
+python3 scripts/cycle.py mirror plan --json     # id, kind, label, url and body for each
+```
+
+**`mirror plan` is the list of pages to write, and it is not optional.** A cycle owns more than one
+Notion page — the cycle page and one per annex — and they move together: a `jira sync` that retitles a
+ticket or moves its status changes both. `plan` compares each page's render against the snapshot of
+what was last written to it, so the mirror is no longer a matter of remembering that annexes exist.
+Write every page it lists, in one pass. Anything it does not list is already current and must be left
+alone.
+
+Every command that changes the doc — `log`, `jira sync`, `reconcile`, `annex sync`, and `validate` and
+`status` besides — ends by naming the pages that have fallen behind. That report is the trigger to
+mirror; the maintainer should never have to ask for it.
 
 **2. Fetch the current page.**
 ```
@@ -142,8 +158,11 @@ never patch a line, never diff. (Note the deliberate contrast with `foleon-cheat
 one bullet and is forbidden from replacing a page: there, the page is hand-authored and the skill is a
 guest; here, the page is *generated output* and the local file is the author.)
 
-**4. Propose. Wait for an explicit yes.** Show the rendered content and the exact target page. A
-"looks good" is a yes; silence is not (CYC-11). On a no: write nothing.
+**4. Refreshing an existing page needs no permission** (CYC-10 v2.0.0). The page is generated output
+and the local file is its author, so regenerating it costs nothing and asking each time is friction
+the maintainer explicitly does not want. The consent gate covers **creating** a cycle's row for the
+first time, and nothing else. Step 2's divergence check still applies: if the page holds something the
+local file does not, stop and show it before overwriting.
 
 **5. Write.** Content and properties both, in that order:
 ```
@@ -183,15 +202,18 @@ mcp__notion__notion-update-data-source
 If that ever fails, fall back to mirroring **without** `Repos` and say which option is missing. Never
 let a select option abort a mirror — the body is the point, the property is a convenience.
 
-**5b. Annex pages, same write path.** Any topic with an `Annex:` line has a local sidecar that is
-its source of truth (CYC-16), and its page is regenerated from that file on every mirror:
+**5b. Annex pages, same write path — and in the same pass.** Any topic with an `Annex:` line has a
+local sidecar that is its source of truth (CYC-16), and its page is regenerated from that file
+whenever `mirror plan` lists it:
 
 ```bash
 python3 scripts/cycle.py annex list                    # coverage; is anything missing or a stub?
 python3 scripts/cycle.py annex render --json           # {"label", "url", "body"} per annex
 ```
 
-Write each one with `replace_content` to the `url` the sidecar's `Annex:` line carries. The body
+`mirror plan --json` already carries the same body and url for every stale annex, so in a normal
+mirror there is nothing extra to run — this is the command to reach for when inspecting one annex on
+its own. Write each one with `replace_content` to the `url` the sidecar's `Annex:` line carries. The body
 already contains the backlink to the cycle page — derived from `mirror.json`, never typed, because
 the first hand-written annex pointed at the wrong page and nothing could tell.
 
@@ -201,15 +223,22 @@ the structure is generated, the write-up is not (CYC-14). Write it, then render.
 Annexes are **never reconciled**. They have no writable surface, so a Notion-side edit to one is lost
 on the next render — which the page says on itself. Nothing to merge, nothing to lose.
 
-**6. Record the snapshot — always, and only after the write succeeded:**
+**6. Record the snapshot — always, and only for the pages whose write actually succeeded:**
 ```bash
-python3 scripts/cycle.py mirrored
+python3 scripts/cycle.py mirrored --wrote cycle --wrote "<annex label>"
+python3 scripts/cycle.py mirrored                    # every page, when the whole mirror went through
 ```
 This records the cycle page's snapshot — the merge base for the next reconcile — and one snapshot per
-annex, which is what makes "is the annex stale?" answerable without fetching Notion.
-This is what makes the next read a three-way merge rather than a guess. Without a current snapshot,
-a task unticked in Notion is indistinguishable from one that was never ticked, and one side wins
-silently.
+annex, which is what makes "is the annex stale?" answerable without fetching Notion. It is what makes
+the next read a three-way merge rather than a guess: without a current snapshot, a task unticked in
+Notion is indistinguishable from one that was never ticked, and one side wins silently.
+
+**Name the pages you wrote when you did not write all of them.** A snapshot is a claim that Notion now
+says this, and recording one for a page that was never written is how a stale annex passes for fresh:
+on 2026-08-28 a `jira sync` moved PROD-4357 to `Doing`, the cycle page was written, the annex was not,
+and bare `mirrored` snapshotted both — after which nothing in the system could see the drift. A page
+left out of `--wrote` keeps its old snapshot, so it stays stale and every later command says so.
+`mirrored` with no `--wrote` still records everything, and now says out loud that it is doing so.
 
 **7. Report** what was written and where.
 

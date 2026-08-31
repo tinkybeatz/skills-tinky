@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 6.1.0 |
+| **Version** | 6.2.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
-| **Effective date** | 2026-08-27 |
+| **Effective date** | 2026-08-28 |
 | **Applies to** | The per-cycle work doc for Foleon cycles — the local markdown file that is its source of truth, stored in the maintainer's own cycle directory (**not** in `skills-tinky`, see CYC-1), and the single Notion page that mirrors it — written and maintained by the `foleon-cycle` skill across every repo a cycle touches (`ripley`, `fio`, and any future Foleon repo) |
 
 **Reference implementation** — `foleon/foleon-cycle` (to be built against this standard; no
@@ -430,6 +430,20 @@ sections; reviewed at mirror time (CYC-11).
 - Mirror writes **MUST NOT** require per-write approval. A generated page costs nothing to regenerate,
   so a consent gate there is ceremony; CYC-11's gate applies to **creating** a cycle's row the first
   time, not to refreshing its content. `[SRC-015]`
+- A cycle's mirror is **every page it owns** — the cycle page and one page per annex (CYC-16) — and
+  they **MUST** be refreshed together. They are one document split across pages: a `jira sync` that
+  retitles a ticket or moves its status changes both, so writing one and not the other publishes a
+  page that contradicts its own cycle. `[SRC-028]`
+- Which pages are behind **MUST** be **computed, never remembered**: the implementation **MUST** offer
+  a command that compares each page's render against the snapshot of what was last written to it and
+  lists the pages that differ, and that list is what a mirror writes. Remembering that annexes exist is
+  not a mechanism. `[SRC-028]`
+- A snapshot **MUST NOT** be recorded for a page that was not written. A snapshot is a claim that
+  Notion now says this; recording one for a skipped page makes the drift undetectable by the very
+  check that exists to detect it, which is how a stale annex passed for fresh on 2026-08-28. A page
+  left unwritten keeps its previous snapshot and stays reported as behind. `[SRC-028]`
+- Every command that changes the doc **MUST** end by naming the pages that have fallen behind. The
+  maintainer reads Notion; noticing the mirror is stale is the tool's job, not theirs. `[SRC-028]`
 
 **Rationale (revised 2026-08-19, v2.0.0):** v1.x made the mirror strictly one-way, on the principle
 that two writable surfaces drift. That principle is sound and the conclusion was still wrong for this
@@ -768,8 +782,9 @@ asserting no task line begins with `self:`.
 **Enforcement:** `annex_problems` in `cycle.py`, folded into `Doc.check()` so `validate`, `snapshot`
 and `render` all carry it; the strict variant additionally refuses stubs and gates
 `cycle.py annex render`. `cycle.py annex list` reports coverage, `cycle.py annex sync` creates
-sidecars and stubs the uncovered tickets, and `cycle.py mirrored` records an annex snapshot alongside
-the cycle's.
+sidecars and stubs the uncovered tickets, `cycle.py mirror plan` lists every page — annexes included —
+whose render differs from what was last written to it, and `cycle.py mirrored --wrote <id>` records a
+snapshot only for the pages actually written.
 
 ---
 
@@ -986,6 +1001,8 @@ A cycle doc is conforming when **all** are true:
 - [ ] Tasks render as Notion to-do items; only checked-state, task text and added task lines are read back (CYC-10)
 - [ ] Notion-side edits to fields, appetite, state, hill, scopes or the dev log are reported and ignored (CYC-10)
 - [ ] Reconciliation is a three-way merge against a post-write snapshot, deletes nothing, and re-validates before committing (CYC-10)
+- [ ] A mirror writes every page the cycle owns that is behind — cycle page and annexes — from a computed list, not from memory (CYC-10, CYC-16)
+- [ ] No snapshot is recorded for a page that was not written, and every doc-changing command names the pages left behind (CYC-10)
 - [ ] The cycle may be a row in the `Cycles` database; no topic, scope or task is a row or a property (CYC-10)
 - [ ] Every cycle-row property is derived from the local file and regenerated on each mirror (CYC-10)
 - [ ] Nothing written to Notion without an explicit yes in that conversation; hooks queue or report, never write; skill is explicit-invocation only (CYC-11)
@@ -1038,6 +1055,7 @@ None standing.
 
 ## Sources
 
+- `[SRC-028]` Internal — the maintainer's report, 2026-08-28: *"i recently mirrored the ticket from jira, but the annex didnt get updated!! look at notion right now there is a miss-sync. this shouldn't be happening!!"*, and on the fix: *"just make it so that the annex mirroring happens if needed automatically without me having to say please update it."* Confirmed on the live cycle: `jira sync` moved PROD-4357 from `To Do` to `Doing`, the cycle page was written and the annex page was not, and bare `cycle.py mirrored` then recorded snapshots for **both** — so the annex's own snapshot said it was current while Notion still showed the old status, and the mechanism CYC-16 relies on to answer "is the annex stale?" without fetching Notion returned the wrong answer. The defect was not the skipped write, which is an ordinary slip; it was that recording the snapshot of an unwritten page destroyed the only evidence of the slip.
 - `[SRC-027]` Internal — the maintainer's written brief on connecting Jira to the cycle system, 2026-08-27, and the decisions taken from it in the same session. The problem as stated: *"when I write the ticket in Jira, I don't keep everything the annex proposed. I trim it, reword it, sometimes split or merge. So the moment the ticket exists, the annex and Jira have already diverged — and the cycle doc has no idea the ticket exists at all."* The hard constraint, stated twice: *"I write everything in Jira. AI never writes to Jira"*, and when asked how that should be enforced, *"whatever the most reliable method is. i don't want AI to write in Jira for me."* The workflow they described: *"Cycle planning creates tickets → i read them in notion annex → i add them on Jira (the way I want them to be on Jira) → once on Jira, i give the ticket url to claude code → claude goes to re-update the whole cycle docs + annex → Jira becomes the source of truth for what is related to tickets (just tickets related)."* On what Jira owns, they chose title and status over status alone; on Notion, that a keyed task's checkbox is rendered from Jira and no longer writable; and on the scope of the work, *"i want this to be a generic system, not just for this case here"* — which is why the rule is written against Jira's schema and not against the cycle that prompted it. The `statusCategory` requirement comes from their own board, read live in the same session: its columns are `To Do`, `Doing`, `Review`, `QA`, `Done`, plus `Funnel` on the epic workflow — none of which a status-name test could be written against safely. The read-only layers were verified rather than assumed: the connector's granted scopes are `read:jira-work` and Confluence reads, with no create, edit, transition or comment tool exposed.
 
 - `[SRC-026]` Internal — the maintainer's two corrections, 2026-08-24, on the first slotted ticket taken to Jira. On the slot name, reading its three bullets as the function's signature: *"so this means those 3 things will be the params in my function? … or is it not 3 params? its just not clear it kinda feels like i am missing context"*, then *"Rename AND explain briefly what value each line brings."* On the cross-reference: *"i'm not too sure about referencing ticket 2 in ticket 1. feel me? maybe can just say 'will be covered later'"* — and on scope, *"both need to be done enforced for the whole system, not just for this current cycle."* The first is a name collision the standard created for itself by calling a constraints list `Parameters` in tickets that are largely about writing functions; the second is a pointer that cannot resolve, since a Jira reader has no annex in front of them and the number moves whenever the annex does.
@@ -1072,6 +1090,7 @@ None standing.
 
 | Version | Date | Change |
 |---|---|---|
+| **6.2.0** | 2026-08-28 | **A mirror is every page the cycle owns, and a snapshot is a claim about a page that was written.** The cycle page and its annexes are one document split across Notion pages, and v6.1.0 left keeping them together to whoever ran the mirror. It failed on the first Jira status move that touched both: the cycle page was written, the annex was not, and `mirrored` recorded snapshots for both regardless `[SRC-028]`. The skipped write is an ordinary slip; the damage was done by the snapshot, which asserted the annex was current and so disabled the exact check CYC-16 added to make a stale annex detectable without fetching Notion. CYC-10 now requires all of a cycle's pages to be refreshed together, requires the set of pages that are behind to be **computed** by comparing each page's render against its own snapshot rather than remembered, forbids recording a snapshot for a page that was not written, and requires every command that changes the doc to end by naming the pages that fell behind — the maintainer reads Notion, so noticing the mirror is stale is the tool's job. MINOR: additive. Nothing that conformed at 6.1.0 stops conforming; a mirror that writes every page and records every snapshot is still correct, and is now the explicit default that says what it is doing. |
 | **6.1.0** | 2026-08-27 | **A ticket that exists in Jira is owned by Jira.** The annex proposes tickets; the maintainer creates them by hand, trimming and rewording as they go — so from the moment a ticket existed, the write-up and the tracker had already diverged, and the cycle doc did not know the ticket existed at all `[SRC-027]`. The same status was then maintained in three places, of which only Jira was real. New **CYC-18** lets a task carry its ticket's key, and hands Jira the title and completion state from that point on; the doc keeps what Jira has no concept of — scope, hill, appetite, the `~` mark, ordering. Two details carry most of the weight. Identity moves to the **key**, not the title, which is what lets the maintainer reword freely in the tracker without the doc losing track of which work the ticket is; and completion is read from **`statusCategory`**, never a status name, because names are per-project — `Doing`, `Review`, `QA` and `Funnel` all exist on the live board — and a name test fails in the direction that reports unfinished work as finished. CYC-10 gains the matching exclusion: a keyed task's checkbox is no longer read back from Notion, or the key would have bought nothing. The read-only guarantee is deliberately **structural rather than instructional** — the tooling takes fetched issues as a local file and opens no sockets, and the connector in use carries read scopes only, so there is no create, edit, transition or comment tool to call. One rendering consequence follows from the ownership: a keyed task stops being a to-do item in the mirror and becomes a **table row** — key first, then a status coloured from `statusCategory` under NST-3's mapping. A checkbox Jira owns is a control that does nothing, and the table is the only place the status may carry a colour at all, since CYC-15 forbids an attribute on anything parsed back out of Notion. MINOR: additive. A doc with no keys conforms unchanged, and keys arrive one `jira link` at a time. |
 | **6.0.0** | 2026-08-24 | **`Parameters` becomes `Build constraints`, and a ticket stops pointing at its neighbours.** v5.0.0 made the slot a bullet list and left its name alone; the first developer to read one took it for the function's argument list and asked which three arguments were meant `[SRC-026]` — a collision guaranteed by naming a constraints list `Parameters` in tickets whose subject is writing a function. Renamed, and given a **fixed verbatim gloss** on the header line, because the two things a reader needs — that these are constraints the implementer did not choose, and that each line states what it buys — are derivable from no name at all. Fixed string rather than per-ticket prose, so it is machine-checked and cannot become forty explanations of one slot. Second change: a ticket-bound section **MUST NOT** name another ticket by position. A ticket is read alone in the tracker, where *"ticket 2"* resolves to nothing, and the number is the annex's running order, so the reference is wrong from the first reordering with nothing able to notice; sequencing belongs in the annex's ordering section, which is free-form and never pasted into a tracker. Also: an unrecognised bold header is now reported instead of ignored — every conditional slot is optional, so a slot under an old or mistyped name passed in silence, which is exactly how the renamed block survived in the one live annex. MAJOR: every 5.x annex carrying the old slot name is non-conforming; migration is a rename plus the gloss line, which `validate` names precisely. |
 | **5.1.0** | 2026-08-24 | **A shaped topic with tickets owes an annex.** CYC-17's slots only reach ticket write-ups, and write-ups only exist inside an annex, which CYC-16 had left optional — so the whole ticket standard could be skipped by not linking one `[SRC-025]`. CYC-16 now **requires** an annex on any shaped topic carrying at least one Jira-bound task. The optionality dated from v2.x, when an annex was hand-authored in Notion and creating one cost real effort; generated from a sidecar it costs one `annex sync`. Shaping topics need no exemption clause — they hold only `self:` tasks, so there is nothing to write up. MINOR: additive, and the only shaped topic in the only live cycle already carries its annex. |

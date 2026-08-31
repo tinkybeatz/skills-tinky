@@ -382,12 +382,26 @@ Topics with an `Annex:` line get their page regenerated in the same pass —
 `cycle.py annex render --json` gives the body and the target url, backlink already derived. Annexes
 are never read back; a Notion-side edit to one is lost on the next render.
 
-**After a successful write, always:**
+**What to write is not a judgement call — ask the script:**
 ```bash
-python3 scripts/cycle.py mirrored     # records the snapshot the next reconcile merges against
+python3 scripts/cycle.py mirror plan            # every page Notion is behind on
+python3 scripts/cycle.py mirror plan --json     # id, kind, label, url and body for each
 ```
-Skipping that is the one way to break the merge: without a fresh snapshot, "unticked in Notion" and
-"never ticked" become indistinguishable. Full call sequence and page shape:
+A cycle owns the cycle page *and* one page per annex, and they move together — a `jira sync` that
+retitles a ticket or moves its status changes both. `plan` diffs each page's render against the
+snapshot of what was last written to it, so write everything it lists and nothing it doesn't. Every
+command that changes the doc ends by naming the pages that fell behind, so the mirror is prompted by
+the tooling rather than by the maintainer.
+
+**After a successful write, always — naming the pages that actually went through:**
+```bash
+python3 scripts/cycle.py mirrored --wrote cycle --wrote "<annex label>"
+python3 scripts/cycle.py mirrored     # every page, when the whole mirror succeeded
+```
+Skipping it is the one way to break the merge: without a fresh snapshot, "unticked in Notion" and
+"never ticked" become indistinguishable. Recording a snapshot for a page that was *not* written is the
+other way, and it is worse, because it makes the drift invisible — a page left out of `--wrote` keeps
+its old snapshot and stays visibly stale instead. Full call sequence and page shape:
 [`references/mirror.md`](references/mirror.md).
 
 ### 7. Close the cycle
@@ -475,6 +489,8 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | Read completion from a status name | A `Review` or `QA` ticket showing as done | Read `statusCategory` (CYC-18). Status names are per-project, and the name test fails in the direction that calls unfinished work finished. |
 | Notion MCP unavailable | An MCP call errors on connection | Carry on locally — the local doc is authoritative, so the only cost is a stale mirror. Say so, and refresh next time. |
 | Mirrored but forgot `mirrored` | Next reconcile reports changes the maintainer already made, or misses ticks | The snapshot is the merge's only reference point. Run it after every successful write, never before. |
+| Wrote the cycle page and not the annex | Notion's annex quotes a ticket status or title Jira has already moved past | Run `cycle.py mirror plan` — it lists every page that is behind, and a mirror writes all of them. This is why the plan step exists. |
+| Snapshotted a page that was never written | `mirrored` recorded an annex the mirror skipped, so nothing can see the drift | Name the pages actually written: `mirrored --wrote <id>`. A page left out keeps its old snapshot and every later command reports it stale. |
 | Reconcile wanted to delete a task | A task vanished from Notion | It is reported, not deleted (CYC-10). Deleting the maintainer's work automatically is never right; they can remove it locally if they meant it. |
 | Notion-side edit to a field or the hill | The page's fields differ from the local doc | Report and ignore (CYC-10). Only checked-state, task text and added tasks come back. |
 | Tempted to add a Notion database, status property or approval workflow | Any urge to give topics/scopes/tasks Notion properties | Don't (CYC-10/CYC-11). The cheat sheet already cost a full architecture reversal to learn this once. |

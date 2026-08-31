@@ -570,6 +570,7 @@ def cmd_validate(a):
     if not probs:
         print(f'{os.path.basename(d.path)}: conforming — {len(d.topics)} topic(s), '
               f'{sum(len(t["scopes"]) for t in d.topics)} scope(s), {len(d.log)} log line(s)')
+        print_mirror_debt(d)
         return 0
     print(f'{os.path.basename(d.path)}: {len(probs)} problem(s)')
     for x in probs:
@@ -674,6 +675,7 @@ def cmd_status(a):
         print(f'\n{len(stuck)} scope(s) not yet downhill — that is where the unknowns are:')
         for t, s in stuck:
             print(f'  {s["hill"]:<9} {t["name"]} › {s["name"]}')
+    print_mirror_debt(d)
     return 0
 
 
@@ -704,6 +706,7 @@ def cmd_log(a):
         fh.write(body + '\n' + line + '\n')
     snapshot(state_dir(), '%s: %s -> %s' % (d.cycle_id, a.scope, text[:60]))
     print(line)
+    print_mirror_debt(Doc(d.path))
     return 0
 
 
@@ -1491,6 +1494,99 @@ def render_body(d):
     return buf.getvalue().split('--- properties')[0].rstrip() + '\n'
 
 
+def mirror_targets(d):
+    """Every Notion page this cycle owns, what it should say, and whether the
+    page is behind (CYC-10).
+
+    The cycle page and each annex are separate Notion pages but one document:
+    a `jira sync` that retitles a ticket changes both, and writing only the
+    cycle page leaves the annex quoting a status Jira has already moved past.
+    That happened, and nothing could see it, because the snapshots were
+    recorded together regardless of which pages were actually written. So
+    staleness is computed per page here, and every caller that reports it
+    reports all of them.
+
+    A page whose annex still has strict problems (an unwritten stub) is left
+    out entirely: it cannot be published, so calling it stale would be noise.
+    """
+    out = []
+    body = render_body(d)
+    sp = mirror_snapshot_path(d.cycle_id)
+    prev = read(sp) if os.path.isfile(sp) else None
+    out.append({'id': 'cycle', 'kind': 'cycle', 'label': d.cycle_id,
+                'url': cycle_page_url(d.cycle_id), 'body': body, 'snapshot': sp,
+                'never_mirrored': prev is None, 'stale': prev != body})
+    if annex_problems(d, strict=True):
+        return out
+    for t in d.topics:
+        for label, url, path, ax in topic_annexes(d, t):
+            if ax is None:
+                continue
+            b = render_annex(d, t, label, url, ax)
+            s = annex_snapshot_path(d.cycle_id, label)
+            prev = read(s) if os.path.isfile(s) else None
+            out.append({'id': label, 'kind': 'annex', 'label': label, 'url': url,
+                        'body': b, 'snapshot': s, 'never_mirrored': prev is None,
+                        'stale': prev != b})
+    return out
+
+
+def print_mirror_debt(d, prefix='\n'):
+    """Say which Notion pages are behind, unprompted.
+
+    Every command that changes the doc calls this. The mirror is the surface the
+    maintainer actually reads, so a page left behind is not a tidiness problem —
+    it is the doc lying to the only person who looks at it. Nothing here writes;
+    it names the debt so the next step is obvious without anyone asking for it.
+    """
+    try:
+        stale = [x for x in mirror_targets(d) if x['stale']]
+    except Exception:
+        # Reporting mirror debt must never be able to fail a command that has
+        # already written the doc correctly.
+        return
+    if not stale:
+        return
+    print('%sMIRROR NEEDED — %d Notion page(s) now behind this doc:' % (prefix, len(stale)))
+    for x in stale:
+        note = ' (never mirrored)' if x['never_mirrored'] else ''
+        print('  %-6s %s%s' % (x['kind'], x['label'], note))
+    print('Write every one of them: "cycle.py mirror plan --json" gives the body and '
+          'the page url for each, then "cycle.py mirrored --wrote <id>" per page written.')
+
+
+def cmd_mirror(a):
+    """What Notion is missing, and the exact bodies to write.
+
+    `plan` is the whole of the mirror flow's read side: it lists the pages whose
+    render differs from the snapshot of what was last written, cycle page and
+    annexes alike, so a mirror can no longer consist of remembering that annexes
+    exist.
+    """
+    d = Doc(resolve(a.id))
+    targets = mirror_targets(d)
+    stale = [x for x in targets if x['stale']]
+    chosen = targets if a.all else stale
+    if a.json:
+        print(json.dumps([{k: x[k] for k in
+                           ('id', 'kind', 'label', 'url', 'body', 'never_mirrored')}
+                          for x in chosen], ensure_ascii=False))
+        return 0
+    if not stale and not a.all:
+        print('Notion is up to date — %d page(s), nothing to write.' % len(targets))
+        return 0
+    print('%d of %d page(s) behind the local doc:' % (len(stale), len(targets)))
+    for x in chosen:
+        mark = 'stale' if x['stale'] else 'ok'
+        note = ' — never mirrored' if x['never_mirrored'] else ''
+        print('  %-5s %-6s %-40s %s%s' % (mark, x['kind'], x['label'],
+                                          x['url'] or '(no page yet — create it)', note))
+    if stale:
+        print('\nWrite all of them ("--json" carries each body), then record each with '
+              '"cycle.py mirrored --wrote <id>".')
+    return 0
+
+
 def cmd_mirrored(a):
     """Record what was just written to Notion. Run ONLY after a successful write.
 
@@ -1499,21 +1595,31 @@ def cmd_mirrored(a):
     that was never ticked, and one side silently wins.
     """
     d = Doc(resolve(a.id))
-    path = mirror_snapshot_path(d.cycle_id)
-    with open(path, 'w', encoding='utf-8') as fh:
-        fh.write(render_body(d))
-    print('snapshot recorded: %s' % path)
-    # An annex is generated output and is never read back, so its snapshot is
-    # not a merge base — it is the record of what the page currently says, which
-    # is what makes "the annex is stale" answerable without fetching Notion.
-    for t in d.topics:
-        for label, url, apath, ax in topic_annexes(d, t):
-            if ax is None or annex_problems(d, strict=True):
-                continue
-            sp = annex_snapshot_path(d.cycle_id, label)
-            with open(sp, 'w', encoding='utf-8') as fh:
-                fh.write(render_annex(d, t, label, url, ax))
-            print('snapshot recorded: %s' % sp)
+    targets = mirror_targets(d)
+    wrote = list(a.wrote or [])
+    if wrote:
+        by_id = {x['id']: x for x in targets}
+        unknown = [w for w in wrote if w not in by_id]
+        if unknown:
+            die('no such page: %s. "cycle.py mirror plan" lists the ids.'
+                % ', '.join(repr(u) for u in unknown))
+        chosen = [by_id[w] for w in wrote]
+    else:
+        # Bare `mirrored` still records everything, because that is what a full
+        # mirror does. It says so out loud: recording a snapshot for a page that
+        # was never written is exactly how a stale annex once passed for fresh,
+        # and the claim is now visible at the moment it is made.
+        chosen = targets
+        print('recording all %d page(s) as written — pass --wrote <id> per page if you '
+              'only wrote some of them.' % len(targets))
+    for x in chosen:
+        with open(x['snapshot'], 'w', encoding='utf-8') as fh:
+            fh.write(x['body'])
+        print('snapshot recorded: %s' % x['snapshot'])
+    # A page left out keeps its old snapshot, so it stays stale and every later
+    # command says so, rather than the drift going quiet until someone opens
+    # Notion and notices.
+    print_mirror_debt(d)
     return 0
 
 
@@ -1739,6 +1845,7 @@ def cmd_reconcile(a):
         return 1
     snapshot(cycle_home(), '%s: reconciled from Notion (%d change(s))'
              % (d.cycle_id, len(applied) + len(added)))
+    print_mirror_debt(d2)
     return 0
 
 
@@ -2004,6 +2111,10 @@ def jira_sync(a):
         print('Fix locally; not committed.')
         return 1
     snapshot(cycle_home(), '%s: synced %d change(s) from Jira' % (d.cycle_id, len(applied)))
+    # A retitle or a status move changes the annex as well as the cycle page, and
+    # the annex is the page nobody remembers. Naming it here is what stops a sync
+    # from leaving Notion half-updated.
+    print_mirror_debt(d2)
     return 0
 
 
@@ -2532,6 +2643,7 @@ def annex_sync(a):
         return 1
     if not (touched or made):
         print('every annex already covers its tickets')
+        print_mirror_debt(Doc(d.path))
     else:
         print('\nwrite the stub sections before mirroring — the structure is generated, '
               'the write-up is not.')
@@ -2696,7 +2808,20 @@ def main():
     k.add_argument('--id')
     k.set_defaults(fn=cmd_tickets)
 
+    mp = sub.add_parser('mirror', help='which Notion pages are behind, and the bodies to write')
+    mp.add_argument('action', choices=('plan',),
+                    help='plan: every page whose render differs from what was last written')
+    mp.add_argument('--all', action='store_true',
+                    help='list every page, not only the stale ones')
+    mp.add_argument('--json', action='store_true',
+                    help='machine-readable: id, kind, label, url and body per page')
+    mp.add_argument('--id')
+    mp.set_defaults(fn=cmd_mirror)
+
     mk = sub.add_parser('mirrored', help='record the snapshot after a successful Notion write')
+    mk.add_argument('--wrote', action='append', metavar='ID',
+                    help='record only this page (repeatable); ids come from "mirror plan". '
+                         'Omit to record every page as written.')
     mk.add_argument('--id')
     mk.set_defaults(fn=cmd_mirrored)
 
