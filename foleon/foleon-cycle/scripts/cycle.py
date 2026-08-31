@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Mechanics for the cycle doc — the deterministic half of `foleon-cycle`.
 
-Governed by docs/stds/CYCLE_DOC.md (CYC-1…CYC-13). The split is deliberate:
+Governed by docs/stds/CYCLE_DOC.md (CYC-1…CYC-19). The split is deliberate:
 this script owns everything with a pass/fail answer (skeleton shape, hill
 values, task placement, banned log patterns, close preflight). Everything that
 needs judgement — is this topic shaped, is this scope name the maintainer's own
@@ -23,6 +23,7 @@ Usage:
   cycle.py questions [--id ID]
   cycle.py mirrored [--id ID]
   cycle.py reconcile --from <fetched.md> [--id ID]
+  cycle.py deviations list|sync|add|dismiss [...] [--id ID]
   cycle.py snapshot --why "..." [--id ID]
   cycle.py close [--id ID]
 
@@ -666,7 +667,8 @@ def cmd_status(a):
     booked = booked_weeks(d)
     if booked:
         left = DEV_WEEKS - booked
-        note = ('%.1fw unbooked' % left if left > 0 else
+        note = ('%.1fw unbooked' % left if left > 0.05 else
+                'fully booked — nothing left for anything unplanned' if left > -0.05 else
                 'OVER-BOOKED by %.1fw — hammer a scope or drop a topic' % -left)
         print('\nbooked: %.1fw of %dw dev window · %s' % (booked, DEV_WEEKS, note))
 
@@ -747,6 +749,17 @@ def cmd_close(a):
         for t, s in signal:
             print(f'  {s["hill"]:<9} {t["name"]} › {s["name"]}')
         print('Carry that into the next intake: these are the topics whose rabbit holes were missed.')
+    devs = [(k['jira'], e) for _t, _l, _p, _ax, sec, k in deviation_sections(d)
+            for e in annex_deviations(sec)]
+    if devs:
+        # The strongest signal in the file, and the one nothing else reports: a
+        # constraint the maintainer wrote, and the build then disproved. It is
+        # shaping feedback of the same kind as a scope that never went downhill,
+        # arriving from the other end (CYC-19).
+        print('\n%d divergence(s) between what was specified and what was built (CYC-19) — the '
+              'plan was wrong here, and these are what the retro reads first:' % len(devs))
+        for key, e in devs:
+            print('  %-12s %-8s %s' % (key, e['verdict'], e['anchor'][:60]))
     print('\nNext: hand this closed doc to the sprint-review skill for the retro (CYC-13).')
     return 0
 
@@ -1068,7 +1081,8 @@ def cmd_render_for(d, a):
     booked = booked_weeks(d)
     if booked:
         left = DEV_WEEKS - booked
-        note = ('%.1fw unbooked' % left if left > 0
+        note = ('%.1fw unbooked' % left if left > 0.05
+                else '**nothing unbooked** — no room left for anything unplanned' if left > -0.05
                 else '**over-booked by %.1fw** — hammer a scope or drop a topic' % -left)
         out.append('\t`%s`  **%.1fw** of %dw dev window booked · %s'
                    % (bar(booked), booked, DEV_WEEKS, note))
@@ -1918,6 +1932,142 @@ def load_issues(path):
     return out
 
 
+# ---------------------------------------------------------------------------
+# Ticket comments (CYC-19) — read from a file, exactly like issues
+# ---------------------------------------------------------------------------
+#
+# Comments arrive the way issues do: as a payload someone else fetched. That is
+# not symmetry for its own sake — the read-only guarantee (CYC-18) is not a
+# promise anyone keeps, it is the absence of a socket, and it has to hold here
+# too. A tool that could read a thread over the wire is one library call away
+# from replying to it.
+
+def comments_path(cycle_id):
+    """Where the comment store lives — under `.state/`, which CYC-1 keeps
+    unversioned: it is a cache of someone else's system, not the maintainer's
+    work."""
+    d = os.path.join(cycle_home(), '.state')
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, '%s.comments.json' % cycle_id)
+
+
+def load_comment_state(cycle_id):
+    p = comments_path(cycle_id)
+    if not os.path.isfile(p):
+        return {}
+    try:
+        return json.loads(read(p))
+    except ValueError:
+        return {}
+
+
+def save_comment_state(cycle_id, data):
+    with open(comments_path(cycle_id), 'w', encoding='utf-8') as fh:
+        json.dump(data, fh, indent=2, ensure_ascii=False, sort_keys=True)
+
+
+def adf_text(node):
+    """Flatten Atlassian Document Format to plain text.
+
+    Jira returns a comment body as a nested document, not a string. Only the
+    words and the line breaks survive, and that is enough: the store exists so
+    the maintainer can read the comment back and say what it means for the plan,
+    and no amount of formatting changes that answer.
+    """
+    if isinstance(node, str):
+        return node
+    if isinstance(node, list):
+        return ''.join(adf_text(x) for x in node)
+    if not isinstance(node, dict):
+        return ''
+    t = node.get('type')
+    if t == 'text':
+        return node.get('text') or ''
+    if t in ('hardBreak', 'rule'):
+        return '\n'
+    inner = adf_text(node.get('content') or [])
+    if t in ('paragraph', 'heading', 'listItem', 'blockquote', 'codeBlock', 'panel'):
+        return inner + '\n'
+    return inner
+
+
+def normalize_comments(raw):
+    """`{jira key: [comment]}` out of whatever the fetch returned.
+
+    Accepts `getJiraIssue`'s nested shape, a single issue, and the flat shape
+    this tool documents, for the reason `load_issues` does: the caller pastes
+    what their fetch gave them, and a transcription step is a transcription bug.
+    """
+    out = {}
+
+    def add(key, c):
+        if not key or not isinstance(c, dict):
+            return
+        cid = str(c.get('id') or c.get('commentId') or '')
+        body = adf_text(c.get('body') if c.get('body') is not None else c.get('text'))
+        body = re.sub(r'\n{3,}', '\n\n', body).strip()
+        if not cid or not body:
+            return
+        au = c.get('author')
+        author = au.get('displayName') if isinstance(au, dict) else au
+        out.setdefault(key, []).append({
+            'id': cid, 'author': author or 'unknown',
+            'created': c.get('created') or c.get('createdAt') or '', 'text': body})
+
+    def walk(obj, key=None):
+        if isinstance(obj, list):
+            for x in obj:
+                walk(x, key)
+            return
+        if not isinstance(obj, dict):
+            return
+        k = obj.get('key') or key
+        f = obj.get('fields') if isinstance(obj.get('fields'), dict) else {}
+        for cm in (obj.get('comment'), f.get('comment')):
+            if isinstance(cm, dict):
+                for c in cm.get('comments') or []:
+                    add(k, c)
+            elif isinstance(cm, list):
+                for c in cm:
+                    add(k, c)
+        if isinstance(obj.get('comments'), list):
+            for c in obj['comments']:
+                add(k, c)
+        for name in ('issues', 'nodes', 'results', 'values'):
+            if isinstance(obj.get(name), list):
+                walk(obj[name], k)
+
+    walk(raw)
+    return out
+
+
+def print_comment_debt(d, prefix='\n'):
+    """Say which tickets carry comments nobody has decided about yet (CYC-19).
+
+    Same job as `print_mirror_debt`, and the same reason: an unread comment is
+    not a tidiness problem, it is the plan still saying something the build
+    already disproved. Nothing here writes; it names the debt so the next step
+    is obvious without the maintainer having to remember the command.
+    """
+    try:
+        store = load_comment_state(d.cycle_id)
+    except Exception:
+        return
+    rows = []
+    for key, rec in sorted(store.items()):
+        n = len([c for c in (rec.get('comments') or {}).values() if not c.get('handled')])
+        if n:
+            rows.append((key, n))
+    if not rows:
+        return
+    print('%sUNREAD TICKET COMMENTS — %d ticket(s) (CYC-19):' % (prefix, len(rows)))
+    for key, n in rows:
+        print('  %-12s %d comment(s) neither recorded nor dismissed' % (key, n))
+    print('Read them with "cycle.py deviations list". Record what changes the plan with '
+          '"deviations add", and dismiss the rest with "deviations dismiss" — a comment left '
+          'unread is reported for ever.')
+
+
 def annex_retitle(d, topic, old_text, new_text):
     """Rewrite an annex section's `Task:` line after Jira renamed the ticket.
 
@@ -2096,6 +2246,7 @@ def jira_sync(a):
     for key in extra:
         print('  · %s is in the payload but on no task — link it with "cycle.py jira link", or '
               'ignore it if it is not this cycle\'s work.' % key)
+    print_comment_debt(d)
     # A key the payload did not carry is reported but is not a failure: syncing a
     # subset is a normal thing to do, and a non-zero exit after the doc was
     # written correctly is the kind of signal that gets routed to /dev/null.
@@ -2199,12 +2350,16 @@ ANNEX_SLOTS = [
     ('Criteria', True),
     ('Lives under', False),
     ('Expected testing', True),
+    ('As built', False),
 ]
 # Slots whose content is a bullet list rather than inline prose. `Build
 # constraints` is a set of independent constraints, and running them together
 # behind `·` makes the reader do the separating that punctuation should have
 # done for them.
-ANNEX_LIST_SLOTS = {'Build constraints'}
+# `As built` is a list for the same reason: each entry is one independent
+# divergence, and they are read by scanning for the one that touches whatever
+# you are about to change.
+ANNEX_LIST_SLOTS = {'Build constraints', 'As built'}
 # The gloss a list slot MUST carry on its header line, verbatim. The slot was
 # called `Parameters` until a developer read it as the function's argument list
 # and asked what the three items were meant to be — a collision the name makes
@@ -2215,6 +2370,9 @@ ANNEX_LIST_SLOTS = {'Build constraints'}
 ANNEX_SLOT_GLOSS = {
     'Build constraints':
         'what the implementation must respect, and what each one buys.',
+    'As built':
+        'where the build diverged from the constraints above, and what each divergence '
+        'changes.',
 }
 ANNEX_SLOT_NAMES = [n for n, _ in ANNEX_SLOTS]
 ANNEX_SLOT_REQUIRED = [n for n, r in ANNEX_SLOTS if r]
@@ -2237,6 +2395,36 @@ ANNEX_STUB = '\n'.join([
     '**Expected testing** — %s: which tests, at which level, or "none" if none.' % ANNEX_STUB_MARK,
 ])
 ANNEX_STUB_JIRA = '### Jira ticket name: ' + ANNEX_JIRA_TODO
+
+
+ANNEX_RULE_RE = re.compile(r'^\s*(-{3,}|\*{3,}|_{3,})\s*$')
+
+
+def slot_content(section, name):
+    """The lines belonging to one slot: up to the next slot header, or to the
+    rule that closes the section — whichever comes first.
+
+    The rule matters for the last slot only, and it matters every time: without
+    it `As built` swallows the `---` between one ticket and the next, and then
+    fails its own "every line starts with - " check on a line nobody wrote.
+    """
+    run, hit = [], False
+    for raw in section['body']:
+        if ANNEX_RULE_RE.match(raw):
+            if hit:
+                break
+            continue
+        m = ANNEX_SLOT_RE.match(raw.strip())
+        if m:
+            if m.group(1) == name:
+                hit = True
+                continue
+            if hit:
+                break
+            continue
+        if hit:
+            run.append(raw)
+    return run
 
 
 def slot_problems(section):
@@ -2279,25 +2467,8 @@ def slot_problems(section):
         p.append('slots are out of order — the standard\'s order is: %s'
                  % ' · '.join(ANNEX_SLOT_NAMES))
 
-    def content_after(name):
-        """The lines belonging to a slot: everything up to the next slot header."""
-        run = []
-        hit = False
-        for raw in section['body']:
-            m = ANNEX_SLOT_RE.match(raw.strip())
-            if m:
-                if m.group(1) == name:
-                    hit = True
-                    continue
-                if hit:
-                    break
-                continue
-            if hit:
-                run.append(raw)
-        return run
-
     for name, rest in seen:
-        run = [x for x in content_after(name) if x.strip()]
+        run = [x for x in slot_content(section, name) if x.strip()]
         if name in ANNEX_LIST_SLOTS:
             gloss = ANNEX_SLOT_GLOSS.get(name)
             if gloss and rest != gloss:
@@ -2350,6 +2521,99 @@ def cross_ref_problems(section):
                          'ordering section' % m.group(0))
                 break
     return p
+
+
+# ---------------------------------------------------------------------------
+# Divergences between the ticket and the build (CYC-19)
+# ---------------------------------------------------------------------------
+#
+# A ticket's comments are where the maintainer records that the build did not do
+# what the write-up said — a constraint that turned out unnecessary, one that was
+# wrong about the repo, a stated reason that was already out of date. That is
+# feedback on the plan, and the plan is the only place it can act; left in Jira
+# it is read once and the next ticket copies the stale constraint anyway.
+#
+# What it is NOT is content for the annex page. A comment is prose written to a
+# reviewer, most of it conversation, and the annex has a hard budget — roughly
+# ten lines per ticket (references/tickets.md). So a comment is not mirrored: it
+# is REDUCED, to a verdict, the line it contradicts, and what actually happened.
+# The anchor is checked to exist in the write-up, which is what stops the slot
+# decaying back into a pasted thread, and what makes a stale constraint findable
+# from the constraint rather than from a date.
+DEVIATION_VERDICTS = ('dropped', 'changed', 'stale')
+DEVIATION_VERDICT_MEANING = {
+    'dropped': 'the constraint was unnecessary, and nothing replaced it',
+    'changed': 'the constraint was replaced by a different one',
+    'stale': 'the instruction stands; the reason given for it was wrong',
+}
+# The em dash separates anchor from note, so it is the one character an anchor
+# may not contain. Non-greedy on the anchor, so an em dash inside the note is
+# fine — which matters, because the note is the half that argues.
+DEVIATION_RE = re.compile(r'^-\s+\*\*(%s)\*\*\s*·\s*(.+?)\s+—\s+(\S.*?)\s*$'
+                          % '|'.join(DEVIATION_VERDICTS))
+
+
+def dev_norm(s):
+    """Comparison form for an anchor: what survives rewrapping and emphasis.
+
+    An anchor is quoted by hand from a constraint that may since have been
+    re-wrapped or emphasised. Matching on the raw string would fail on a line
+    break the maintainer cannot see, and a failed anchor check reads as "you
+    quoted the wrong line".
+    """
+    return re.sub(r'\s+', ' ', re.sub(r'[*`_]', '', s or '')).strip().lower()
+
+
+def section_anchor_text(section):
+    """Everything in a section that an anchor may point at.
+
+    The `As built` slot is excluded deliberately: an entry anchored on another
+    entry would validate while pointing at nothing in the write-up, which is
+    exactly the free-floating text the anchor exists to prevent.
+    """
+    body, inside = [], False
+    for raw in section['body']:
+        m = ANNEX_SLOT_RE.match(raw.strip())
+        if m:
+            inside = m.group(1) == 'As built'
+        if inside:
+            continue
+        body.append(raw)
+    return dev_norm(' '.join(body))
+
+
+def deviation_problems(section):
+    """CYC-19 conformance for one section's `As built` slot."""
+    p = []
+    haystack = section_anchor_text(section)
+    for raw in slot_content(section, 'As built'):
+        line = raw.strip()
+        if not line:
+            continue
+        m = DEVIATION_RE.match(line)
+        if not m:
+            p.append('"%s" is not an "As built" entry — every line reads '
+                     '"- **<verdict>** · <the line it contradicts> — <what actually happened>", '
+                     'with the verdict one of %s. A comment is never pasted here; it is reduced '
+                     'to the part the plan can act on'
+                     % (line[:60], ' / '.join(DEVIATION_VERDICTS)))
+            continue
+        if dev_norm(m.group(2)) not in haystack:
+            p.append('the entry %r anchors on text that appears nowhere else in this section. '
+                     'An entry names the line it contradicts, quoted closely enough to find; '
+                     'anchored on nothing it is the free-floating comment this slot replaces'
+                     % m.group(2)[:60])
+    return p
+
+
+def annex_deviations(section):
+    """The parsed `As built` entries of one section, in file order."""
+    out = []
+    for raw in slot_content(section, 'As built'):
+        m = DEVIATION_RE.match(raw.strip())
+        if m:
+            out.append({'verdict': m.group(1), 'anchor': m.group(2), 'note': m.group(3)})
+    return out
 
 
 def annex_slug(label):
@@ -2540,6 +2804,10 @@ def annex_problems(d, strict=False):
                 for why in cross_ref_problems(sec):
                     p.append('%s: CYC-17 — section "%s" (line %d): %s.'
                              % (where, sec['title'][:50], sec['line'], why))
+                for why in deviation_problems(sec):
+                    p.append('%s: CYC-19 — section "%s" (line %d): %s. Record divergences with '
+                             '"cycle.py deviations add"; see references/deviations.md.'
+                             % (where, sec['title'][:50], sec['line'], why))
             if strict:
                 for s, why in a.stubs():
                     p.append('%s: CYC-16 — section "%s" (line %d): %s. An annex is published only '
@@ -2698,6 +2966,42 @@ def live_ticket_line(body, task):
     return '\n'.join(row if ANNEX_JIRA_RE.match(ln) else ln for ln in body.split('\n'))
 
 
+# The icon for a divergence block, fixed across pages the way NST-4 requires.
+AS_BUILT_ICON = '🛠️'
+
+
+def as_built_callout(body):
+    """Render a section's `As built` slot as a callout (NST-3/NST-4).
+
+    Yellow, because the workspace mapping already assigns yellow to "read this
+    before trusting the block above" — which is exactly what a divergence from
+    the constraints is, and giving it a colour of its own would teach the reader
+    a sixth meaning for no gain. The sidecar keeps a plain bullet list: styling
+    is the renderer's, never the hand's (NST-9).
+    """
+    lines = body.split('\n')
+    out, i = [], 0
+    while i < len(lines):
+        m = ANNEX_SLOT_RE.match(lines[i].strip())
+        if not (m and m.group(1) == 'As built'):
+            out.append(lines[i])
+            i += 1
+            continue
+        i += 1
+        items = []
+        while i < len(lines) and lines[i].strip().startswith('- '):
+            items.append(lines[i].strip())
+            i += 1
+        if not items:
+            continue
+        out.append('<callout icon="%s" color="yellow_bg">' % AS_BUILT_ICON)
+        out.append('\t**As built** — this did not land exactly as specified above.')
+        for x in items:
+            out.append('\t%s' % x)
+        out.append('</callout>')
+    return '\n'.join(out)
+
+
 def render_annex(d, topic, label, url, ax):
     """The Notion body for one annex page.
 
@@ -2728,14 +3032,14 @@ def render_annex(d, topic, label, url, ax):
             out.append('## %d. %s' % (n, s['title']))
         body = '\n'.join(s['body']).strip('\n')
         if body:
-            out.append(live_ticket_line(body, by_text.get(s['task'])))
+            out.append(as_built_callout(live_ticket_line(body, by_text.get(s['task']))))
         out.append('')
     return '\n'.join(out).rstrip('\n') + '\n'
 
 
 def annex_render(a):
     d = Doc(resolve(a.id))
-    probs = d.check() + annex_problems(d, strict=True)
+    probs = list(dict.fromkeys(d.check() + annex_problems(d, strict=True)))
     if probs:
         print('not rendering a non-conforming annex - fix these first:')
         for x in probs:
@@ -2758,6 +3062,270 @@ def annex_render(a):
             print('--- page:  %s' % url)
             print('')
             print(body)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# `deviations` (CYC-19)
+# ---------------------------------------------------------------------------
+#
+# Two commands, split for the reason `jira link` and `jira sync` are split:
+# `sync` is mechanical and touches nothing the maintainer wrote, while `add` is
+# the moment someone asserts "this comment means that constraint was wrong".
+# Nothing infers the second from the first. A model reading a thread and
+# rewriting the plan from it would be the same confident-and-wrong move as
+# matching a Jira key on a title.
+
+
+def deviation_sections(d):
+    """(topic, label, path, Annex, section, task) per ticket section that has a
+    Jira key behind it — the only kind a comment can reach."""
+    out = []
+    keyed = {}
+    for t, _s, k in all_tasks(d):
+        if k['kind'] == 'jira' and k['jira']:
+            keyed[(t['name'], k['text'])] = k
+    for t in d.topics:
+        for label, _url, path, ax in topic_annexes(d, t):
+            if ax is None:
+                continue
+            for sec in ax.ticket_sections:
+                k = keyed.get((t['name'], sec['task']))
+                if k:
+                    out.append((t, label, path, ax, sec, k))
+    return out
+
+
+def cmd_deviations(a):
+    if a.action == 'list':
+        return deviations_list(a)
+    if a.action == 'sync':
+        if not a.source:
+            die('deviations sync needs --from <file>, holding the comments you fetched. '
+                'cycle.py never talks to Jira itself (CYC-18); fetch them read-only with '
+                'getJiraIssue, save the payload, then point this at it.')
+        return deviations_sync(a)
+    if a.action == 'add':
+        if not (a.key and a.verdict and a.anchor and a.note):
+            die('deviations add needs --key, --verdict, --anchor and --note. The anchor is the '
+                'line the build contradicted, quoted from the write-up; without it the entry is '
+                'the free-floating comment this replaces.')
+        return deviations_add(a)
+    if not (a.key and a.comment and a.why):
+        die('deviations dismiss needs --key, --comment <id> (repeatable) and --why. A dismissal '
+            'is a decision — recording why costs one clause and is the only thing that stops a '
+            'silent mass-dismissal looking like an empty inbox.')
+    return deviations_dismiss(a)
+
+
+def deviations_list(a):
+    """What has been recorded, and what has been read but not decided about."""
+    d = Doc(resolve(a.id))
+    store = load_comment_state(d.cycle_id)
+    rows = []
+    for _t, label, _p, _ax, sec, k in deviation_sections(d):
+        rec = (store.get(k['jira']) or {}).get('comments') or {}
+        pending = [dict(c, id=cid) for cid, c in sorted(rec.items()) if not c.get('handled')]
+        rows.append({'key': k['jira'], 'task': k['text'], 'annex': label,
+                     'status': k['jira_status'], 'entries': annex_deviations(sec),
+                     'pending': pending})
+    if a.json:
+        print(json.dumps({'cycle': d.cycle_id, 'tickets': rows}, indent=2, ensure_ascii=False))
+        return 0
+    if not rows:
+        print('no ticket has both a Jira key and an annex section, so no comment can reach the '
+              'plan yet.')
+        return 0
+    for r in rows:
+        if not (r['entries'] or r['pending']):
+            continue
+        print('%s  %s' % (r['key'], r['task'][:70]))
+        for e in r['entries']:
+            print('  recorded  %-8s %s' % (e['verdict'], e['anchor'][:64]))
+            print('            %s' % e['note'][:100])
+        for c in r['pending']:
+            print('  UNREAD    comment %s · %s · %s' % (c['id'], c['author'],
+                                                        (c.get('created') or '')[:10]))
+            for ln in (c['text'] or '').split('\n'):
+                print('            %s' % ln)
+        print('')
+    quiet = [r['key'] for r in rows if not (r['entries'] or r['pending'])]
+    if quiet:
+        print('nothing recorded or pending on: %s' % ', '.join(quiet))
+    if any(r['pending'] for r in rows):
+        print('For each unread comment: either "deviations add" the part that changes the plan, '
+              'or "deviations dismiss" it. Most comments are conversation and get dismissed — '
+              'that is the expected outcome, not a failure to find something.')
+    return 0
+
+
+def deviations_sync(a):
+    """Ingest a fetched comments payload. Writes nothing but the store.
+
+    Deliberately does not touch an annex: what a comment means for the plan is a
+    judgement, and a command that wrote the annex from a payload would be
+    generating a write-up from prose it did not understand (CYC-14, CYC-16).
+    """
+    d = Doc(resolve(a.id))
+    try:
+        raw = json.loads(read(a.source))
+    except ValueError as e:
+        die('%s is not valid JSON (%s). Expected what getJiraIssue returned, or '
+            '{"key": "PROD-1234", "comments": [{"id", "author", "created", "body"}]}.'
+            % (a.source, e))
+    found = normalize_comments(raw)
+    if not found:
+        die('%s holds no comments on any issue. Fetch the issue WITH its comment field — an '
+            'issue fetched for summary and status alone carries none.' % a.source)
+    keys = {k['jira'] for _t, _l, _p, _ax, _s, k in deviation_sections(d)}
+    store = load_comment_state(d.cycle_id)
+    fresh, known, stray = [], 0, []
+    for key, comments in sorted(found.items()):
+        if key not in keys:
+            stray.append(key)
+            continue
+        slot = store.setdefault(key, {}).setdefault('comments', {})
+        for c in comments:
+            old = slot.get(c['id'])
+            if old is not None:
+                # An edited comment refreshes only while nobody has decided about
+                # it. Rewriting the text under a recorded decision would leave the
+                # store saying the decision was taken about words it never was.
+                if not old.get('handled'):
+                    old.update({'text': c['text'], 'author': c['author'],
+                                'created': c['created']})
+                known += 1
+                continue
+            slot[c['id']] = {'author': c['author'], 'created': c['created'],
+                             'text': c['text'], 'handled': False}
+            fresh.append((key, slot[c['id']], c['id']))
+    save_comment_state(d.cycle_id, store)
+    for key, c, cid in fresh:
+        print('  + %s comment %s · %s · %s' % (key, cid, c['author'], (c['created'] or '')[:10]))
+        for ln in (c['text'] or '').split('\n'):
+            print('      %s' % ln)
+        print('')
+    if known:
+        print('  · %d comment(s) already in the store' % known)
+    for key in stray:
+        print('  · %s carries comments but is on no annexed task in this cycle — ignored. Link '
+              'it with "cycle.py jira link" if it is this cycle\'s work.' % key)
+    if not fresh:
+        print('nothing new.')
+        print_comment_debt(d)
+        return 0
+    print('%d new comment(s). For each: does it say the build diverged from the write-up?\n'
+          '  yes → cycle.py deviations add --key <KEY> --verdict %s \\\n'
+          '              --anchor "<the line it contradicts, quoted from the write-up>" \\\n'
+          '              --note "<what actually happened>" --comment <id>\n'
+          '  no  → cycle.py deviations dismiss --key <KEY> --comment <id> --why "<one clause>"'
+          % (len(fresh), '|'.join(DEVIATION_VERDICTS)))
+    print('\nPropose the reduction and wait for a yes before writing it. The comment is the '
+          'maintainer\'s prose; the entry is a claim about their plan.')
+    return 0
+
+
+def deviations_add(a):
+    """Record one divergence in the annex section of the ticket it belongs to."""
+    d = Doc(resolve(a.id))
+    hits = [x for x in deviation_sections(d) if x[5]['jira'] == a.key]
+    if not hits:
+        die('%s is on no annexed task in this cycle. "cycle.py jira list" shows what is linked; '
+            'a divergence is recorded against the write-up it contradicts, so the ticket needs '
+            'its annex section first ("cycle.py annex sync").' % a.key)
+    if len(hits) > 1:
+        die('%s is on %d annex sections; one ticket, one write-up (CYC-16). Fix the duplicate '
+            'before recording anything against it.' % (a.key, len(hits)))
+    _t, label, path, ax, sec, k = hits[0]
+    if '—' in a.anchor:
+        die('an anchor may not contain an em dash — that is what separates it from the note. '
+            'Quote a shorter run of the line instead; it only has to be findable.')
+    if dev_norm(a.anchor) not in section_anchor_text(sec):
+        die('that anchor appears nowhere in %s\'s write-up in %s. An entry names the line it '
+            'contradicts, quoted closely enough to find — if the write-up never said it, what '
+            'you have is not a divergence but a new fact, and it belongs in the ticket or in '
+            'the project skill\'s knowledge.md (CYC-12).' % (a.key, os.path.basename(path)))
+
+    entry = '- **%s** · %s — %s' % (a.verdict, a.anchor.strip(), a.note.strip())
+    lines = list(ax.lines)
+    start = sec['line']                       # 1-based line of the "## " heading
+    later = [x['line'] for x in ax.sections if x['line'] > start]
+    end = (min(later) - 1) if later else len(lines)
+    hdr = None
+    for i in range(start, end):
+        m = ANNEX_SLOT_RE.match(lines[i].strip())
+        if m and m.group(1) == 'As built':
+            hdr = i
+            break
+    if hdr is None:
+        # Walk back past the blank lines AND the `---` rule that separates one
+        # ticket from the next: appended after the rule, the slot reads as the
+        # opening of the section below it.
+        j = end
+        while j > start and (not lines[j - 1].strip() or ANNEX_RULE_RE.match(lines[j - 1])):
+            j -= 1
+        lines[j:j] = ['**As built** — %s' % ANNEX_SLOT_GLOSS['As built'], entry]
+    else:
+        j = hdr + 1
+        while j < end and lines[j].strip().startswith('- '):
+            j += 1
+        lines[j:j] = [entry]
+    with open(path, 'w', encoding='utf-8') as fh:
+        fh.write('\n'.join(lines).rstrip('\n') + '\n')
+
+    d2 = Doc(d.path)
+    probs = d2.check()          # Doc.check() already runs annex_problems
+    if probs:
+        print('WARNING — the entry is written but the annex no longer conforms:')
+        for x in probs:
+            print('  - %s' % x)
+        print('Fix %s; nothing committed, and nothing marked handled.'
+              % os.path.basename(path))
+        return 1
+    print('  ✓ %s · %s · %s' % (a.key, a.verdict, a.anchor.strip()[:60]))
+    if a.comment:
+        store = load_comment_state(d.cycle_id)
+        rec = ((store.get(a.key) or {}).get('comments') or {}).get(a.comment[0])
+        if rec is None:
+            print('  ! comment %s is not in the store — the entry stands, but nothing marks '
+                  'that comment handled. Run "deviations sync" if it was never fetched.'
+                  % a.comment[0])
+        else:
+            rec['handled'] = True
+            rec['outcome'] = 'recorded as %s' % a.verdict
+            save_comment_state(d.cycle_id, store)
+    # CYC-12: the most valuable divergences are the ones that were wrong ABOUT
+    # THE REPO, and those outlive the cycle by years. The cycle doc is archived
+    # within weeks, so a fact left here is a fact lost.
+    print('CYC-12 — if this is a fact about the repo rather than about this ticket, it also '
+          'belongs in the project skill\'s knowledge.md, where the next cycle can still find it.')
+    snapshot(cycle_home(), '%s: %s divergence on %s' % (d.cycle_id, a.verdict, a.key))
+    print_mirror_debt(d2)
+    return 0
+
+
+def deviations_dismiss(a):
+    """Mark comments as carrying nothing the plan can act on.
+
+    Most comments are conversation, and without this every one of them is
+    reported for ever — which is how an inbox stops being read at all.
+    """
+    d = Doc(resolve(a.id))
+    store = load_comment_state(d.cycle_id)
+    slot = (store.get(a.key) or {}).get('comments') or {}
+    if not slot:
+        die('no comments stored for %s. Fetch them and run "cycle.py deviations sync --from '
+            '<file>" first.' % a.key)
+    missing = [c for c in a.comment if c not in slot]
+    if missing:
+        die('%s has no comment %s in the store. "cycle.py deviations list" shows the ids.'
+            % (a.key, ', '.join(missing)))
+    for c in a.comment:
+        slot[c]['handled'] = True
+        slot[c]['outcome'] = 'dismissed: %s' % a.why
+    save_comment_state(d.cycle_id, store)
+    print('  ✓ %s: dismissed %d comment(s) — %s' % (a.key, len(a.comment), a.why))
+    print_comment_debt(d)
     return 0
 
 
@@ -2854,6 +3422,31 @@ def main():
     ax.add_argument('--json', action='store_true')
     ax.add_argument('--id')
     ax.set_defaults(fn=cmd_annex)
+
+    dv = sub.add_parser('deviations',
+                        help='what a ticket\'s comments say the build actually did (CYC-19)')
+    dv.add_argument('action', choices=('list', 'sync', 'add', 'dismiss'),
+                    help='list: recorded divergences and comments not yet decided about · '
+                         'sync: ingest a comments payload you fetched · add: record one '
+                         'divergence against the write-up line it contradicts · dismiss: mark '
+                         'a comment as carrying nothing for the plan')
+    dv.add_argument('--from', dest='source',
+                    help='sync: file holding the fetched comments. cycle.py never fetches them '
+                         'itself — that is half of the read-only guarantee (CYC-18)')
+    dv.add_argument('--key', help='add/dismiss: the Jira key the comment is on')
+    dv.add_argument('--verdict', choices=DEVIATION_VERDICTS,
+                    help='add: ' + ' · '.join('%s = %s' % (v, DEVIATION_VERDICT_MEANING[v])
+                                              for v in DEVIATION_VERDICTS))
+    dv.add_argument('--anchor',
+                    help='add: the write-up line this contradicts, quoted closely enough to '
+                         'find. No em dash — that separates it from the note')
+    dv.add_argument('--note', help='add: what actually happened, and what it means next')
+    dv.add_argument('--comment', action='append', metavar='ID',
+                    help='the comment id this came from (repeatable for dismiss)')
+    dv.add_argument('--why', help='dismiss: why this comment carries nothing for the plan')
+    dv.add_argument('--json', action='store_true')
+    dv.add_argument('--id')
+    dv.set_defaults(fn=cmd_deviations)
 
     z = sub.add_parser('close', help='close preflight, then flip status')
     z.add_argument('--id')

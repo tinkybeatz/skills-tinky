@@ -75,6 +75,18 @@ The site prefix for the ticket links is **learned, not configured**: the first `
 overwrites it. Before any URL has been seen the table renders the key as plain text — a missing link
 is a smaller failure than a guessed one pointing at the wrong site.
 
+## Comments are read, and reduced — never mirrored
+
+A ticket's comments are the one place the build talks back to the plan: a constraint that turned out
+unnecessary, one that was wrong about the repo, a reason that was already out of date. Reading them is
+a read, and it goes through the same file-in-the-middle as everything else — fetch with `getJiraIssue`
+including the **comment** field, save the payload, then `cycle.py deviations sync --from <file>`.
+
+What arrives is not pasted anywhere. It is reduced to a verdict, the write-up line it contradicts and
+what actually happened, and appended to that ticket's annex section. Full contract:
+[`deviations.md`](deviations.md) (CYC-19). **Replying to a comment is a write, and is covered by the
+ban above.**
+
 ## The three commands
 
 ```bash
@@ -137,6 +149,8 @@ untouched — it is the source of truth, and this is only its rendering.
 
 | Failure | Signal | Recovery |
 |---|---|---|
+| Replied to a comment | Any comment posted, edited or reacted to by you | Same failure as any other Jira write, and the easiest one to talk yourself into because reading the thread was allowed. Say so immediately. |
+| Pasted a comment into the annex | An `As built` entry that is a paragraph of the maintainer's prose | Reduce it (CYC-19). The annex has a ten-line-per-ticket budget and an unread page is worth less than none. |
 | Wrote to Jira | Any ticket, field, transition or comment changed by you | The worst failure in this file. Say so plainly and immediately; the maintainer needs to check what changed, because nothing in the system was supposed to make it possible. |
 | Guessed which task a key belongs to | A key linked without the maintainer naming the task | Unlink it. The rewording is the whole reason the key exists; a title match is confident and wrong. |
 | Read completion from a status name | A `QA` or `Review` ticket showing as done | Read `statusCategory`. A name test is wrong on any board that renamed a column. |

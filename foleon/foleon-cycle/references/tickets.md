@@ -95,6 +95,7 @@ only when they apply and **omitted** — never left as an empty header — when 
 | `**Criteria**` | required | The testable statements about this change, run together on one line separated by `·`, never a bulleted list of full sentences. |
 | `**Lives under**` | if applicable | Where the code goes — a path, not a paragraph. |
 | `**Expected testing**` | required | Which tests, at which level, naming the project and the file convention. The literal `none` when there are none. |
+| `**As built**` | if applicable | Where the build diverged from the constraints above. **A bullet list, one divergence per line, each `- **<verdict>** · <the line it contradicts> — <what actually happened>`** — under the fixed gloss, verbatim: `— where the build diverged from the constraints above, and what each divergence changes.` Written after the code, never by hand: see [`deviations.md`](deviations.md). |
 
 `Done when` and `Criteria` are **siblings, not a nested pair**. They answer different questions —
 *how do I know I am finished* and *what would fail if I were not* — and the first version of this
@@ -151,6 +152,11 @@ what is still open. Never repeated per ticket.
   on the next reorder.
 - A slot padded to look justified: an `Expected outcome` that argues for itself, or states something
   trivially true of the code as it stands. Write the outcome and stop.
+
+**`As built` is the only slot that is not a proposal.** Everything above it was agreed before the
+code existed; that half is never rewritten to match what happened, because a plan edited to match its
+outcome can no longer be wrong, and the close routine then reads nothing. The divergence is *appended*
+and the proposal stands (CYC-19).
 
 **Assume no prior knowledge, not no intelligence.** Name the file and the function that already solve
 the problem — `rum.ts`, `identifyEditorUser`, `monitoringEnabled()` — instead of describing at length

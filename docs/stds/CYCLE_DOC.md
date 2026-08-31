@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | **Status** | Active |
-| **Version** | 6.2.0 |
+| **Version** | 6.3.0 |
 | **Owner** | skills-tinky maintainer |
 | **Approvers** | skills-tinky maintainer |
-| **Effective date** | 2026-08-28 |
+| **Effective date** | 2026-08-31 |
 | **Applies to** | The per-cycle work doc for Foleon cycles — the local markdown file that is its source of truth, stored in the maintainer's own cycle directory (**not** in `skills-tinky`, see CYC-1), and the single Notion page that mirrors it — written and maintained by the `foleon-cycle` skill across every repo a cycle touches (`ripley`, `fio`, and any future Foleon repo) |
 
 **Reference implementation** — `foleon/foleon-cycle` (to be built against this standard; no
@@ -931,6 +931,62 @@ structural in two independent layers: `cycle.py` opens no sockets, and the Atlas
 is authorised with read scopes only (`read:jira-work`), exposing no create, edit, transition or comment
 tool to call.
 
+### CYC-19 A ticket's comments are reduced into the write-up, never mirrored into it
+
+- A ticket-bound annex section **MAY** carry a final `**As built**` slot recording where the build
+  diverged from the write-up above it. It is the ninth slot of CYC-17, conditional, and the only one
+  written **after** the code exists.
+- Each entry **MUST** be one line of three fixed parts: a **verdict**, the **write-up line it
+  contradicts**, and **what actually happened** — written
+  `- **<verdict>** · <anchor> — <note>`. The verdict **MUST** be one of exactly three:
+  `dropped` (the constraint was unnecessary and nothing replaced it), `changed` (it was replaced by a
+  different one), `stale` (the instruction stands; the reason given for it was wrong). `[SRC-029]`
+- The anchor **MUST** resolve: it **MUST** appear in that section outside the `As built` slot, and
+  this **MUST** be checked mechanically. An entry that names no line is filed by date, and nobody
+  reads a ticket by date; anchored on a constraint it is found by the person about to repeat the
+  mistake. Text the write-up never carried is not a divergence but a new fact, and belongs in the
+  ticket or in the project skill's `knowledge.md` (CYC-12).
+- A comment **MUST NOT** be mirrored, pasted or quoted at length. It is prose written to a reviewer;
+  the annex has a hard budget of roughly ten lines per ticket (CYC-17), and an unread page is worth
+  less than no page. What goes in the file is the reduction, and nothing else. `[SRC-029]`
+- The reduction **MUST** be agreed by the maintainer before it is written. Ingesting comments is
+  mechanical and **MAY** be automatic; deciding that a comment means a constraint was wrong is a claim
+  about their plan, and **MUST NOT** be inferred — the same rule, for the same reason, as CYC-18's ban
+  on inferring which task a key belongs to.
+- The rest of the section **MUST NOT** be rewritten to match what was built. The divergence is
+  appended; the proposal stands. A plan silently edited to match its outcome can no longer be wrong,
+  and the close routine then has nothing to report.
+- Comments **MUST** be read the way issues are (CYC-18): from a **local file** someone else fetched.
+  **Replying to, editing or reacting to a comment is a Jira write and is forbidden**, by the same
+  structural guarantee — there is no network path and no write tool.
+- A comment that carries nothing for the plan **MUST** be dismissible, with a stated reason, and
+  undecided comments **MUST** be reported until they are decided. Most comments are conversation;
+  without dismissal every one of them is reported for ever, which is how a report stops being read,
+  and without a stated reason a silent mass-dismissal is indistinguishable from an empty inbox.
+- `close` **MUST** list every recorded divergence. It is shaping feedback of the same kind as a scope
+  that never reached downhill (CYC-13), arriving from the other end: that one says the work was
+  under-shaped, this one says it was **mis**-shaped, confidently and in writing.
+
+**Rationale:** the annex is a proposal written before the code existed, and the build is what tests it.
+When it disproves a constraint the maintainer says so — in a Jira comment, read once, by one person,
+where nothing acts on it `[SRC-029]`. The write-up then keeps saying what it said, so the next ticket
+copies the stale constraint and a reviewer checks criteria naming a mechanism nobody built. Mirroring
+the comment would fix the wrong half: the value is not in the prose, it is in the link between a
+divergence and the exact line it disproves, which is what makes it findable from the constraint rather
+than from a date. Hence a reduction with a checked anchor, and hence the ban on pasting: the two
+failure modes bounding this rule are *the feedback never reaches the plan* and *the annex turns into a
+comment thread*, and only the anchored three-part entry avoids both.
+
+**Enforcement:** `deviation_problems` and the `As built` entry in `ANNEX_SLOTS` / `ANNEX_LIST_SLOTS`,
+run from `annex_problems` inside `Doc.check()`, so a pasted comment makes the **cycle doc**
+non-conforming rather than merely looking wrong. `cycle.py deviations sync --from <file>` ingests a
+fetched payload into `.state/<cycle-id>.comments.json` and writes nothing else; `deviations add`
+records one entry and refuses an anchor it cannot find; `deviations dismiss` requires `--why`;
+`print_comment_debt` reports undecided comments from every command that touches Jira. `as_built_callout`
+renders the slot as a yellow callout under NST-3's existing "read this before trusting the block above"
+mapping, and `cmd_close` lists every entry. The read-only guarantee is the one CYC-18 already makes
+structural: no sockets in `cycle.py`, read scopes only on the connector.
+
 ---
 
 ## Documented overrides
@@ -1008,6 +1064,10 @@ A cycle doc is conforming when **all** are true:
 - [ ] Nothing written to Notion without an explicit yes in that conversation; hooks queue or report, never write; skill is explicit-invocation only (CYC-11)
 - [ ] Durable facts routed to the project-context skill's `knowledge.md`, not parked in the cycle doc (CYC-12)
 - [ ] At close: shipped/cut recorded per topic, residual `uphill` flagged as a shaping signal, status `closed`, retro delegated to `sprint-review` (CYC-13)
+- [ ] No annex carries a pasted or quoted ticket comment; every `As built` entry is verdict + anchor + what happened (CYC-19)
+- [ ] Every `As built` anchor resolves to a line elsewhere in the same section, checked mechanically (CYC-19)
+- [ ] No divergence was recorded without the maintainer agreeing the reduction, and no write-up was rewritten to match the build (CYC-19)
+- [ ] Comments read from a fetched file only; nothing replied to, edited or reacted to; undecided comments reported until dismissed with a reason (CYC-19)
 
 ## Enforcement
 
@@ -1055,6 +1115,7 @@ None standing.
 
 ## Sources
 
+- `[SRC-029]` Internal — the maintainer's request, 2026-08-31, after commenting on PROD-4357 that the build had deviated from the ticket in three ways: *"can we work on a new update on the cycle system where we could also mirror the comments in the notion ticket annex? maybe the comment shouldn't simply be shown randomly like this, maybe we can just use what the comment says to update a few elements in notion? what could be the cleanest way of doing?"* The comment itself is the evidence for the shape of the rule: of its three items, one retired a constraint (*"No pending queue"*), one replaced a constraint and carried a durable repo fact under it (`VITE_APP_ENV` is missing locally because only the staging deploy workflow sets it), and one corrected a stated reason while leaving the instruction standing (*"The description's stated cause is out of date"*) — which is where the three verdicts come from. None of it was reachable from the annex, and the write-up still told the next reader to build the queue.
 - `[SRC-028]` Internal — the maintainer's report, 2026-08-28: *"i recently mirrored the ticket from jira, but the annex didnt get updated!! look at notion right now there is a miss-sync. this shouldn't be happening!!"*, and on the fix: *"just make it so that the annex mirroring happens if needed automatically without me having to say please update it."* Confirmed on the live cycle: `jira sync` moved PROD-4357 from `To Do` to `Doing`, the cycle page was written and the annex page was not, and bare `cycle.py mirrored` then recorded snapshots for **both** — so the annex's own snapshot said it was current while Notion still showed the old status, and the mechanism CYC-16 relies on to answer "is the annex stale?" without fetching Notion returned the wrong answer. The defect was not the skipped write, which is an ordinary slip; it was that recording the snapshot of an unwritten page destroyed the only evidence of the slip.
 - `[SRC-027]` Internal — the maintainer's written brief on connecting Jira to the cycle system, 2026-08-27, and the decisions taken from it in the same session. The problem as stated: *"when I write the ticket in Jira, I don't keep everything the annex proposed. I trim it, reword it, sometimes split or merge. So the moment the ticket exists, the annex and Jira have already diverged — and the cycle doc has no idea the ticket exists at all."* The hard constraint, stated twice: *"I write everything in Jira. AI never writes to Jira"*, and when asked how that should be enforced, *"whatever the most reliable method is. i don't want AI to write in Jira for me."* The workflow they described: *"Cycle planning creates tickets → i read them in notion annex → i add them on Jira (the way I want them to be on Jira) → once on Jira, i give the ticket url to claude code → claude goes to re-update the whole cycle docs + annex → Jira becomes the source of truth for what is related to tickets (just tickets related)."* On what Jira owns, they chose title and status over status alone; on Notion, that a keyed task's checkbox is rendered from Jira and no longer writable; and on the scope of the work, *"i want this to be a generic system, not just for this case here"* — which is why the rule is written against Jira's schema and not against the cycle that prompted it. The `statusCategory` requirement comes from their own board, read live in the same session: its columns are `To Do`, `Doing`, `Review`, `QA`, `Done`, plus `Funnel` on the epic workflow — none of which a status-name test could be written against safely. The read-only layers were verified rather than assumed: the connector's granted scopes are `read:jira-work` and Confluence reads, with no create, edit, transition or comment tool exposed.
 
@@ -1090,6 +1151,7 @@ None standing.
 
 | Version | Date | Change |
 |---|---|---|
+| **6.3.0** | 2026-08-31 | **A ticket's comments reach the plan, reduced.** The annex is a proposal written before the code exists, and the build is what tests it; when it disproves a constraint the maintainer says so in a Jira comment, where nothing acts on it `[SRC-029]`. The write-up then keeps saying what it said — so the next ticket copies the stale constraint, and a reviewer checks criteria naming a mechanism nobody built. New **CYC-19** gives a ticket-bound section a final conditional `**As built**` slot and requires every entry in it to be one line of three parts: a **verdict** from a closed set of three (`dropped` / `changed` / `stale`), the write-up **line it contradicts**, and what actually happened. The maintainer's ask was to *"mirror the comments"*, and the rule deliberately does not: a comment is prose written to a reviewer, the annex has a ten-line-per-ticket budget (CYC-17), and the value is not in the prose but in the **link between a divergence and the exact line it disproves** — which is what makes it findable from the constraint rather than from a date. So the anchor is checked to resolve, mechanically, and text the write-up never carried is ruled out as a divergence and routed to CYC-12 instead. Three further constraints carry the rest: ingesting comments is mechanical and may be automatic, but deciding what one *means* for the plan is a claim about the maintainer's plan and may not be inferred (CYC-18's rule, for CYC-18's reason); the proposal is never rewritten to match the build, because a plan edited to match its outcome can no longer be wrong; and replying to a comment is a Jira write, forbidden by the same structural guarantee that forbids every other. `close` now lists the divergences — shaping feedback of the same kind as a scope that never reached downhill, arriving from the other end. MINOR: additive. `As built` is conditional and no existing annex carries one, so every 6.2.0 doc conforms unchanged. |
 | **6.2.0** | 2026-08-28 | **A mirror is every page the cycle owns, and a snapshot is a claim about a page that was written.** The cycle page and its annexes are one document split across Notion pages, and v6.1.0 left keeping them together to whoever ran the mirror. It failed on the first Jira status move that touched both: the cycle page was written, the annex was not, and `mirrored` recorded snapshots for both regardless `[SRC-028]`. The skipped write is an ordinary slip; the damage was done by the snapshot, which asserted the annex was current and so disabled the exact check CYC-16 added to make a stale annex detectable without fetching Notion. CYC-10 now requires all of a cycle's pages to be refreshed together, requires the set of pages that are behind to be **computed** by comparing each page's render against its own snapshot rather than remembered, forbids recording a snapshot for a page that was not written, and requires every command that changes the doc to end by naming the pages that fell behind — the maintainer reads Notion, so noticing the mirror is stale is the tool's job. MINOR: additive. Nothing that conformed at 6.1.0 stops conforming; a mirror that writes every page and records every snapshot is still correct, and is now the explicit default that says what it is doing. |
 | **6.1.0** | 2026-08-27 | **A ticket that exists in Jira is owned by Jira.** The annex proposes tickets; the maintainer creates them by hand, trimming and rewording as they go — so from the moment a ticket existed, the write-up and the tracker had already diverged, and the cycle doc did not know the ticket existed at all `[SRC-027]`. The same status was then maintained in three places, of which only Jira was real. New **CYC-18** lets a task carry its ticket's key, and hands Jira the title and completion state from that point on; the doc keeps what Jira has no concept of — scope, hill, appetite, the `~` mark, ordering. Two details carry most of the weight. Identity moves to the **key**, not the title, which is what lets the maintainer reword freely in the tracker without the doc losing track of which work the ticket is; and completion is read from **`statusCategory`**, never a status name, because names are per-project — `Doing`, `Review`, `QA` and `Funnel` all exist on the live board — and a name test fails in the direction that reports unfinished work as finished. CYC-10 gains the matching exclusion: a keyed task's checkbox is no longer read back from Notion, or the key would have bought nothing. The read-only guarantee is deliberately **structural rather than instructional** — the tooling takes fetched issues as a local file and opens no sockets, and the connector in use carries read scopes only, so there is no create, edit, transition or comment tool to call. One rendering consequence follows from the ownership: a keyed task stops being a to-do item in the mirror and becomes a **table row** — key first, then a status coloured from `statusCategory` under NST-3's mapping. A checkbox Jira owns is a control that does nothing, and the table is the only place the status may carry a colour at all, since CYC-15 forbids an attribute on anything parsed back out of Notion. MINOR: additive. A doc with no keys conforms unchanged, and keys arrive one `jira link` at a time. |
 | **6.0.0** | 2026-08-24 | **`Parameters` becomes `Build constraints`, and a ticket stops pointing at its neighbours.** v5.0.0 made the slot a bullet list and left its name alone; the first developer to read one took it for the function's argument list and asked which three arguments were meant `[SRC-026]` — a collision guaranteed by naming a constraints list `Parameters` in tickets whose subject is writing a function. Renamed, and given a **fixed verbatim gloss** on the header line, because the two things a reader needs — that these are constraints the implementer did not choose, and that each line states what it buys — are derivable from no name at all. Fixed string rather than per-ticket prose, so it is machine-checked and cannot become forty explanations of one slot. Second change: a ticket-bound section **MUST NOT** name another ticket by position. A ticket is read alone in the tracker, where *"ticket 2"* resolves to nothing, and the number is the annex's running order, so the reference is wrong from the first reordering with nothing able to notice; sequencing belongs in the annex's ordering section, which is free-form and never pasted into a tracker. Also: an unrecognised bold header is now reported instead of ignored — every conditional slot is optional, so a slot under an old or mistyped name passed in silence, which is exactly how the renamed block survived in the one live annex. MAJOR: every 5.x annex carrying the old slot name is non-conforming; migration is a rename plus the gloss line, which `validate` names precisely. |

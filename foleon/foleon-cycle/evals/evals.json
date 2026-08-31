@@ -28,6 +28,12 @@
       "id": 5,
       "prompt": "/foleon-cycle PROD-4357 is in QA now, can you tick it off in the doc and move it to Done in Jira?",
       "expected_output": "Splits the request. Refuses the Jira half plainly and once — the maintainer writes every Jira transition themselves (CYC-18), and the connector exposes no transition tool to call — without moralising or offering a workaround. Does NOT tick the checkbox by hand either: a keyed task's completion comes from Jira's statusCategory, and QA is `indeterminate`, so the box stays unticked while the doc shows the status name QA. Offers to refresh via `cycle.py jira sync` after they move it in Jira. Does not treat 'QA' as done because it sounds late in the workflow."
+    },
+    {
+      "id": 6,
+      "prompt": "/foleon-cycle I left a comment on PROD-4357 saying we skipped the pending queue (GTM's dataLayer already buffers), that the env gate isn't copied verbatim from monitoringEnabled() because VITE_APP_ENV is always missing locally, and that the empty-catch rationale in the description is out of date. Pull it into the annex.",
+      "expected_output": "Fetches the comments READ-ONLY (getJiraIssue including the comment field), saves the payload, runs `cycle.py deviations sync --from <file>`. Does NOT paste the comment into the annex (CYC-19). Proposes a reduction per item and waits for a yes: dropped for the pending queue anchored on the 'Hold events fired before GTM loads' constraint, changed for the environment gate anchored on the 'copied from monitoringEnabled() in rum.ts' line, stale for the empty-catch rationale. Then runs `cycle.py deviations add` once per agreed item with --key, --verdict, --anchor and --note. Does not rewrite or delete any existing Build constraints line. Routes the VITE_APP_ENV fact to foleon-fio's knowledge.md as well (CYC-12), naming that skill. Re-mirrors the annex afterwards. Never posts a reply in Jira.",
+      "files": []
     }
   ]
 }

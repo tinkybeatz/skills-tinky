@@ -131,13 +131,21 @@ Task: the track() call and its typed event contract, with a recording transport 
 **Criteria** — … · … · …
 **Lives under** — …
 **Expected testing** — …
+**As built** — where the build diverged from the constraints above, and what each divergence changes.
+- **dropped** · … — …
 ```
 
-**The body is eight named slots in a fixed order (CYC-17)**, not free prose. Required:
+**The body is nine named slots in a fixed order (CYC-17)**, not free prose. Required:
 `Expected outcome`, `Done when`, `Criteria` and `Expected testing` — the last one even when the
 answer is the literal `none`. Conditional: `Environment`, `Build constraints`, `Open questions`,
-`Lives under`, each **omitted** when it does not apply rather than left as an empty header.
-`Build constraints` is a bullet list under its fixed gloss, quoted verbatim; the rest are inline.
+`Lives under`, `As built`, each **omitted** when it does not apply rather than left as an empty
+header. `Build constraints` and `As built` are bullet lists under their fixed glosses, quoted
+verbatim; the rest are inline.
+
+`As built` is the only slot written **after** the code, and it is never written by hand: it comes from
+a ticket's comments, reduced by `cycle.py deviations add` to a verdict, the write-up line it
+contradicts and what actually happened (CYC-19, [`deviations.md`](deviations.md)). The rest of the
+section is never rewritten to match it.
 Order is enforced. The full contract — the gloss, the ban on the old "what to build" bullet list, and
 the ban on pointing at another ticket by position — is in [`tickets.md`](tickets.md).
 

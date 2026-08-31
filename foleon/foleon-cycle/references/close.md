@@ -15,6 +15,11 @@ something the next intake can use.
 Ask; don't derive it. Task checkboxes tell you what got done, not what was consciously abandoned
 versus quietly forgotten.
 
+Ask for the divergences too, or rather read them: `cycle.py close` lists every `As built` entry
+recorded during the cycle (CYC-19). They are shaping feedback of the same kind as a scope that never
+reached downhill, arriving from the other end — that one says the work was under-shaped, this one says
+it was **mis**-shaped, confidently and in writing.
+
 **2. Run the close.**
 ```bash
 python3 scripts/cycle.py close

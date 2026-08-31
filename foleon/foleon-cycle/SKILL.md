@@ -10,7 +10,7 @@ description: >-
   in `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES/` is the source of truth; in Notion
   you may tick, rename and add tasks, and the next run reconciles that back.
   Covers every Foleon repo a cycle touches — `ripley`, `fio`, and any added later.
-  Enforces `docs/stds/CYCLE_DOC.md` (CYC-1…CYC-18).
+  Enforces `docs/stds/CYCLE_DOC.md` (CYC-1…CYC-19).
   **Explicit invocation only — `/foleon-cycle`.** Per CYC-11 this skill
   deliberately carries no trigger phrases and must not auto-load: do not invoke
   it because a message mentions a cycle, a topic, an estimate, planning, or
@@ -28,7 +28,7 @@ The maintainer's team hands over a cycle as **topics with an estimated time each
 a development plan — and knowing on any given Wednesday where the work actually stands — is the
 developer's job. This skill is that job, done in one file per cycle.
 
-Governed by [`docs/stds/CYCLE_DOC.md`](../../docs/stds/CYCLE_DOC.md) (CYC-1…CYC-18). The standard wins
+Governed by [`docs/stds/CYCLE_DOC.md`](../../docs/stds/CYCLE_DOC.md) (CYC-1…CYC-19). The standard wins
 any disagreement with this file. The Notion mirror also conforms to
 [`docs/stds/NOTION_STYLE.md`](../../docs/stds/NOTION_STYLE.md) (NST-1…NST-11), which carries the
 workspace-wide page rules — section framing, colour meanings, and the ban on styling anything the
@@ -55,6 +55,7 @@ whether the number of outstanding tasks will go down or up.
 | Queue | `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES/.state/cycle-queue.jsonl` — dates on which a Foleon repo was edited. Evidence work happened, not log lines |
 | History | local-only git in the cycle directory — **no remote, never pushed**. `new`, `log` and `close` commit on their own; `snapshot --why "..."` records a hand-edit (CYC-1 v1.2.0) |
 | Jira | Read-only. A task may carry its ticket's key at the end of its line, `[PROD-1234 · Review]`, and Jira then owns that task's title and checkbox (CYC-18). **Nothing here ever writes to Jira** |
+| Ticket comments | `.state/<cycle-id>.comments.json` — what has been read, and what was decided about it. A comment that says the build diverged from the write-up is **reduced**, never pasted, into that ticket's `As built` slot (CYC-19) |
 | Mechanics | `scripts/cycle.py` (skeleton, hill, tasks, log patterns, annex coverage, close preflight), `scripts/queue.sh` |
 
 The Notion mirror requires the **Notion MCP**. If a call fails because it is not connected, say so and
@@ -81,6 +82,7 @@ likely next step and offer the rest only if they ask:
 | All shaped, no scopes or tasks | **plan** — factor scopes, read the code |
 | A ticket URL was pasted | **jira link** — record the key on the task they name |
 | Keyed tasks whose status is stale, or none synced yet | **jira sync** — fetch the keys and refresh |
+| A ticket has comments nobody has decided about | **deviations** — read them, reduce what changed the plan, dismiss the rest |
 | Tasks exist, queue has unlogged days | **log** — propose lines for those days |
 | Tasks exist, queue empty | **status**, then offer the work list |
 | Past the dev window end | **close** |
@@ -95,6 +97,7 @@ Reconcile from Notion before any of it (flow 6) — they may have ticked things 
 | `plan` | **2. Scopes and tasks** for a shaped topic |
 | `tickets` | **3. Work list** — Jira tickets + personal tasks |
 | `jira` | **3b. Jira** — link a created ticket, refresh titles and statuses (read-only) |
+| `deviations` | **3c. Divergences** — what a ticket's comments say the build actually did |
 | `status` | **4. Status** — where every scope sits |
 | `log` | **5. Log** what happened |
 | `mirror` | **6. Mirror** to Notion |
@@ -320,6 +323,44 @@ A keyed task leaves the checkbox list entirely and renders as a **table row** �
 summary — because a checkbox Jira owns is a control that does nothing. `reconcile` reports a Notion-side
 change to one and ignores it. That is the payoff: one status, in one place.
 
+### 3c. What the ticket's comments say the build actually did
+
+The annex is a **proposal**, written before the code existed, and sometimes the build disproves it: a
+constraint that turns out unnecessary, one that was wrong about the repo, a stated reason that was
+already out of date. That lands as a Jira comment, where nothing acts on it — so the write-up keeps
+saying what it said, and the next ticket copies the stale constraint. Full contract:
+[`references/deviations.md`](references/deviations.md) (CYC-19).
+
+```bash
+# fetch with getJiraIssue INCLUDING the comment field, save the payload, then:
+python3 scripts/cycle.py deviations sync --from /tmp/comments.json
+python3 scripts/cycle.py deviations list
+```
+
+**A comment is never mirrored — it is reduced.** Three fixed parts, all enforced: a **verdict**
+(`dropped` = the constraint was unnecessary · `changed` = replaced by a different one · `stale` = the
+instruction stands, the reason given for it was wrong), the **anchor** — the write-up line it
+contradicts, quoted closely enough that `add` can find it — and what actually happened.
+
+```bash
+python3 scripts/cycle.py deviations add --key PROD-4357 --verdict dropped \
+        --anchor "Hold events fired before GTM loads and release them once it is up" \
+        --note "no queue was built; the dataLayer is a plain array the container drains on load" \
+        --comment 10501
+python3 scripts/cycle.py deviations dismiss --key PROD-4357 --comment 10502 --why "acknowledgement"
+```
+
+**Propose the reduction and wait for a yes.** Their comment is prose; your entry is a claim about
+their plan — the same reason `jira link` never guesses which task a key belongs to. And **most
+comments are dismissed**: a question, a thank-you, a link. That is the expected outcome, not a failure
+to find something.
+
+Two things the entry does not do. It **never rewrites the write-up** — a plan edited to match its
+outcome can no longer be wrong, and the retro then reads nothing. And it does not discharge CYC-12: a
+divergence that is really a fact about the repo (*"`VITE_APP_ENV` is only set by the staging deploy
+workflow"*) belongs in the project skill's `knowledge.md` as well, because the cycle is archived
+within weeks.
+
 ### 4. Status
 
 ```bash
@@ -435,6 +476,11 @@ retrospection. Details: [`references/close.md`](references/close.md).
   generated ticket write-up is a generated acceptance criterion one page larger (CYC-14).
 - **Never write to Jira** — no ticket, field, transition or comment, however the request is phrased.
   The maintainer writes every ticket themselves (CYC-18). Reading is the point; writing is not on offer.
+- **Never paste a comment into an annex, and never record a divergence the maintainer has not
+  agreed.** A comment is reduced to a verdict, the line it contradicts and what happened (CYC-19);
+  their comment is prose, your entry is a claim about their plan.
+- **Never rewrite a ticket write-up to match what was built.** The divergence is appended; the
+  proposal stands. A plan edited to match its outcome can no longer be wrong, and close reads nothing.
 - **Never infer which task a Jira key belongs to.** The maintainer names it. A title match is wrong
   exactly where it matters, because rewording on the way into Jira is what the key exists to survive.
 - **Never edit a closed doc.** Follow-on work belongs to the next cycle.
@@ -453,6 +499,7 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | [`references/shaping.md`](references/shaping.md) | Re-evaluating a shaping topic — the blocking test, and the hold/split/shape decision |
 | [`references/tickets.md`](references/tickets.md) | Producing the work list — ticket shape, ordering, code-grounding |
 | [`references/jira.md`](references/jira.md) | A ticket now exists in Jira — linking it, refreshing it, and why nothing here may write |
+| [`references/deviations.md`](references/deviations.md) | A ticket has comments — reducing what the build disproved into the annex, and what never goes in it |
 | [`references/close.md`](references/close.md) | Closing a cycle and handing off to `sprint-review` |
 
 ## Failure modes
@@ -485,6 +532,9 @@ retrospection. Details: [`references/close.md`](references/close.md).
 | Wrote an annex write-up from the task title | A section that could have been written without opening the repo | Same failure as generated acceptance criteria, one page larger. Read the code (CYC-14), or leave the stub and say it is unwritten. |
 | Edited an annex in Notion | Content on the annex page that is not in the sidecar | It is lost on the next render — annexes have no writable surface. Move it into the sidecar before re-rendering, and say so. |
 | Wrote to Jira | Any ticket, field, transition or comment changed by this skill | The worst failure it can produce, worse than an unapproved Notion write, because the maintainer's own tracker now says something they did not write. Say so immediately and name exactly what changed. Nothing in the design was supposed to make it reachable (CYC-18). |
+| Pasted a Jira comment into the annex | An `As built` line that is a paragraph of prose | `validate` rejects it (CYC-19). Reduce it to verdict, anchor and note; if it reduces to nothing, it was a dismissal. |
+| Recorded a divergence nobody agreed to | An `As built` entry written straight from a comment | Remove it and propose. Reading their prose is not the same as being told what it means for the plan. |
+| Edited the write-up to match the build | A constraint deleted or reworded instead of a divergence appended | Restore it (CYC-19). The proposal is the record of what was agreed; overwritten, the close routine has nothing to report. |
 | Guessed which task a Jira key belongs to | A key linked without the maintainer naming the task | Unlink it and ask. Rewording on the way into Jira is the whole reason keys exist; a title match is confident and wrong. |
 | Read completion from a status name | A `Review` or `QA` ticket showing as done | Read `statusCategory` (CYC-18). Status names are per-project, and the name test fails in the direction that calls unfinished work finished. |
 | Notion MCP unavailable | An MCP call errors on connection | Carry on locally — the local doc is authoritative, so the only cost is a stale mirror. Say so, and refresh next time. |
