@@ -599,30 +599,6 @@ def week_of(d):
     return 'past the cycle end'
 
 
-def shaping_overrun(d, appetite):
-    """Shape Up's circuit breaker, applied to shaping.
-
-    Three weeks of research is not a three-week bet. Past roughly a quarter of the
-    appetite with the topic still unshaped, the useful move is to escalate to
-    whoever can answer, not to keep researching (v1.6.0).
-    """
-    m = re.search(r'Dates:\s*(\d{4}-\d{2}-\d{2})', '\n'.join(d.lines[:3]))
-    wk = re.search(r'(\d+(?:\.\d+)?)\s*w', appetite or '', re.I)
-    dy = re.search(r'(\d+(?:\.\d+)?)\s*d', appetite or '', re.I)
-    if not m or not (wk or dy):
-        return ''
-    try:
-        start = datetime.date.fromisoformat(m.group(1))
-    except ValueError:
-        return ''
-    budget = float(wk.group(1)) * 7 if wk else float(dy.group(1)) * 1.4
-    spent = (datetime.date.today() - start).days
-    if budget and spent > budget * 0.25:
-        return ('still shaping after %d of ~%d days of its appetite — escalate to whoever can '
-                'answer the open questions rather than researching further' % (spent, int(budget)))
-    return ''
-
-
 def cmd_status(a):
     d = Doc(resolve(a.id))
     where = week_of(d)
@@ -633,10 +609,6 @@ def cmd_status(a):
         ap = t['fields'].get('Appetite:', '(no appetite)')
         print(f'  state:    {t["state"] or "UNDECLARED"}')
         print(f'  appetite: {ap}')
-        if t['state'] == 'shaping':
-            warn = shaping_overrun(d, ap)
-            if warn:
-                print(f'  ⚠ {warn}')
         if not t['scopes']:
             print('  no scopes yet — shape it, then factor into scopes (CYC-5)')
         for s in t['scopes']:
@@ -1221,9 +1193,6 @@ def cmd_render_for(d, a):
                            '(CYC-3).'
                            % ('%d open question%s' % (len(oq), '' if len(oq) == 1 else 's')
                               if oq else 'the questions are not written down yet'))
-                warn = shaping_overrun(d, t['fields'].get('Appetite:', ''))
-                if warn:
-                    out.append('\t⚠️ %s' % warn)
                 out.append('</callout>')
                 out.append('')
 

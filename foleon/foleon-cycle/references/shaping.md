@@ -35,8 +35,10 @@ State which, with the reasoning, and **wait for agreement**.
 Something blocking is still open.
 
 - Name **who** can answer it and **how** it gets asked (a `self:` task, not a hope).
-- Say where the topic stands against its shaping budget — `status` warns past roughly a quarter of the
-  appetite, and past that the honest recommendation is *escalate*, not *research more*.
+- Judge whether asking again is still the move. Nothing measures how long a topic has been shaping —
+  the doc records no date it entered that state, and the maintainer shapes one topic at a time
+  (CYC-3, v7.0.0). What counts is the question's own history: once it has survived several attempts
+  to get it answered, the honest recommendation is *escalate*, not *research more*.
 - Drop the answered questions, log them (`--gate surprise`), keep the rest.
 
 ### Split — the usual answer to a partial call

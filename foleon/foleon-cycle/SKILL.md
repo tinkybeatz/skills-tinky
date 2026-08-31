@@ -188,8 +188,8 @@ no reason.
 **3. Propose one of three moves — with the reasoning — and wait for agreement:**
 
 - **Hold** — something blocking is still open. Name who can answer and how it gets asked (a `self:`
-  task, not a hope), and say where the topic stands against its shaping budget. Past roughly a quarter
-  of the appetite, the honest recommendation is *escalate*, not *research more*.
+  task, not a hope). When the same question has been open across several attempts to get it answered,
+  the honest recommendation is *escalate*, not *research more*.
 - **Split** — enough is known for *part* of it. Make it two topics: a **shaped** half that is
   independently shippable, and a **shaping** half carrying the unanswered questions. Divide the
   appetite rather than duplicating it. This is Shape Up's own move — hammer a vague topic into a real

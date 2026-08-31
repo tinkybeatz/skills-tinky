@@ -21,26 +21,27 @@ cheatsheet-queue-check.py, for the same reasons:
                 the work is still queued and surfaces here. A hard exit costs a
                 delay, not the record.
 
-SessionStart also reports the **time-based** signals the doc's dates make
-computable, which no edit can ever produce (CYC-11 v2.3.0): which week of the dev
-window today is, and any topic still `shaping` past its shaping budget. cycle.py
-already computes both, but only when `status` is run — so before this, a topic
-could pass its escalate threshold in silence and the warning arrive too late to
-act on. These fire independently of the queue, and only on SessionStart: the Stop
-nudge blocks, and "escalate to whoever can answer" is not an end-of-turn action.
+SessionStart also reports the one **time-based** signal the doc's dates make
+computable, which no edit can ever produce (CYC-11): which week of the dev window
+today is. It fires independently of the queue, and only on SessionStart, because
+the Stop nudge blocks and the week number is not something to act on at the end
+of a turn.
+
+There is deliberately no shaping-budget nudge. The maintainer shapes one topic at
+a time, so elapsed days since the cycle start say nothing about whether the topic
+they are not currently on has overrun anything (CYC-3, v7.0.0).
 
 This hook proposes; it never writes (CYC-11). It cannot infer a hill position
 from files touched or from elapsed time (CYC-6), so it never suggests one — it
 reports what it sees and leaves the judgement, and the write, to the maintainer.
 
 Silent when: no active cycle doc (no cycle, no expectation), or every date with
-work already has a log line and no topic is over its shaping budget.
+work already has a log line.
 
 Wired from ~/.claude/settings.json. Never raises: everything exits 0.
 """
 
 import glob
-import hashlib
 import json
 import os
 import re
@@ -120,77 +121,30 @@ def logged_dates(path):
     return out
 
 
-def time_signals(doc):
-    """Calendar signals the doc's dates make computable (CYC-11, v2.3.0).
+def dev_window_week(doc):
+    """Which week of the dev window today is (CYC-11).
 
-    Imports cycle.py and calls its own `week_of` / `shaping_overrun` rather than
-    re-deriving the arithmetic here: the shaping budget is a rule of the standard
-    (CYC-3 + the circuit breaker), and two copies of it would drift.
+    Imports cycle.py and calls its own `week_of` rather than re-deriving the
+    arithmetic here: the window length is a rule of the standard, and two copies
+    of it would drift.
 
-    Returns (where, warnings). Report-only, and deliberately carries no hill
-    judgement: CYC-6 names *elapsed time* among the things a hill position may
-    never be derived from, so "still shaping after 14 days" must never become
-    "probably still uphill".
+    Report-only, and deliberately carries no hill judgement: CYC-6 names *elapsed
+    time* among the things a hill position may never be derived from, so "week 4
+    of 6" must never become "probably downhill by now".
     """
     root = repo_root(__file__)
     if not root:
-        return '', []
+        return ''
     scripts = os.path.join(root, 'foleon', 'foleon-cycle', 'scripts')
     if not os.path.isfile(os.path.join(scripts, 'cycle.py')):
-        return '', []
+        return ''
     try:
         if scripts not in sys.path:
             sys.path.insert(0, scripts)
         import cycle
-        d = cycle.Doc(doc)
-        where = cycle.week_of(d) or ''
-        warns = []
-        for t in d.topics:
-            if t.get('state') != 'shaping':
-                continue
-            w = cycle.shaping_overrun(d, t['fields'].get('Appetite:', ''))
-            if w:
-                tags = ''.join(f'[{r}]' for r in t.get('repos') or [])
-                warns.append(f'{tags} {t["name"]}: {w}')
-        return where, warns
+        return cycle.week_of(cycle.Doc(doc)) or ''
     except Exception:
-        return '', []   # a broken import must never cost the maintainer a session
-
-
-def first_time_only(root, cycle, warns):
-    """Keep only overruns not already nudged for, and mark the rest as nudged.
-
-    `shaping_overrun` trips at a quarter of the appetite measured from the *cycle
-    start* — it has no record of when a topic entered shaping — so for a 1w topic
-    it fires from day 2 and never stops. In `status` that is fine: it is asked
-    for, and read in context. Unsolicited at every session start it would be
-    wallpaper within a week, and a nudge that is always on is a nudge that gets
-    ignored, taking the unlogged-work one down with it.
-
-    So each topic's overrun is surfaced **once**, when it crosses. Deleting the
-    marker file re-arms it. No marker dir → say nothing, same rule as the Stop
-    nudge: without the once-only guarantee, don't nudge at all.
-    """
-    if not root or not warns:
-        return []
-    d = os.path.join(root, 'hooks', 'state')
-    try:
-        os.makedirs(d, exist_ok=True)
-    except Exception:
-        return []
-    fresh = []
-    for w in warns:
-        key = hashlib.sha1(f'{cycle}:{w.split(":")[0]}'.encode('utf-8')).hexdigest()[:16]
-        marker = os.path.join(d, f'cycle-overrun-{key}')
-        if os.path.exists(marker):
-            continue
-        try:
-            with open(marker, 'w', encoding='utf-8') as fh:
-                fh.write(w + '\n')
-        except Exception:
-            continue   # could not mark it → do not nudge, or it repeats forever
-        fresh.append(w)
-    return fresh
+        return ''   # a broken import must never cost the maintainer a session
 
 
 def phrase(pairs):
@@ -207,7 +161,7 @@ def main():
     event = payload.get('hook_event_name') or (sys.argv[1] if len(sys.argv) > 1 else '')
     session = payload.get('session_id') or 'unknown'
 
-    root = repo_root(__file__)   # only for the once-per-session marker
+    root = repo_root(__file__)   # only for the Stop once-per-session marker
 
     doc = active_doc()
     if not doc:
@@ -216,18 +170,10 @@ def main():
     done = logged_dates(doc)
     unlogged = sorted((d, rs) for d, rs in queued().items() if d not in done)
 
-    # Calendar signals are independent of the queue: a topic overruns its shaping
-    # budget whether or not a file was touched, so this must not sit behind the
-    # unlogged-work check the way every other nudge here does.
-    where, warns = time_signals(doc)
-
-    # Surfaced once per topic, not every session — see first_time_only.
-    if event == 'SessionStart':
-        warns = first_time_only(root, os.path.basename(doc), warns)
-
-    if not unlogged and not warns:
+    if not unlogged:
         return 0
 
+    where = dev_window_week(doc)
     cycle = os.path.splitext(os.path.basename(doc))[0]
     days = phrase(unlogged)
     n = len(unlogged)
@@ -235,16 +181,10 @@ def main():
 
     if event == 'SessionStart':
         bits = [f'Cycle {cycle}' + (f' — {where}.' if where else '.')]
-        if unlogged:
-            bits.append(
-                f'{n} {day_word} of Foleon work has no dev-log line: {days}. Offer to run '
-                f'/foleon-cycle to log it — do not guess what changed, and never infer a hill '
-                f'position from the files that were touched.')
-        if warns:
-            bits.append(
-                'Shaping budget overrun — ' + ' · '.join(warns) +
-                '. Reported once per topic, not every session. This is a signal about shaping, '
-                'not a hill position, and not an instruction to change the doc.')
+        bits.append(
+            f'{n} {day_word} of Foleon work has no dev-log line: {days}. Offer to run '
+            f'/foleon-cycle to log it — do not guess what changed, and never infer a hill '
+            f'position from the files that were touched.')
         bits.append('Mention this to the user and offer /foleon-cycle. Do not run it unprompted.')
         print(json.dumps({
             'hookSpecificOutput': {
@@ -255,9 +195,6 @@ def main():
         return 0
 
     if event == 'Stop':
-        if not unlogged:
-            return 0   # the blocking nudge is for unlogged work only; a calendar
-                       # signal is not something you act on at end-of-turn
         if not root:
             return 0  # no marker dir → cannot guarantee once-only → do not nudge
         marker_dir = os.path.join(root, 'hooks', 'state')
