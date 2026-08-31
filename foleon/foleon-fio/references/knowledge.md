@@ -255,7 +255,7 @@ the fio checkout (PCS-7).
   (`.claude/hooks/fallow-gate.sh`) runs `fallow audit`, which is **diff-scoped** — "11 changed files vs
   <merge-base>" — so a repo-wide red says nothing about whether your change passes. Check with
   `npx --no-install fallow audit`. · refs: `.claude/hooks/fallow-gate.sh`, `fallow-baselines/dead-code.json`,
-  `apps/editor/src/platform/analytics/index.ts` · sheet: yes
+  `apps/editor/src/platform/analytics/index.ts` · sheet: none
 - 2026-08-31 · Environment · the `pnpm install` that recovers from the expired-`ya29` 403 (see 2026-08-12)
   also leaves the Playwright browser binary missing, so `--project browser` dies with
   `browserType.launch: Executable doesn't exist at .../chromium_headless_shell-1234/...` — a fallout of the
@@ -277,7 +277,7 @@ the fio checkout (PCS-7).
   and fails on the machine of whoever actually set the opt-in. Pin both inputs with an explicit
   `vi.stubEnv("VITE_..._FORCE_ENABLE", undefined)` in `beforeEach`; `rum.test.ts` has the same exposure.
   · refs: `apps/editor/src/platform/analytics/gtm-container.ts`, `.../datadog/rum.ts:54`,
-  `.github/workflows/deploy-editor-staging.yaml:42` · sheet: yes
+  `.github/workflows/deploy-editor-staging.yaml:42` · sheet: none
 - 2026-08-31 · Analytics / GTM · **sharing ripley's GTM container brings its container-side triggers along,
   but far less of it reaches fio than the dataLayer suggests.** Loading `GTM-NFJM6Z` in fio (PROD-4357) turns
   on GTM's own listeners, so one Present click produced `gtm.click`, `gtm.linkClick`, `gtm.historyChange` and
@@ -294,7 +294,7 @@ the fio checkout (PCS-7).
   are what it records. Also: the container has two workspaces, and only `Dev` previews cleanly — `Default`
   holds ~24 pending changes including a Mixpanel tag with a JavaScript parse error, which blocks Preview.
   `Dev` carries no Click/Scroll triggers, so preview from there shows none of the chatter. · refs:
-  `apps/editor/src/platform/analytics/gtm-container.ts` · sheet: yes
+  `apps/editor/src/platform/analytics/gtm-container.ts` · sheet: none
 - 2026-08-31 · Analytics / GTM · **loading the shared GTM container means third-party tools can arrive in the
   fio editor that nothing in the repo imports.** Per Chiel (container owner), tags in `GTM-NFJM6Z` can inject
   whole vendor scripts — the Mixpanel-family tags are already there — and those tools then fire their own
@@ -305,4 +305,4 @@ the fio checkout (PCS-7).
   bug — the script has no import anywhere in `apps/editor`, so grepping the repo for it returns nothing and
   reads as a phantom. Chiel's words: *"since you are loading in GTM some tools might be loaded in as well that
   fire their own events … good to know if you see something weird."* · refs:
-  `apps/editor/src/platform/analytics/gtm-container.ts` · sheet: yes
+  `apps/editor/src/platform/analytics/gtm-container.ts` · sheet: none
