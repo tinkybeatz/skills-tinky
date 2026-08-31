@@ -12,7 +12,7 @@
      approved. It does not replace `project-facts.md` or `knowledge.md`.
 
      Source: https://app.notion.com/p/3bae7f9407e7812b85e2fb1484e3dbee  (project page `Fio`)
-     Last refreshed: 2026-08-12
+     Last refreshed: 2026-08-13
 -->
 
 # Fio — cheat sheet (mirror)
@@ -47,3 +47,16 @@ your account proves nothing during a 403. Test with `print-access-token`; if it 
 
 Ignore `✗ Lockfile failed supply-chain policy check` — it prints on every install, including
 successful ones, and is unrelated to the 403 it appears next to.
+
+## Fio - Feature Flags
+
+### Every flag in fio is off — nothing fills the record
+
+`apps/editor/src/routes/_authenticated/route.tsx:52` builds the runtime with a hardcoded
+`featureFlags: {}`, and the API passes `noFeatureFlags` (`edit-capabilities.service.ts:76`). Every
+lookup runs `flags[name] ?? false`, so an unknown flag reads `false` — fail-closed, no error, no
+warning. The Collections tab (`mediaLibrary.collections`) is hidden for this reason, not a bug.
+Adding a flag changes nothing until a source exists.
+
+How ripley sources its flags, and what fio has to build to match, is written up in **Foleon -
+Documentations → Fio → Flags and Events in fio**.
