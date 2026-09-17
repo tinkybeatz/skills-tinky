@@ -361,6 +361,26 @@ divergence that is really a fact about the repo (*"`VITE_APP_ENV` is only set by
 workflow"*) belongs in the project skill's `knowledge.md` as well, because the cycle is archived
 within weeks.
 
+### 3d. Questions for the standup
+
+Not everything that comes out of a topic is a bet. When the answers arrive and what is left is *"somebody
+should decide this"* — and nobody has said that somebody is the maintainer — it belongs in the doc's
+optional `## Standup questions` section rather than in a topic:
+
+```markdown
+## Standup questions
+- Does fio guard entry to the beta at all, or is the deep link the gate?
+- Who owns a flag's lifecycle — creating, flipping, and above all deleting?
+```
+
+**Prefer this to a `shaping` topic whenever the work may not be the maintainer's.** A topic carries an
+appetite, and an appetite books part of the six-week window; a question that turns out to belong to
+another team then holds a week nobody is spending. Collapsing such a topic into questions is a
+**decision** and earns a log line — say what the topic was and that its week came back.
+
+It renders as its own section on the cycle page, above the dev log, so it is readable before the
+meeting. `validate` rejects a second one, or one with no question in it.
+
 ### 4. Status
 
 ```bash

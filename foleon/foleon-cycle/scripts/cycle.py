@@ -75,6 +75,12 @@ TOPIC_RE = re.compile(r'^## ((?:\[[a-z0-9._-]+\])+)\s+(.+?)(?:\s+[—-]\s*(shapi
 STATES = ('shaping', 'shaped')
 SCOPE_RE = re.compile(r'^### scope:\s*(.+?)\s+[—-]\s*([a-z]+)\s*$')
 TASK_RE = re.compile(r'^- \[([ xX])\]\s*(~\s*)?(.+?)\s*$')
+# A cycle doc may carry one free section of open questions for the team's twice-
+# weekly standup. It is deliberately NOT a topic: a question nobody has assigned
+# has no appetite, so shaping it would book a week of the window against work
+# that may not even be ours (CYC-2 keeps the doc to what was actually bet).
+STANDUP_HEAD = '## Standup questions'
+
 LOG_RE = re.compile(r'^- (\d{4}-\d{2}-\d{2})\s+\[([a-z0-9._-]+)\]\s+(.+?)\s+(?:→|->)\s+(.+?)\s*$')
 
 # CYC-18: a task that exists in Jira carries its key at the end of the line, with
@@ -307,6 +313,8 @@ class Doc:
         self.status = None
         self.topics = []        # {repos, name, fields{}, scopes[], line}
         self.log = []           # (lineno, raw, match|None)
+        self.standup = []       # bullet lines of the standup-questions section
+        self.standup_intro = [] # its prose lines, above the bullets
         self.problems = []
         self._parse()
 
@@ -325,12 +333,27 @@ class Doc:
             self.problems.append('CYC-2: header must carry "Status: active" or "Status: closed"')
 
         in_log = False
+        in_standup = False
         topic = None
         scope = None
         for i, raw in enumerate(self.lines, start=1):
             if raw.strip() == '## Dev log':
-                in_log, topic, scope = True, None, None
+                in_log, in_standup, topic, scope = True, False, None, None
                 continue
+            if raw.strip() == STANDUP_HEAD:
+                in_standup, topic, scope = True, None, None
+                continue
+            if in_standup:
+                # Any other `##` ends the section; the doc stays a flat list of
+                # sections rather than gaining nesting nobody would maintain.
+                if raw.startswith('## '):
+                    in_standup = False
+                else:
+                    if raw.strip().startswith('- '):
+                        self.standup.append(raw.strip()[2:].strip())
+                    elif raw.strip():
+                        self.standup_intro.append(raw.strip())
+                    continue
             if in_log:
                 if raw.strip().startswith('- '):
                     self.log.append((i, raw, LOG_RE.match(raw)))
@@ -389,6 +412,13 @@ class Doc:
             p.append('CYC-2: the doc must carry exactly one "## Dev log" section')
         elif body.count('\n## Dev log') > 1:
             p.append('CYC-2: more than one "## Dev log" section')
+
+        if STANDUP_HEAD in body:
+            if body.count('\n' + STANDUP_HEAD) > 1:
+                p.append('CYC-2: more than one "%s" section' % STANDUP_HEAD)
+            if not self.standup:
+                p.append('CYC-2: "%s" carries no question — delete the section or '
+                         'write the questions as "- " bullets' % STANDUP_HEAD)
 
         for m in PCT.finditer(body):
             ln = body[:m.start()].count('\n') + 1
@@ -954,7 +984,7 @@ def jira_render_problems(d, body):
     return probs
 
 
-def layout_problems(body, repos, n_topic_headings):
+def layout_problems(body, repos, n_topic_headings, has_standup=False):
     """CYC-15a's enforcement: does the rendered body have the page shape the standard fixes?
 
     Same fail-closed contract as `roundtrip_problems`: checked in the write path,
@@ -969,7 +999,10 @@ def layout_problems(body, repos, n_topic_headings):
     if first != '# Preview':
         probs.append('the page must open with "# Preview" (CYC-15a), got %r' % first[:40])
 
-    want = ['# Preview'] + ['# %s' % r for r in repos] + ['# Dev log']
+    want = ['# Preview'] + ['# %s' % r for r in repos]
+    if has_standup:
+        want.append('# Standup questions')
+    want.append('# Dev log')
     got = [l for l in lines if l.startswith('# ')]
     if got != want:
         probs.append('page sections are %r, expected %r (CYC-15a)' % (got, want))
@@ -1280,6 +1313,25 @@ def cmd_render_for(d, a):
             if t['fields'].get('Annex:'):
                 out.append('')
 
+    # Standup questions sit between the work and the log: they are neither a bet
+    # nor a thing that happened, and the maintainer reads this page before the
+    # meeting rather than opening the markdown.
+    if d.standup:
+        out.append('---')
+        out.append('')
+        out.append('# Standup questions')
+        out.append('')
+        out.append('%d question%s to put to the team — parked rather than shaped, because an '
+                   'unassigned question has no appetite. {color="gray"}'
+                   % (len(d.standup), '' if len(d.standup) == 1 else 's'))
+        out.append('')
+        for line in d.standup_intro:
+            out.append(line)
+            out.append('')
+        for q in d.standup:
+            out.append('- %s' % q)
+        out.append('')
+
     out.append('---')
     out.append('')
     out.append('# Dev log')
@@ -1324,7 +1376,7 @@ def cmd_render_for(d, a):
 
     body = '\n'.join(out).rstrip() + '\n'
 
-    lay = layout_problems(body, repos, n_topic_headings)
+    lay = layout_problems(body, repos, n_topic_headings, has_standup=bool(d.standup))
     if lay:
         print('render aborted — the page layout does not conform (CYC-15a/CYC-15b):')
         for x in lay:
@@ -1631,6 +1683,13 @@ def parse_mirror_tasks(text):
     for raw in text.split('\n'):
         # Notion escapes brackets on the way out (\[fio\]); undo before matching.
         ln = unautolink(raw.replace('\\[', '[').replace('\\]', ']')).rstrip()
+        if ln.startswith('# '):
+            # A page section ends the scope. Without this the standup questions —
+            # plain bullets under `# Standup questions` — would still be read
+            # against the last scope seen, one TASK_RE change away from being
+            # reconciled back into it as tasks.
+            cur, kind = None, None
+            continue
         m = scope_re.match(ln)
         if m:
             cur = m.group(1)

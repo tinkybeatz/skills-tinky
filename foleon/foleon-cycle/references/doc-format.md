@@ -50,7 +50,27 @@ Done when: merged
 | Annex | `Annex: <label> → <url>`, several separated by ` · `. Optional, topic level. Links a supporting document — a ticket write-up, a question list — that is too long to live in the topic |
 | Log line | `- <YYYY-MM-DD> [<repo>] <scope> → <what changed>` |
 
-Order is fixed: header, then topics, then exactly one `## Dev log` — **nothing after the log.**
+Order is fixed: header, then topics, then an optional `## Standup questions`, then exactly one
+`## Dev log` — **nothing after the log.**
+
+## Standup questions
+
+An optional section, above the dev log, holding open questions to put to the team at the twice-weekly
+standup:
+
+```markdown
+## Standup questions
+- Does fio guard entry to the beta at all, or is the deep link the gate?
+- Who owns a flag's lifecycle — creating, flipping, and above all deleting?
+```
+
+One `- ` bullet per question; prose above the bullets is optional and rendered as-is. It is **not** a
+topic, and that is the point: a question nobody has assigned has no appetite, so shaping it would book
+a week of the window against work that may not turn out to be ours. Use it when a topic collapses into
+"somebody should decide this" — the questions survive, the bet does not.
+
+`validate` rejects a second such section, and one that carries no bullet. The renderer states how many
+questions there are, so no orientation line is needed above them.
 
 ## The four hill values
 
