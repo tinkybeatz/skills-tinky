@@ -223,7 +223,13 @@ the fio checkout (PCS-7).
   `package.json` as a pnpm script, plus pnpm's `verify-deps-before-run`. So it belongs under `Fio`,
   not a shared page; CHS-9b's test ("still true if fio were deleted?") answers no. Note also that
   `✗ Lockfile failed supply-chain policy check` prints on every install including successful ones,
-  and is unrelated noise. · refs: `package.json:56` (the unusable `gcp-auth` script), `.npmrc`,
+  and is unrelated noise. **A failed install also prunes what it could not verify** (added 2026-09-08): the
+  403'd run reports `Packages: +2 -1` and removes the workspace-linked `@foleon/core` from
+  `packages/core-bridge/node_modules` and `apps/editor/node_modules`, after which `pnpm --filter
+  @foleonai/api build` dies with 47 `[UNLOADABLE_DEPENDENCY] Could not load
+  ../../packages/core-bridge/node_modules/@foleon/core/dist/esm/...` and takes the pre-push hook
+  with it. The build failure looks unrelated to the token and is not: a plain `pnpm install` after
+  the token is refreshed restores the package and the build passes untouched. · refs: `package.json:56` (the unusable `gcp-auth` script), `.npmrc`,
   `.npmrc.template`, `~/.npmrc` · sheet: yes
 - 2026-08-28 · analytics seam / TS types · a name-payload message type that pairs each event with its own
   payload breaks `pnpm typecheck` inside the generic function that builds it — `Argument of type '{ name:
@@ -251,7 +257,9 @@ the fio checkout (PCS-7).
   actually imports exposed `AnalyticsPayload`; un-exporting that exposed `AnalyticsValue`. Each was a real
   simplification, not linter-chasing — file-internal types that had been exported on speculation. Also
   worth knowing: **`pnpm fallow:dupes` and `pnpm fallow:health` fail on pre-existing repo-wide state**
-  (394 duplicated lines, `packages/agent/src/activity.ts`) and are NOT what the commit gate runs. The gate
+  (re-measured 2026-09-02: **832 duplicated lines, 0.5%, across 50 files**, plus health 78/B with `hotspots -10.0 · unit size -10.0`
+  and the one refactoring target `packages/agent/src/activity.ts`; the 394 figure was 2026-08-31 and the repo has grown since,
+  so do not read a rise as your own change) and are NOT what the commit gate runs. The gate
   (`.claude/hooks/fallow-gate.sh`) runs `fallow audit`, which is **diff-scoped** — "11 changed files vs
   <merge-base>" — so a repo-wide red says nothing about whether your change passes. Check with
   `npx --no-install fallow audit`. · refs: `.claude/hooks/fallow-gate.sh`, `fallow-baselines/dead-code.json`,
@@ -275,7 +283,12 @@ the fio checkout (PCS-7).
   the interaction; not fixed here, out of that ticket's scope. Second trap in the same area: **vitest loads
   `apps/editor/.env.local`, and `vi.unstubAllEnvs()` restores it**, so an "off by default" test passes on CI
   and fails on the machine of whoever actually set the opt-in. Pin both inputs with an explicit
-  `vi.stubEnv("VITE_..._FORCE_ENABLE", undefined)` in `beforeEach`; `rum.test.ts` has the same exposure.
+  `vi.stubEnv("VITE_..._FORCE_ENABLE", undefined)` in `beforeEach`; `rum.test.ts` has the same exposure. Third
+  trap, same area (added 2026-09-08): **the editor reads `apps/editor/.env.local`, and the
+  repo-root `.env.local` is invisible to it.** The root file is real and in use — Postgres, Vertex,
+  Datadog OTLP, the draft-token key — so `VITE_*` vars land there naturally and then do nothing,
+  with no warning and no request to miss in the network tab. Vite resolves `envDir` from the app
+  root, not the workspace root.
   · refs: `apps/editor/src/platform/analytics/gtm-container.ts`, `.../datadog/rum.ts:54`,
   `.github/workflows/deploy-editor-staging.yaml:42` · sheet: none
 - 2026-08-31 · Analytics / GTM · **sharing ripley's GTM container brings its container-side triggers along,
@@ -306,3 +319,244 @@ the fio checkout (PCS-7).
   reads as a phantom. Chiel's words: *"since you are loading in GTM some tools might be loaded in as well that
   fire their own events … good to know if you see something weird."* · refs:
   `apps/editor/src/platform/analytics/gtm-container.ts` · sheet: none
+- 2026-09-02 · Lint / HAL `_embedded` · `pnpm lint` fails with `eslint(no-underscore-dangle): Unexpected dangling '_' in
+  '`_embedded`'` on a Foleon HAL read, and the repo's six existing precedents all answer it with an inline
+  `// oxlint-disable-next-line eslint/no-underscore-dangle -- Foleon API uses HAL `_embedded` relations.`
+  (`apps/api/.../edit-capabilities.service.ts:35,60,62`, `apps/editor/src/platform/authz/api/authz.queries.ts:17,33`,
+  `features/template/api/template.queries.ts:117`, `features/template/domain/template.ts:86`). **A suppression is not
+  required: the rule fires on the member expression, not on a destructured binding.** `const { account, _embedded } = self;`
+  then `account?.id ?? _embedded?.account?.id` lints clean (verified — `pnpm lint` exit 0). Worth knowing because the
+  precedents make the disable look like the house style when it is really just the first fix anyone reached for; prefer the
+  destructure and leave a one-line comment saying why, or the next reader "simplifies" it back to `self._embedded` and
+  re-breaks the gate. The type declaration `_embedded?: {...}` is never flagged, only the read.
+  · refs: `apps/editor/src/platform/analytics/analytics-identity.ts`, PROD-4360 · sheet: none
+- 2026-09-02 · Browser tests · **`vi.waitFor`'s 1s default is too short for the FIRST `renderRoute()` in a browser test
+  file, and the symptom is distinctive: test 1 fails, tests 2 and 3 in the same file pass.** Bringing up
+  `@/routeTree.gen` plus resolving the session measured ~3.7s on the first mount and well under 1s afterwards, so a
+  `vi.waitFor` barrier looks like a real product bug ("expected undefined to be 42") in exactly one test. Use
+  `expect.poll`, which inherits the browser project's `BROWSER_INTERACTION_TIMEOUT_MS` (45s,
+  `apps/editor/vite.config.ts`) rather than Vitest's own default. Second finding from the same test (PROD-4360): **a
+  whole-route-tree test on a document editing surface needs no document content at all.** `/_authenticated/doc`'s
+  `DocLayout` has no loader, so it mounts as soon as `_authenticated`'s `beforeLoad` resolves; answering
+  `pages.getPages` with `_embedded.page: []` keeps the canvas renderer — and its measured ~3.5s auto-fit, the source of
+  the PROD-4239/4249 flakes — entirely out of a test about route params, and a second document id (`/doc/43/...`) then
+  costs nothing because no mock has to distinguish the two. ⚠️ But the surface's route loaders start
+  `preloadEditorPermissions` **un-awaited and uncaught**, so `auth.getPrivileges` must still be stubbed
+  (`{ data: { _embedded: { grants: [] } } }`) or its rejection surfaces as a Vitest *unhandled error* rather than as a
+  failed assertion — `documentOwnershipQueryOptions` is safe by contrast, it wraps its own body in try/catch.
+  · refs: `apps/editor/src/platform/analytics/use-document-analytics-context.browser.test.tsx`,
+  `apps/editor/src/features/editor/tests/doc-routes.browser.test.tsx`, PROD-4360 · sheet: none
+
+- 2026-09-03 · **A route may not import a feature's internals — only its barrel.** The
+  `editor-architecture(boundaries)` oxlint rule rejects any import from `routes/**` that reaches into
+  `features/<feature>/**`: *"Routes must import features through features/<feature>/index.ts or
+  route.ts, not feature internals."* It fires on the plain `oxlint .` pass, so `pnpm lint` catches it
+  before CI. This bites whenever a route has to mount a small feature-owned component — the fix is to
+  re-export it from `features/<feature>/index.ts` (or `route.ts` for loader-side helpers) and import
+  from `@/features/<feature>`, not to deepen the path. Worked example: mounting
+  `AnalyticsDocumentAccountContext` on the `/doc` layout, where the component must live feature-side
+  because `platform/` may not import a feature, and the route must reach it through the barrel.
+  · refs: `apps/editor/scripts/oxlint-plugin-editor-architecture.js`,
+  `apps/editor/src/features/editor/index.ts`, `apps/editor/src/routes/_authenticated/doc/route.tsx`,
+  PROD-4360 · sheet: none
+
+- 2026-09-03 · **A new `docs/` subfolder is invisible to git until it is allowlisted in `.gitignore`.**
+  The repo ignores `docs/*` wholesale (`.gitignore:64`) and carves out one pair of lines per tracked
+  subfolder — `!docs/adr/` plus `!docs/adr/*.md`, and the same for `agents/`, `observability/` and
+  `rfc/`; `roadmap/` goes further and allowlists two individual files. So writing a doc into a folder
+  that has no carve-out leaves `git status` completely clean: the file exists, nothing reports it
+  missing, and it never reaches the PR. Add both lines (the folder and its `*.md`) in the same commit
+  as the first file. Worked example: `docs/analytics/gtm.md` (PROD-4361) needed
+  `!docs/analytics/` + `!docs/analytics/*.md`. `git check-ignore -v <path>` names the exact rule and
+  line when a written file does not show up.
+  · refs: `.gitignore:64-83`, `docs/analytics/gtm.md`, PROD-4361 · sheet: none
+
+- 2026-09-04 · **fio's feature-flag seam is fully wired and fed an empty object, so every flag reads
+  as off.** `apps/editor/src/routes/_authenticated/route.tsx:53` hardcodes `featureFlags: {}` into
+  `EditorRuntime`, and that value is what `editor-permissions.provider.tsx:49` and
+  `use-media-library-access.hook.ts:110` evaluate through `isFlagEnabled`
+  (`platform/feature-flags/feature-flags.ts`, unknown flag → `false`). `packages/permissions` never
+  fetches: it takes a `FeatureFlagSource` (`capability/feature-flags.ts`) and fails closed by
+  contract. The API side is the same shape — `edit-capabilities.service.ts:15` supplies
+  `noFeatureFlags = { isEnabled: () => false }`. So a feature that looks flag-gated and never
+  appears is the expected behaviour of the current code, not a broken flag: nothing populates the
+  record yet. Suspect this before suspecting Unleash, and note the inverse trap recorded at
+  `settings-panel/controls/media-preview-row.tsx:195-212`, where `featureFlags: {}` was blamed for a
+  blank Lottie preview it had nothing to do with.
+  · refs: `apps/editor/src/routes/_authenticated/route.tsx:53`,
+  `apps/editor/src/platform/feature-flags/feature-flags.ts`,
+  `packages/permissions/src/capability/feature-flags.ts`,
+  `apps/api/src/modules/doc/edit/services/edit-capabilities.service.ts:13-15` · sheet: none
+
+- 2026-09-04 · **`@foleon/react-flags` cannot be dropped into fio: its Unleash client is built at
+  module import time from `window._env_`.** The published package (3.0.2, used by ripley's editor and
+  both viewers) constructs `new UnleashClient(...)` at module scope, reading
+  `window._env_.UNLEASH_PROXY_ENDPOINT` and `.UNLEASH_PROXY_CLIENT_KEY` with two placeholder string
+  fallbacks (`src/client/flags-client.ts:15-21`). `window._env_` is ripley's docker-entrypoint
+  convention — `docker-entrypoint.sh:120-121` writes `env-config.js` before the bundle loads. fio
+  serves its config through Vite's `import.meta.env`, so importing the package yields a client
+  pointed at `https://unleash-proxy-url` that fails silently: no throw, no flags, every value off.
+  Making it work would mean assigning `window._env_` before the first import of the package, an
+  import-order dependency no type checker enforces. The package is a ~60-line wrapper (client,
+  context, `useFlag`, a `FeatureFlag` component) over `unleash-proxy-client`, so depending on that
+  library directly is less code than the shim. This is a fio-side choice, not a ui-kit-style change
+  to a shared package.
+  · refs: `../ripley/packages/foleon-core-editor/node_modules/@foleon/react-flags/src/client/flags-client.ts`,
+  `../ripley/docker-entrypoint.sh:120-121`, `../ripley/config/.env.template:11-12` · sheet: none
+
+- 2026-09-04 · **Two Unleash conventions fio must copy exactly or its flags silently miss.** First,
+  the environment is derived from the hostname, and any host containing `staging` resolves to
+  `development`, not to a staging environment (`EnvironmentResolver`,
+  `src/client/flags-client.helpers.ts:8-15`; `acceptance` maps to `acceptance`, everything else to
+  `production`). Unleash stores an independent on/off per environment, so a flag switched on in
+  `production` reads as off on a staging host and looks exactly like broken wiring. Second, ripley
+  identifies the caller to Unleash by **account** id, not user id: `FlagsUserProvider` calls
+  `setUserId(authState.author.account.data?.id)`
+  (`@lib/feature-flags/flags-user.provider.tsx:14-19`). Every targeting rule in the shared project is
+  therefore written against accounts, so fio must send an account id under the same `userId` key or
+  no existing rule matches it. Related: ripley's `useFlag` returns `boolean | undefined` and reads
+  before `setUserId` unless passed `waitForUser`, which is why a targeted flag can flicker on there.
+  · refs: `../ripley/packages/foleon-core-editor/node_modules/@foleon/react-flags/src/client/flags-client.helpers.ts`,
+  `../ripley/packages/foleon-core-editor/src/@lib/feature-flags/flags-user.provider.tsx`,
+  `../ripley/packages/foleon-core-editor/node_modules/@foleon/react-flags/src/hooks/use-flag.tsx` · sheet: none
+
+- 2026-09-04 · **Flag names are shared across Foleon's surfaces in one Unleash project, and fio
+  already reads one.** `MEDIA_COLLECTIONS_FLAG = "mediaLibrary.collections"`
+  (`apps/editor/src/features/editor/domain/media-library/media-library-access.mapper.ts:41`) is
+  ripley's `FLAGS_LIST.assetManager.enableCollections` verbatim
+  (`@shared/flags.ts`, 55 flags namespaced `editor.*`, `dashboard.*`, `format.*`, `mediaLibrary.*`).
+  One proxy endpoint and client key serve editor, viewer, viewer-dynamic and dashboard. So fio is
+  already a consumer of ripley's project rather than a candidate for its own, and a fio-only prefix
+  is not available: the CTO created `editor.grid` in that project on 2026-09-04 for a grid/DnD toggle
+  meant to be read by the dashboard, the editor and print mode. Follow the existing `editor.*`
+  convention rather than inventing a `fio.*` one.
+  · refs: `apps/editor/src/features/editor/domain/media-library/media-library-access.mapper.ts:41`,
+  `../ripley/packages/foleon-core-editor/src/@shared/flags.ts`,
+  `../ripley/config/.env.template:11-12` · sheet: none
+
+- 2026-09-08 · Feature flags / Unleash · **the frontend proxy returns only the toggles that are ON** —
+  `GET <proxy>` answers `{"toggles":[{"name":…,"enabled":true,"variant":{…}}]}` and a flag that is off
+  for the asking account is simply absent from the array, not present with `enabled:false`. Verified
+  against ripley's shared project (PROD-4658): 32 toggles came back, every one `enabled:true`, and
+  `mediaLibrary.collections` — a flag fio genuinely reads — was not among them. So
+  `isFlagEnabled`'s unknown-flag-is-`false` default is not a nicety, it is the mechanism by which an
+  off flag reads off, and any code that expects to find every known flag in the response is wrong.
+  Corollary: `client.getAllToggles()` is a list of what is on, so `Object.fromEntries` over it yields a
+  record whose values are all `true` in practice. · refs:
+  `apps/editor/src/platform/feature-flags/unleash-flags.ts`, `.../feature-flags.ts` · sheet: none
+
+- 2026-09-08 · Feature flags / dependencies · `unleash-proxy-client@3.8.0` was **already in
+  `pnpm-lock.yaml`** before PROD-4658 added it, as a transitive dependency of
+  `@foleon/assets-library@1.6.17` (which pulls `@unleash/proxy-client-react@4.5.2` alongside it). So
+  adding it as a direct dependency of `@foleonai/editor` resolves nothing new and cannot drift from the
+  version the FileManager already runs against — worth pinning to that exact version for the same
+  reason. Before the direct dependency lands, the package's types are only readable at
+  `node_modules/.pnpm/unleash-proxy-client@3.8.0/node_modules/unleash-proxy-client/build/index.d.ts`;
+  the top-level `node_modules/unleash-proxy-client/` path does not exist. · refs: `pnpm-lock.yaml`,
+  `apps/editor/package.json` · sheet: none
+
+- 2026-09-08 · Environment / typecheck · **`pnpm --filter @foleonai/editor typecheck` fails on its own
+  where the root `pnpm typecheck` passes.** Symptom: `Module '"@foleonai/api-client"' has no exported
+  member 'Comment'` / `'CommentStatus'` from `features/shared/domain/comment-wire.ts` and
+  `features/shared/api/comments.keys.ts`. The editor consumes workspace packages through their built
+  `.d.ts`, and turbo's `typecheck` task depends on `@foleonai/api-client`'s `build:types`; a filtered
+  invocation skips that dependency, so tsc reads a stale or absent declaration file. Nothing is wrong
+  with the code — run the root `pnpm typecheck` (or `pnpm build:deps` first). Reached after merging
+  `main`'s comments feature into a branch on 2026-09-08. · refs: `turbo.json`,
+  `packages/api-client/package.json` · sheet: none
+
+- 2026-09-11 · Feature flags / Unleash · **The shared Unleash instance exposes a single environment
+  named `default`, so `unleash-config.ts`'s `unleashEnvironment()` mapping selects nothing.** Symptom:
+  reasoning about "which environment does staging resolve to" finds no answer in the flag UI — both
+  `editor.scheduling` and `mediaLibrary.collections` show one environment row, `default`. The
+  `environment` field passed to the client is context for strategy constraints; what actually decides
+  the values a read returns is the client key. Treat the staging→`development` mapping as inert until
+  someone adds environments, and do not build a behaviour on it. · refs:
+  `apps/editor/src/platform/feature-flags/unleash-config.ts` · sheet: yes
+
+- 2026-09-11 · Feature flags / Unleash · **A flag missing from the proxy's snapshot is not a missing
+  flag — the proxy returns only the toggles that evaluate enabled for the calling context.**
+  `mediaLibrary.collections` exists, is on, and carries three strategies, but is account-targeted, so
+  it is absent from a snapshot taken for an untargeted account and correctly reads false.
+  `editor.scheduling` (created 2026-01-29, one strategy, enabled for every evaluation) is the one that
+  reads true from any account, which makes it the flag to use when verifying the transport or a
+  flag-gated surface locally. ⚠️ **Corrected 2026-09-14** — it read true for *ripley*, not for fio; see
+  the appName entry below. · refs: `apps/editor/src/platform/feature-flags/feature-flags.ts`
+  · sheet: yes
+
+- 2026-09-14 · Feature flags / Unleash · **A flag switched fully on in the Unleash UI can still be
+  absent from fio's proxy response, because a strategy constraint matches on `appName` and fio sends
+  `fio-editor` while ripley sends `foleon`.** `editor.scheduling` showed "enabled 106 times in the last
+  hour" at 100% rollout and returned nothing for us; its Gradual rollout carried two constraints,
+  `environment is one of development/acceptance/production` (which fio satisfies) and `appName is one of
+  foleon` (which it does not), so the proxy filtered the toggle out. Adding `fio-editor` to that
+  constraint list returned it — 32 toggles instead of 31. This is indistinguishable from broken
+  transport from inside the app, and the Unleash page shows nothing wrong, so **settle it against the
+  proxy, never the UI**: `curl -s -H "Authorization: <client key>"
+  "<proxy url>?appName=fio-editor&environment=development&userId=<account id>"`. The context fields the
+  constraints match on are set in `unleash-config.ts` (`APP_NAME = "fio-editor"`, `unleashEnvironment()`)
+  and `userId` is the document-owning account id from `useOpenEditionAccountId()`; the vendor client
+  serialises all three onto the GET. ⇒ any flag shared with ripley must have `fio-editor` added to its
+  appName constraint before fio can read it. · refs:
+  `apps/editor/src/platform/feature-flags/unleash-config.ts`,
+  `apps/editor/src/routes/_authenticated/route.tsx`, PROD-4659, #727 · sheet: yes
+
+- 2026-09-15 · Feature flags · A flag targeted at a customer never matches, because the editor
+  sends only the workspace id — **fio now sends two ids to Unleash**: `userId` = the workspace
+  account that owns the open edition (unchanged, and the same subject the permission grants
+  resolve against), plus `properties.companyId` = that workspace's `parent.id`, read with a
+  second `auth.getAccount(accountId)` query (`platform/auth/api/session.queries.ts`
+  `accountQueryOptions` / `accountParentId`, hook `useOpenEditionCompanyId` in
+  `routes/_authenticated/route.tsx`). Foleon nests `Account > account (workspace) > title
+  (project) > edition (doc)`; a customer holds many workspaces, so workspace-only targeting
+  means listing every workspace in the strategy — the reason Joost and Saman asked for it
+  (2026-09-15; ripley PR #4799 and dashboard-next send the same pair). Two traps: the
+  starter must distinguish *unresolved* (`undefined`, wait) from *no parent* (`null`, start
+  without the field), because `updateContext` replaces the whole context and a late addition
+  costs a second fetch through a `start()` path written to run once; and a **June-of-this-cycle
+  revert exists** — the two-hop parent read was tried and reverted on 2026-09-11 (dd3e5f79,
+  "target the workspace account"), so the account-id test pins the workspace id deliberately.
+  Verified on the wire: the proxy accepts `properties%5BcompanyId%5D=` as a query param and
+  answers 200. · refs: `apps/editor/src/platform/feature-flags/feature-flags.provider.tsx`,
+  `docs/feature-flags/unleash.md`, PROD-4823 · sheet: no
+
+- 2026-09-16 · Analytics · a new `track()` call fires correctly but nothing appears in the browser
+  console — **`VITE_GTM_FORCE_ENABLE=true` in `apps/editor/.env.local` is the cause, and it means the
+  events went to the real shared container instead.** The transport's DEV `console.info` echo runs only
+  on the tracking-OFF branch (`gtm.transport.ts:50-55`): when the flag is set, `gtmDataLayer()` returns
+  the array, the real push happens and nothing is printed. So "no console output" reads as "my listener
+  is broken" while actually meaning "it worked and went to GTM-NFJM6Z", the container ripley production
+  shares. Left over from the PROD-4357 plumbing work; commented out on 2026-09-16 with a note in the
+  file. ⇒ **For every event ticket in PROD-4882: develop with the flag OFF and read the console echo;
+  set it only for a deliberate GTM preview check, then unset it.** Events carry real account and
+  document ids, so a laptop session counts as customer usage the moment a tag is wired to that event
+  name. Second-order trap while it is on: `window.dataLayer`'s last two entries are the `{fio: null}`
+  clear and then the event, which is the only way to see anything without unsetting the flag.
+  · refs: `apps/editor/.env.local`, `apps/editor/src/platform/analytics/gtm.transport.ts:38-56`,
+  `apps/editor/src/platform/analytics/gtm-container.ts:27-35`, PROD-4883 · sheet: yes
+
+- 2026-09-17 · Entities · A mutation that styles a "card" writes the `carousel` or `gallery` table,
+  not `card` — so anything keyed on the card identity (analytics, a selector, a guard) sees almost
+  nothing. Foleon models a card as a `card` entity holding exactly one `carousel` or `gallery` child
+  (`CardParentIdentity`), and **every card style mutation but `set_card_theme_variant` resolves that
+  child through `requireCardParent` and writes there** (`card/card-parent-draft.ts:96-101`, which says
+  so outright). `set_card_theme_variant` is the single exception, because `themeVariant` lives on the
+  card itself. Card ITEM styling is a third table again, `card-item`. Ripley has the identical layout
+  and the identical trap: its card panel passes `identity: carouselEntity.identity` to the grid
+  mutations (`@entities/card/settings-panels/general-settings.tsx:206-209`) and its other card writers
+  reach `state[carouselRef.identity]` (`card.mutations.ts:81-91`). ⇒ Before keying anything on "card",
+  check which of the four tables — `card`, `card-item`, `carousel`, `gallery` — the write actually
+  lands in. · refs: `packages/document-mutations/src/card/card-parent-draft.ts`, PROD-4883 · sheet: yes
+
+- 2026-09-17 · Editor · **fio cannot add or delete an element yet, and no template contains a chart.**
+  The whole mutation catalogue has no element-insert mutation: insertion is `insert_template_content_on_page`
+  (a whole block from the templates panel) and `add_column`, nothing more. Deletion is the same —
+  `remove_block`, `remove_column`, `remove_card_item` exist, there is no `remove_element`, and the
+  Delete key refuses anything but a block ("Only a block can be deleted. Select one first.",
+  `zoomable-page-frame.tsx:883-897`; PROD-4576 is the parked ticket to widen it). Separately, **0 of the
+  180 bundled templates carry a `chart-link`** — the string "chart" does not appear in
+  `packages/template-db/src/templates` at all, and `chart-link` is absent from the 37 entity identities
+  they use. ⇒ Any manual check that needs a chart, or an element that is not in a template, has no route
+  through the UI: use an existing staging document that already contains one, or a unit test driving the
+  store directly. · refs: `packages/document-mutations/src/`, `packages/template-db/src/templates/`,
+  `apps/editor/src/features/editor/ui/components/zoomable-page-frame.tsx`, PROD-4883, PROD-4576 · sheet: yes
