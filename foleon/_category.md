@@ -35,3 +35,6 @@ that do work; they follow the normal skill conventions, not PCS.
   `~/Documents/GAEL/FOLEON/SHAPEUP-CYCLES/` (outside this repo — CYC-1 v1.1.0) is the source of
   truth; **explicit invocation only** (CYC-11), so it carries no
   trigger phrases
+- `feature-pm` — capability skill: opens a herdr tab with a dedicated fio PM session for one
+  feature (brief in fio's `docs/roadmap/features/<slug>/`). **Explicit invocation only.** Named
+  without the `foleon-` prefix on purpose: Gaël wanted to type `/feature-pm`.
